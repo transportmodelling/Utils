@@ -17,8 +17,8 @@ Type
   private
     Type
       TTDFField = record
-        FieldName: ANSIString;
-        FieldType: ANSIChar;
+        FieldName: String;
+        FieldType: Char;
         FieldLength,DecimalCount: Byte;
         FieldValue: Variant;
       end;
@@ -30,7 +30,6 @@ Type
       FileReader: TBinaryReader;
       Version: Byte;
       FormatSettings: TFormatSettings;
-    Function ReadANSIChar: ANSIChar;
     Function GetFieldNames(Field: Integer): String;
     Function GetFieldValues(Field: Integer): Variant;
   public
@@ -57,7 +56,7 @@ begin
   FormatSettings.DecimalSeparator := '.';
   FFileName := FileName;
   FileStream := TBufferedFileStream.Create(FileName,fmOpenRead or fmShareDenyWrite,32768);
-  FileReader := TBinaryReader.Create(FileStream);
+  FileReader := TBinaryReader.Create(FileStream,TEncoding.ANSI);
   // Read table file header
   Version := FileReader.ReadByte and 7;
   if Version = 4 then raise Exception.Create('dBase level 7 files not supported');
@@ -78,10 +77,10 @@ begin
   begin
     for var NameChar := 1 to 11 do
     begin
-      var Chr := ReadANSIChar;
+      var Chr := FileReader.ReadChar;
       if Chr <> #0 then FFields[Field].FieldName := FFields[Field].FieldName + Chr;
     end;
-    FFields[Field].FieldType := ReadANSIChar;
+    FFields[Field].FieldType := FileReader.ReadChar;
     for var Skip := 1 to 4 do FileReader.ReadByte; // Reserved
     FFields[Field].FieldLength := FileReader.ReadByte;
     FFields[Field].DecimalCount := FileReader.ReadByte;
@@ -89,11 +88,6 @@ begin
   end;
   // Read header terminator
   FileReader.ReadByte;
-end;
-
-Function TDBFReader.ReadANSIChar: ANSIChar;
-begin
-  Result := ANSIChar(FileReader.ReadByte);
 end;
 
 Function TDBFReader.GetFieldNames(Field: Integer): String;
@@ -130,7 +124,7 @@ begin
       for var Field := 0 to FFieldCount-1 do
       begin
         var FieldValue := '';
-        for var FieldChar := 1 to FFields[Field].FieldLength do FieldValue := FieldValue + ReadANSIChar;
+        for var FieldChar := 1 to FFields[Field].FieldLength do FieldValue := FieldValue + FileReader.ReadChar;
         case FFields[Field].FieldType of
           'C': FFields[Field].FieldValue := Trim(FieldValue);
           'D': begin
