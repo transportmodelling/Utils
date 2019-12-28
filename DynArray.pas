@@ -17,7 +17,7 @@ Uses
   SysUtils;
 
 Type
-  TDynamicArrayIndex = record
+  TCompositeIndex = record
   // This record converts between indices and a single composite index
   //
   // Example (composition of Index1 and Index2):
@@ -28,10 +28,11 @@ Type
   //      1        0             2
   //      1        1             3
   private
-    Count: Integer;
+    FCount: Integer;
     Multipliers: array of Integer;
   public
     Constructor Create(const Shape: array of Integer);
+    Property Count: Integer read FCount;
     Procedure Reset; overload;
     Function Rank: Integer; inline;
     Function Shape: TArray<Integer>;
@@ -41,10 +42,10 @@ Type
 
   TDynamicArray<T> = record
   // The multidimensional dynamic array stores its values in a one-dimensional array,
-  // using a TDynamicArrayIndex-record to convert between indices and a single composite index.
+  // using a TCompositeIndex-record to convert between indices and a single composite index.
   private
     FValues: TArray<T>;
-    Index: TDynamicArrayIndex;
+    Index: TCompositeIndex;
     Function GetValue(const Indices: array of Integer): T;
     Procedure SetValue(const Indices: array of Integer; const Value: T);
   public
@@ -69,36 +70,36 @@ Type
 implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-Constructor TDynamicArrayIndex.Create(Const Shape: array of Integer);
+Constructor TCompositeIndex.Create(Const Shape: array of Integer);
 begin
   var Rank := Length(Shape);
   if Rank > 0 then
   begin
-    Count := Shape[Rank-1];
+    FCount := Shape[Rank-1];
     SetLength(Multipliers,Rank-1);
     for var Dim := Rank-2 downto 0 do
     begin
-      Multipliers[Dim] := Count;
-      Count := Count*Shape[Dim];
+      Multipliers[Dim] := FCount;
+      FCount := FCount*Shape[Dim];
     end;
-    if Count = 0 then raise Exception.Create('Invalid shape');
+    if FCount = 0 then raise Exception.Create('Invalid shape');
   end else Reset;
 end;
 
-Procedure TDynamicArrayIndex.Reset;
+Procedure TCompositeIndex.Reset;
 begin
-  Count := 0;
+  FCount := 0;
   Finalize(Multipliers);
 end;
 
-Function TDynamicArrayIndex.Rank: Integer;
+Function TCompositeIndex.Rank: Integer;
 begin
-  if Count = 0 then Result := 0 else Result := Length(Multipliers)+1;
+  if FCount = 0 then Result := 0 else Result := Length(Multipliers)+1;
 end;
 
-Function TDynamicArrayIndex.Shape: TArray<Integer>;
+Function TCompositeIndex.Shape: TArray<Integer>;
 begin
-  var Cnt := Count;
+  var Cnt := FCount;
   SetLength(Result,Rank);
   for var Dim := low(Result) to pred(high(Result)) do
   begin
@@ -108,7 +109,7 @@ begin
   Result[high(Result)] := Cnt;
 end;
 
-Function TDynamicArrayIndex.Indices(CompositeIndex: Integer): TArray<Integer>;
+Function TCompositeIndex.Indices(CompositeIndex: Integer): TArray<Integer>;
 begin
   SetLength(Result,Rank);
   for var Dim := low(Result) to pred(high(Result)) do
@@ -120,7 +121,7 @@ begin
   Result[high(Result)] := CompositeIndex;
 end;
 
-Function TDynamicArrayIndex.CompositeIndex(Const Indices: array of Integer): Integer;
+Function TCompositeIndex.CompositeIndex(Const Indices: array of Integer): Integer;
 begin
   if Length(Indices) = Rank then
   begin
@@ -165,8 +166,8 @@ end;
 Procedure TDynamicArray<T>.Allocate(const Shape: array of Integer);
 begin
   FValues := nil;
-  Index := TDynamicArrayIndex.Create(Shape);
-  SetLength(FValues,Index.Count);
+  Index := TCompositeIndex.Create(Shape);
+  SetLength(FValues,Index.FCount);
 end;
 
 Function TDynamicArray<T>.Rank: Integer;
