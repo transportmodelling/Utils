@@ -20,3 +20,14 @@ Provides an array with dynamic rank.
   writeln(X.Rank);
 ```
 
+## PropSet.pas
+Provides a property set, implemented as a set of name-value pairs.
+
+```
+  var Properties := TPropertySet.Create('Property1=Value1; Property2=Value2');
+  writeln(Properties['Property1']);
+  Properties := 'Property3=Value3; Property4=Value4';
+  writeln(Properties['Property3']);
+
+```
+
