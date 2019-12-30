@@ -28,6 +28,16 @@ Provides a property set, implemented as a set of name-value pairs.
   writeln(Properties['Property1']);
   Properties := 'Property3=Value3; Property4=Value4';
   writeln(Properties['Property3']);
-
 ```
 
+## Tokenize.pas
+Provides a Tokenizer that splits strings into multiple tokens.
+
+```
+  var Tokenizer := TTokenizer.Create(Comma,'1,2,3,4');
+  writeln(Tokenizer.Count);
+  // List tokens
+  for var Token := 0 to Tokenizer.Count-1 do writeln(Tokenizer[Token]);
+  // Typecast tokens to integers
+  for var Token := 0 to Tokenizer.Count-1 do writeln(Tokenizer.Int[Token]);
+```
