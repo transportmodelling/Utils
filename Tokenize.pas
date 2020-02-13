@@ -26,6 +26,7 @@ Type
     Procedure SetExcludeEmpty(ExcludeEmpty: Boolean);
     Function GetTokens(Token: Integer): String; inline;
     Function GetInt(Token: Integer): Integer; inline;
+    Function GetInt64(Token: Integer): Int64; inline;
     Function GetFloat(Token: Integer): Float64; inline;
   public
     // Parse options
@@ -48,6 +49,7 @@ Type
     Function Count: Integer; inline;
     Property Tokens[Token: Integer]: String read GetTokens; default;
     Property Int[Token: Integer]: Integer read GetInt;
+    Property Int64[Token: Integer]: Int64 read GetInt64;
     Property Float[Token: Integer]: Float64 read GetFloat;
     Function ToStrArray: TArray<String>; overload;
     Function ToStrArray(Offset,Count: Integer): TArray<String>; overload;
@@ -88,6 +90,11 @@ end;
 Function TTokenizer.GetInt(Token: Integer): Integer;
 begin
   Result := FTokens[Token].ToInteger;
+end;
+
+Function TTokenizer.GetInt64(Token: Integer): Int64;
+begin
+  Result := FTokens[Token].ToInt64;
 end;
 
 Function TTokenizer.GetFloat(Token: Integer): Float64;
