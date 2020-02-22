@@ -29,6 +29,8 @@ Type
     Function IndexOf(const Name: String): Integer;
     Function GetNames(Index: Integer): String; inline;
     Function GetValues(const Name: String): String; inline;
+    Function GetToInt(const Name: String): Integer; inline;
+    Function GetToFloat(const Name: String): Float64; inline;
     Function GetAsString: String;
     Procedure SetAsString(AsString: String);
     Procedure Append(const AsString: String); overload;
@@ -40,6 +42,8 @@ Type
     Function Count: Integer; inline;
     Property Names[Index: Integer]: String read GetNames;
     Property Values[const Name: String]: string read GetValues; default;
+    Property ToInt[const Name: String]: Integer read GetToInt;
+    Property ToFloat[const Name: String]: Float64 read GetToFloat;
     Property AsString: String read GetAsString write SetAsString;
     // Manage content
     Constructor Create(Properties: TPropertySet);
@@ -87,6 +91,24 @@ Function TPropertySet.GetValues(const Name: String): String;
 begin
   var Index := IndexOf(Name);
   if Index >= 0 then Result := FProperties[Index].Value else Result := '';
+end;
+
+Function TPropertySet.GetToInt(const Name: String): Integer;
+begin
+  try
+    Result := GetValues(Name).ToInteger;
+  except
+    raise Exception.Create('Invalid integer value (' + Name + ')');
+  end;
+end;
+
+Function TPropertySet.GetToFloat(const Name: String): Float64;
+begin
+  try
+    Result := GetValues(Name).ToDouble;
+  except
+    raise Exception.Create('Invalid floating point value (' + Name + ')');
+  end;
 end;
 
 Function TPropertySet.GetAsString: String;
