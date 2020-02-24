@@ -40,6 +40,8 @@ Type
     Class Operator Implicit(PropertySet: TPropertySet): String;
     // Query content
     Function Count: Integer; inline;
+    Function Contains(const Name: String): Boolean; overload;
+    Function Contains(const Name: String; var Value: String): Boolean; overload;
     Property Names[Index: Integer]: String read GetNames;
     Property Values[const Name: String]: string read GetValues; default;
     Property ToInt[const Name: String]: Integer read GetToInt;
@@ -89,8 +91,7 @@ end;
 
 Function TPropertySet.GetValues(const Name: String): String;
 begin
-  var Index := IndexOf(Name);
-  if Index >= 0 then Result := FProperties[Index].Value else Result := '';
+  Contains(Name,Result);
 end;
 
 Function TPropertySet.GetToInt(const Name: String): Integer;
@@ -141,6 +142,30 @@ end;
 Function TPropertySet.Count: Integer;
 begin
   Result := Length(FProperties);
+end;
+
+Function TPropertySet.Contains(const Name: String): Boolean;
+begin
+  Result := false;
+  for var Prop := low(FProperties) to high(FProperties) do
+  if SameText(FProperties[Prop].Name,Name) then
+  begin
+    Result := true;
+    Break;
+  end;
+end;
+
+Function TPropertySet.Contains(const Name: String; var Value: String): Boolean;
+begin
+  Result := false;
+  Value := '';
+  for var Prop := low(FProperties) to high(FProperties) do
+  if SameText(FProperties[Prop].Name,Name) then
+  begin
+    Result := true;
+    Value := FProperties[Prop].Value;
+    Break;
+  end;
 end;
 
 Procedure TPropertySet.Clear;
