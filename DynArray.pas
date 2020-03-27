@@ -14,7 +14,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils;
+  SysUtils,ArrayBld;
 
 Type
   TCompositeIndex = record
@@ -50,7 +50,6 @@ Type
     Procedure SetValue(const Indices: array of Integer; const Value: T);
   public
     Class Operator Implicit(const Values: array of T): TDynamicArray<T>;
-    Class Operator Implicit(const Values: TArray<T>): TDynamicArray<T>;
     Class Operator Implicit(const Values: TDynamicArray<T>): TArray<T>;
   public
     Constructor Create(const Shape: array of Integer);
@@ -135,14 +134,8 @@ end;
 
 Class Operator TDynamicArray<T>.Implicit(const Values: array of T): TDynamicArray<T>;
 begin
-  Result.Allocate([Length(Values)]);
-  for var Index := low(Values) to high(Values) do Result.FValues[Index] := Values[Index];
-end;
-
-Class Operator TDynamicArray<T>.Implicit(const Values: TArray<T>): TDynamicArray<T>;
-begin
-  Result.Allocate([Length(Values)]);
-  for var Index := low(Values) to high(Values) do Result.FValues[Index] := Values[Index];
+  Result.Index := TCompositeIndex.Create([Length(Values)]);
+  Result.FValues := TArrayBuilder<T>.Create(Values);
 end;
 
 Class Operator TDynamicArray<T>.Implicit(const Values: TDynamicArray<T>): TArray<T>;
