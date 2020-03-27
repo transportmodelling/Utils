@@ -4,6 +4,16 @@ A general utilities library for Delphi projects
 ## DBF.pas
 Provides a DBFReader class to read dBase V files. Memo fields are not supported and will have an UnUssigned-value.
 
+## ArrayBld.pas
+Provides an array builder to easily convert an open array to a dynamic array.
+
+```
+  Procedure Test(const Values: array of Float64);
+  begin
+    var Tst: TArray<Float64> := TArrayBuilder<Float64>.Create(Values);
+  end;
+```
+
 ## DynArray.pas
 Provides an array with dynamic rank.
 
