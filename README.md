@@ -51,3 +51,9 @@ Provides a Tokenizer that splits strings into multiple tokens.
   // Typecast tokens to integers
   for var Token := 0 to Tokenizer.Count-1 do writeln(Tokenizer.Int[Token]);
 ```
+
+## Polynom.pas
+Provides a structure for the manipulation of polynomials. 
+
+## Spline.pas
+Provides a structure for the manipulation of splines. 
