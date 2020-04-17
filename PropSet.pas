@@ -29,8 +29,6 @@ Type
     Function IndexOf(const Name: String): Integer;
     Function GetNames(Index: Integer): String; inline;
     Function GetValues(const Name: String): String; inline;
-    Function GetToInt(const Name: String): Integer; inline;
-    Function GetToFloat(const Name: String): Float64; inline;
     Function GetAsString: String;
     Procedure SetAsString(AsString: String);
     Procedure Append(const AsString: String); overload;
@@ -44,8 +42,11 @@ Type
     Function Contains(const Name: String; var Value: String): Boolean; overload;
     Property Names[Index: Integer]: String read GetNames;
     Property Values[const Name: String]: string read GetValues; default;
-    Property ToInt[const Name: String]: Integer read GetToInt;
-    Property ToFloat[const Name: String]: Float64 read GetToFloat;
+    // Convert property values
+    Function ToInt(const Name: String): Integer; overload;
+    Function ToInt(const Name: String; Default: Integer): Integer; overload;
+    Function ToFloat(const Name: String): Float64; overload;
+    Function ToFloat(const Name: String; Default: Float64): Float64; overload;
     Property AsString: String read GetAsString write SetAsString;
     // Manage content
     Constructor Create(Properties: TPropertySet);
@@ -92,24 +93,6 @@ end;
 Function TPropertySet.GetValues(const Name: String): String;
 begin
   Contains(Name,Result);
-end;
-
-Function TPropertySet.GetToInt(const Name: String): Integer;
-begin
-  try
-    Result := GetValues(Name).ToInteger;
-  except
-    raise Exception.Create('Invalid integer value (' + Name + ')');
-  end;
-end;
-
-Function TPropertySet.GetToFloat(const Name: String): Float64;
-begin
-  try
-    Result := GetValues(Name).ToDouble;
-  except
-    raise Exception.Create('Invalid floating point value (' + Name + ')');
-  end;
 end;
 
 Function TPropertySet.GetAsString: String;
@@ -166,6 +149,52 @@ begin
     Value := FProperties[Prop].Value;
     Break;
   end;
+end;
+
+Function TPropertySet.ToInt(const Name: String): Integer;
+begin
+  try
+    Result := GetValues(Name).ToInteger;
+  except
+    raise Exception.Create('Invalid integer value (' + Name + ')');
+  end;
+end;
+
+Function TPropertySet.ToInt(const Name: String; Default: Integer): Integer;
+Var
+  Value: String;
+begin
+  if Contains(Name,Value) then
+    try
+      Result := GetValues(Name).ToInteger;
+    except
+      raise Exception.Create('Invalid integer value (' + Name + ')');
+    end
+  else
+    Result := Default;
+end;
+
+Function TPropertySet.ToFloat(const Name: String): Float64;
+begin
+  try
+    Result := GetValues(Name).ToDouble;
+  except
+    raise Exception.Create('Invalid floating point value (' + Name + ')');
+  end;
+end;
+
+Function TPropertySet.ToFloat(const Name: String; Default: Float64): Float64;
+Var
+  Value: String;
+begin
+  if Contains(Name,Value) then
+    try
+      Result := GetValues(Name).ToDouble;
+    except
+      raise Exception.Create('Invalid floating point value (' + Name + ')');
+    end
+  else
+    Result := Default;
 end;
 
 Procedure TPropertySet.Clear;
