@@ -51,6 +51,7 @@ Type
     // Manage content
     Constructor Create(Properties: TPropertySet);
     Procedure Clear;
+    Procedure RemoveUnassigned;
     Procedure Append(const Name,Value: String); overload;
     Procedure Append(const Properties: TPropertySet; SkipUnassigned,SkipDuplicates: Boolean); overload;
   end;
@@ -200,6 +201,18 @@ end;
 Procedure TPropertySet.Clear;
 begin
   Finalize(FProperties);
+end;
+
+Procedure TPropertySet.RemoveUnassigned;
+begin
+  var Index := 0;
+  for var Prop := low(FProperties) to high(FProperties) do
+  if FProperties[Prop].Value <> '' then
+  begin
+    if Index < Prop then FProperties[Index] := FProperties[Prop];
+    Inc(Index);
+  end;
+  SetLength(FProperties,Index);
 end;
 
 Procedure TPropertySet.Append(const AsString: String);
