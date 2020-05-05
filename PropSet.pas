@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils,IOUtils;
+  SysUtils,Types,IOUtils;
 
 Type
   TPropertySet = record
@@ -34,6 +34,8 @@ Type
     Function GetValues(const Name: String): String; inline;
     Function GetAsString: String;
     Procedure SetAsString(AsString: String);
+    Function GetAsStrings: TStringDynArray;
+    Procedure SetAsStrings(AsStrings: TStringDynArray);
     Procedure Append(const AsString: String); overload;
   public
     Class Constructor Create;
@@ -45,6 +47,7 @@ Type
   public
     // Type casts
     Property AsString: String read GetAsString write SetAsString;
+    Property AsStrings: TStringDynArray read GetAsStrings write SetAsStrings;
     // Query content
     Function Count: Integer; inline;
     Function Contains(const Name: String): Boolean; overload;
@@ -150,6 +153,19 @@ begin
     // Append last property
     Append(AsString);
   end;
+end;
+
+Function TPropertySet.GetAsStrings: TStringDynArray;
+begin
+  SetLength(Result,Count);
+  for var Prop := 0 to Count-1 do
+  Result[Prop] := FProperties[Prop].Name + NameValueSeparator + FProperties[Prop].Value;
+end;
+
+Procedure TPropertySet.SetAsStrings(AsStrings: TStringDynArray);
+begin
+  FProperties := nil;
+  for var Prop := low(AsStrings) to high(AsStrings) do Append(AsStrings[Prop]);
 end;
 
 Function TPropertySet.Count: Integer;
