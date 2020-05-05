@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils;
+  SysUtils,IOUtils;
 
 Type
   TPropertySet = record
@@ -24,8 +24,11 @@ Type
     Const
       NameValueSeparator = '=';
       PropertiesSeparator = ';';
+    Class Var
+      FBaseDirectory: String;
     Var
       FProperties: array of TProperty;
+    Class Procedure SetBaseDirectory(BaseDir: String); static;
     Function IndexOf(const Name: String): Integer;
     Function GetNames(Index: Integer): String; inline;
     Function GetValues(const Name: String): String; inline;
@@ -33,9 +36,15 @@ Type
     Procedure SetAsString(AsString: String);
     Procedure Append(const AsString: String); overload;
   public
-    // Type casts
+    Class Constructor Create;
+    Class Property BaseDirectory: String read FBaseDirectory write SetBaseDirectory;
+    Class Function FullPath(const RelativePath: String): String; static;
+  public
     Class Operator Implicit(AsString: String): TPropertySet;
     Class Operator Implicit(PropertySet: TPropertySet): String;
+  public
+    // Type casts
+    Property AsString: String read GetAsString write SetAsString;
     // Query content
     Function Count: Integer; inline;
     Function Contains(const Name: String): Boolean; overload;
@@ -47,7 +56,7 @@ Type
     Function ToInt(const Name: String; Default: Integer): Integer; overload;
     Function ToFloat(const Name: String): Float64; overload;
     Function ToFloat(const Name: String; Default: Float64): Float64; overload;
-    Property AsString: String read GetAsString write SetAsString;
+   	Function ToPath(const Name: String): String;
     // Manage content
     Constructor Create(Properties: TPropertySet);
     Procedure Clear;
@@ -59,6 +68,26 @@ Type
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
+
+Class Constructor TPropertySet.Create;
+begin
+  BaseDirectory := ExtractFileDir(ParamStr(0));
+end;
+
+Class Procedure TPropertySet.SetBaseDirectory(BaseDir: String);
+begin
+  FBaseDirectory := IncludeTrailingPathDelimiter(BaseDir);
+end;
+
+Class Function TPropertySet.FullPath(const RelativePath: String): String;
+// Relative paths are assumed to be relative to the base directory
+// of the property set instead of relative to the current directory
+begin
+  if TPath.IsRelativePath(RelativePath) then
+    Result := ExpandFileName(FBaseDirectory+RelativePath)
+  else
+    Result := RelativePath;
+end;
 
 Class Operator TPropertySet.Implicit(AsString: String): TPropertySet;
 begin
@@ -198,6 +227,11 @@ begin
     Result := Default;
 end;
 
+Function TPropertySet.ToPath(const Name: String): String;
+begin
+  if Contains(Name,Result) then Result := FullPath(Result);
+end;
+
 Procedure TPropertySet.Clear;
 begin
   Finalize(FProperties);
@@ -233,7 +267,7 @@ begin
       else
         raise Exception.Create('Missing Property Name');
     end else
-      raise Exception.Create('Missing Name-Value separator');
+      raise Exception.Create('Missing Name-Value separator (' + AsString + ')');
   end;
 end;
 
