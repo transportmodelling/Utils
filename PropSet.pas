@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils,Types,IOUtils;
+  SysUtils,Types,IOUtils,Tokenize;
 
 Type
   TPropertySet = record
@@ -60,6 +60,7 @@ Type
     Function ToFloat(const Name: String): Float64; overload;
     Function ToFloat(const Name: String; Default: Float64): Float64; overload;
    	Function ToPath(const Name: String): String;
+    Function Parse(const Name: String; Delimiter: TDelimiter = Comma): TTokenizer;
     // Manage content
     Constructor Create(Properties: TPropertySet);
     Procedure Clear;
@@ -246,6 +247,16 @@ end;
 Function TPropertySet.ToPath(const Name: String): String;
 begin
   if Contains(Name,Result) then Result := FullPath(Result);
+end;
+
+Function TPropertySet.Parse(const Name: String; Delimiter: TDelimiter = Comma): TTokenizer;
+Var
+  Value: string;
+begin
+  if Contains(Name,Value) then
+    Result := TTokenizer.Create(Delimiter,Value)
+  else
+    Result := TTokenizer.Create(Delimiter,'');
 end;
 
 Procedure TPropertySet.Clear;
