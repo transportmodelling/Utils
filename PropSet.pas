@@ -32,6 +32,7 @@ Type
     Function IndexOf(const Name: String): Integer;
     Function GetNames(Index: Integer): String; inline;
     Function GetValues(const Name: String): String; inline;
+    Function GetValueFromIndex(Index: Integer): String;
     Function GetAsString: String;
     Procedure SetAsString(AsString: String);
     Function GetAsStrings: TStringDynArray;
@@ -54,6 +55,7 @@ Type
     Function Contains(const Name: String; var Value: String): Boolean; overload;
     Property Names[Index: Integer]: String read GetNames;
     Property Values[const Name: String]: string read GetValues; default;
+    Property ValueFromIndex[Index: Integer]: String read GetValueFromIndex;
     // Convert property values
     Function ToInt(const Name: String): Integer; overload;
     Function ToInt(const Name: String; Default: Integer): Integer; overload;
@@ -127,6 +129,11 @@ end;
 Function TPropertySet.GetValues(const Name: String): String;
 begin
   Contains(Name,Result);
+end;
+
+Function TPropertySet.GetValueFromIndex(Index: Integer): String;
+begin
+  Result := FProperties[Index].Value;
 end;
 
 Function TPropertySet.GetAsString: String;
