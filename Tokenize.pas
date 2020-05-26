@@ -29,6 +29,8 @@ Type
     Function GetInt64(Token: Integer): Int64; inline;
     Function GetFloat(Token: Integer): Float64; inline;
   public
+    Class Operator Initialize(out Tokenizer: TTokenizer);
+  public
     // Parse options
     Procedure SetSeparators(const Separators: array of Char);
     Function SeparatorCount: Integer;
@@ -64,6 +66,11 @@ Type
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
+
+Class Operator TTokenizer.Initialize(out Tokenizer: TTokenizer);
+begin
+  Tokenizer.SpaceDelimited;
+end;
 
 Function TTokenizer.GetExcludeEmpty: Boolean;
 begin
