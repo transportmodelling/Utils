@@ -37,6 +37,8 @@ Type
   TIntArrayBuilder = TArrayBuilder<Integer>;
   TFloatArrayBuilder = TArrayBuilder<Float64>;
   TFloat32ArrayBuilder = TArrayBuilder<Float32>;
+  TStringArrayBuilder = TArrayBuilder<String>;
+  TCharArrayBuilder = TArrayBuilder<Char>;
 
 ////////////////////////////////////////////////////////////////////////////////
 implementation
