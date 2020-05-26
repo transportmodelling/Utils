@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  Classes,SysUtils;
+  Classes,SysUtils,ArrayBld;
 
 Type
   TDelimiter = (Comma,Tab,Semicolon,Space);
@@ -112,9 +112,7 @@ end;
 Procedure TTokenizer.SetSeparators(const Separators: array of Char);
 begin
   FTokens := nil; // Clear content
-  SetLength(FSeparators,Length(Separators));
-  for var Separator := low(Separators) to high(Separators) do
-    FSeparators[Separator] := Separators[Separator];
+  FSeparators := TCharArrayBuilder.Create(Separators);
 end;
 
 Function TTokenizer.SeparatorCount: Integer;
