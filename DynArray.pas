@@ -31,6 +31,8 @@ Type
     FCount: Integer;
     Multipliers: array of Integer;
   public
+    Class Operator Initialize(out CompositeIndex: TCompositeIndex);
+  public
     Constructor Create(const Shape: array of Integer);
     Property Count: Integer read FCount;
     Procedure Reset; overload;
@@ -68,6 +70,11 @@ Type
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
+
+Class Operator TCompositeIndex.Initialize(out CompositeIndex: TCompositeIndex);
+begin
+  CompositeIndex.FCount := 0;
+end;
 
 Constructor TCompositeIndex.Create(Const Shape: array of Integer);
 begin
