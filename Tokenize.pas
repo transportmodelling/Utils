@@ -22,6 +22,7 @@ Type
     FTokens: TArray<String>;
     FSeparators: TArray<Char>;
     SplitOptions: TStringSplitOptions;
+    ParseMethod: Integer;
     Function GetExcludeEmpty: Boolean;
     Procedure SetExcludeEmpty(ExcludeEmpty: Boolean);
     Function GetTokens(Token: Integer): String; inline;
@@ -69,6 +70,7 @@ implementation
 
 Class Operator TTokenizer.Initialize(out Tokenizer: TTokenizer);
 begin
+  Tokenizer.ParseMethod := -1;
   Tokenizer.SpaceDelimited;
 end;
 
@@ -81,7 +83,8 @@ Procedure TTokenizer.SetExcludeEmpty(ExcludeEmpty: Boolean);
 begin
   if ExcludeEmpty <> GetExcludeEmpty then
   begin
-    FTokens := nil; // Clear content
+    FTokens := nil;
+    ParseMethod := -1;
     if ExcludeEmpty then
       SplitOptions := TStringSplitOptions.ExcludeEmpty
     else
@@ -111,7 +114,8 @@ end;
 
 Procedure TTokenizer.SetSeparators(const Separators: array of Char);
 begin
-  FTokens := nil; // Clear content
+  FTokens := nil;
+  ParseMethod := -1;
   FSeparators := TCharArrayBuilder.Create(Separators);
 end;
 
@@ -127,26 +131,42 @@ end;
 
 Procedure TTokenizer.CSV;
 begin
-  SetSeparators([#44]);
-  ExcludeEmpty := false;
+  if ParseMethod <> Ord(Comma) then
+  begin
+    SetSeparators([#44]);
+    ExcludeEmpty := false;
+    ParseMethod := Ord(Comma);
+  end;
 end;
 
 Procedure TTokenizer.TabDelimited;
 begin
-  SetSeparators([#9]);
-  ExcludeEmpty := false;
+  if ParseMethod <> Ord(Tab) then
+  begin
+    SetSeparators([#9]);
+    ExcludeEmpty := false;
+    ParseMethod := Ord(Tab);
+  end;
 end;
 
 Procedure TTokenizer.SpaceDelimited;
 begin
-  SetSeparators([#9,#32]);
-  ExcludeEmpty := true;
+  if ParseMethod <> Ord(Space) then
+  begin
+    SetSeparators([#9,#32]);
+    ExcludeEmpty := true;
+    ParseMethod := Ord(Space);
+  end;
 end;
 
 Procedure TTokenizer.SemicolonDelimited;
 begin
-  SetSeparators([#59]);
-  ExcludeEmpty := false;
+  if ParseMethod <> Ord(Semicolon) then
+  begin
+    SetSeparators([#59]);
+    ExcludeEmpty := false;
+    ParseMethod := Ord(Semicolon);
+  end;
 end;
 
 Constructor TTokenizer.Create(Delimiter: TDelimiter; const Line: String = '');
