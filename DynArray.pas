@@ -17,6 +17,10 @@ Uses
   SysUtils,ArrayBld;
 
 Type
+  TRange = record
+    Min,Max: Integer;
+  end;
+
   TCompositeIndex = record
   // This record converts between indices and a single composite index
   //
@@ -40,6 +44,7 @@ Type
     Function Shape: TArray<Integer>;
     Function Indices(CompositeIndex: Integer): TArray<Integer>;
     Function CompositeIndex(const Indices: array of Integer): Integer;
+    Function CompositeIndexRange(const Indices: array of Integer): TRange;
   end;
 
   TDynamicArray<T> = record
@@ -134,6 +139,24 @@ begin
     Result := Indices[Length(Multipliers)];
     for var Dim := low(Multipliers) to high(Multipliers) do
     Result := Result + Multipliers[Dim]*Indices[Dim];
+  end else raise Exception.Create('Invalid rank');
+end;
+
+Function TCompositeIndex.CompositeIndexRange(const Indices: array of Integer): TRange;
+begin
+  if Length(Indices) = Rank then
+  begin
+    Result.Min := CompositeIndex(Indices);
+    Result.Max := Result.Min;
+  end else
+  if Length(Indices) < Rank then
+  begin
+    // Set minimum
+    Result.Min := 0;
+    for var Dim := low(Indices) to high(Indices) do
+    Result.Min:= Result.Min + Multipliers[Dim]*Indices[Dim];
+    // Set maximum
+    Result.Max := Result.Min + Multipliers[high(Indices)] - 1;
   end else raise Exception.Create('Invalid rank');
 end;
 
