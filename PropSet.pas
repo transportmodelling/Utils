@@ -21,15 +21,16 @@ Type
       TProperty = record
         Name,Value: string;
       end;
-    Const
-      NameValueSeparator = '=';
-      PropertiesSeparator = ';';
     Class Var
       FBaseDirectory: String;
     Var
+      FNameValueSeparator: Char;
+      FPropertiesSeparator: Char;
       FProperties: array of TProperty;
     Class Procedure SetBaseDirectory(BaseDir: String); static;
     Function IndexOf(const Name: String): Integer;
+    Procedure SetNameValueSeparator(Separator: Char);
+    Procedure SetPropertiesSeparator(Separator: Char);
     Function GetNames(Index: Integer): String; inline;
     Function GetValues(const Name: String): String; inline;
     Function GetValueFromIndex(Index: Integer): String;
@@ -43,9 +44,12 @@ Type
     Class Property BaseDirectory: String read FBaseDirectory write SetBaseDirectory;
     Class Function FullPath(const RelativePath: String): String; static;
   public
-    Class Operator Implicit(AsString: String): TPropertySet;
-    Class Operator Implicit(PropertySet: TPropertySet): String;
+    Class Operator Initialize(out PropertySet: TPropertySet);
+    Class Operator Assign(var Left: TPropertySet; const [ref] Right: TPropertySet);
   public
+    // Separator properties
+    Property NameValueSeparator: Char read FNameValueSeparator write SetNameValueSeparator;
+    Property PropertiesSeparator: Char read FPropertiesSeparator write SetPropertiesSeparator;
     // Type casts
     Property AsString: String read GetAsString write SetAsString;
     Property AsStrings: TStringDynArray read GetAsStrings write SetAsStrings;
@@ -64,7 +68,7 @@ Type
    	Function ToPath(const Name: String): String;
     Function Parse(const Name: String; Delimiter: TDelimiter = Comma): TTokenizer;
     // Manage content
-    Constructor Create(Properties: TPropertySet);
+    Constructor Create(NameValueSeparator,PropertiesSeparator: Char);
     Procedure Clear;
     Procedure RemoveUnassigned;
     Procedure Append(const Name,Value: String); overload;
@@ -95,19 +99,24 @@ begin
     Result := RelativePath;
 end;
 
-Class Operator TPropertySet.Implicit(AsString: String): TPropertySet;
+Class Operator TPropertySet.Initialize(out PropertySet: TPropertySet);
 begin
-  Result.SetAsString(AsString);
+  PropertySet.FNameValueSeparator := '=';
+  PropertySet.FPropertiesSeparator := ';';
 end;
 
-Class Operator TPropertySet.Implicit(PropertySet: TPropertySet): String;
+Class Operator TPropertySet.Assign(var Left: TPropertySet; const [ref] Right: TPropertySet);
 begin
-  Result := PropertySet.GetAsString;
+  Left.FNameValueSeparator := Right.FNameValueSeparator;
+  Left.PropertiesSeparator := Right.PropertiesSeparator;
+  Left.FProperties := Copy(Right.FProperties);
 end;
 
-Constructor TPropertySet.Create(Properties: TPropertySet);
+Constructor TPropertySet.Create(NameValueSeparator,PropertiesSeparator: Char);
 begin
-  FProperties := Copy(Properties.FProperties);
+  FNameValueSeparator := NameValueSeparator;
+  FPropertiesSeparator := PropertiesSeparator;
+  FProperties := nil;
 end;
 
 Function TPropertySet.IndexOf(const Name: String): Integer;
@@ -119,6 +128,18 @@ begin
     Result := Prop;
     Break;
   end;
+end;
+
+Procedure TPropertySet.SetNameValueSeparator(Separator: Char);
+begin
+  Clear;
+  FNameValueSeparator := Separator;
+end;
+
+Procedure TPropertySet.SetPropertiesSeparator(Separator: Char);
+begin
+  Clear;
+  FPropertiesSeparator := Separator;
 end;
 
 Function TPropertySet.GetNames(Index: Integer): string;
@@ -140,9 +161,9 @@ Function TPropertySet.GetAsString: String;
 begin
   if Length(FProperties) > 0 then
   begin
-    Result := FProperties[0].Name + NameValueSeparator + FProperties[0].Value;
+    Result := FProperties[0].Name + FNameValueSeparator + FProperties[0].Value;
     for var Prop := 1 to Count-1 do
-    Result := Result + PropertiesSeparator + ' ' + FProperties[Prop].Name + NameValueSeparator + FProperties[Prop].Value;
+    Result := Result + FPropertiesSeparator + ' ' + FProperties[Prop].Name + FNameValueSeparator + FProperties[Prop].Value;
   end else Result := '';
 end;
 
@@ -151,12 +172,12 @@ begin
   FProperties := nil;
   if AsString <> '' then
   begin
-    var PropertySeparatorPos := Pos(PropertiesSeparator,AsString);
+    var PropertySeparatorPos := Pos(FPropertiesSeparator,AsString);
     while PropertySeparatorPos > 0 do
     begin
       Append(Copy(AsString,1,PropertySeparatorPos-1));
       AsString := Trim(Copy(AsString,PropertySeparatorPos+1,MaxInt));
-      PropertySeparatorPos := Pos(PropertiesSeparator,AsString);
+      PropertySeparatorPos := Pos(FPropertiesSeparator,AsString);
     end;
     // Append last property
     Append(AsString);
@@ -167,7 +188,7 @@ Function TPropertySet.GetAsStrings: TStringDynArray;
 begin
   SetLength(Result,Count);
   for var Prop := 0 to Count-1 do
-  Result[Prop] := FProperties[Prop].Name + NameValueSeparator + FProperties[Prop].Value;
+  Result[Prop] := FProperties[Prop].Name + FNameValueSeparator + FProperties[Prop].Value;
 end;
 
 Procedure TPropertySet.SetAsStrings(AsStrings: TStringDynArray);
@@ -287,7 +308,7 @@ Procedure TPropertySet.Append(const AsString: String);
 begin
   if AsString <> '' then
   begin
-    var NameValueSeparatorPos := Pos(NameValueSeparator,AsString);
+    var NameValueSeparatorPos := Pos(FNameValueSeparator,AsString);
     if NameValueSeparatorPos > 0 then
     begin
       var Name := Trim(Copy(AsString,1,NameValueSeparatorPos-1));
