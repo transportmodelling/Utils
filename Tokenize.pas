@@ -45,7 +45,8 @@ Type
     // Manage content
     Constructor Create(Delimiter: TDelimiter; const Line: String = '');
     Procedure Clear;
-    Procedure Assign(const Line: String);
+    Procedure Assign(const Line: String); overload;
+    Procedure Assign(const Line: String; Quote: Char); overload;
     Procedure ReadLine(var TextFile: TextFile); overload;
     Procedure ReadLine(const TextReader: TTextReader); overload;
     // Query Tokens
@@ -190,6 +191,11 @@ end;
 Procedure TTokenizer.Assign(const Line: String);
 begin
   FTokens := Line.Split(FSeparators,SplitOptions);
+end;
+
+Procedure TTokenizer.Assign(const Line: String; Quote: Char);
+begin
+  FTokens := Line.Split(FSeparators,Quote,Quote,SplitOptions);
 end;
 
 Procedure TTokenizer.ReadLine(var TextFile: TextFile);
