@@ -15,10 +15,10 @@ Uses
   System.Classes,System.SysUtils;
 
 Type
-  TDBFReader = Class
+  TDBFFile = Class
   private
     Type
-      TTDFField = record
+      TDBFField = record
         FieldName: String;
         FieldType: Char;
         FieldLength,DecimalCount: Byte;
@@ -26,19 +26,16 @@ Type
       end;
     Var
       FFileName: string;
-      FFieldCount,FRecordIndex,FRecordCount: Integer;
-      FFields: array of TTDFField;
+      FFieldCount,FRecordCount,FRecordIndex: Integer;
+      FFields: array of TDBFField;
       FileStream: TBufferedFileStream;
-      FileReader: TBinaryReader;
-      Version: Byte;
       FormatSettings: TFormatSettings;
     Function GetFieldNames(Field: Integer): String;
     Function GetFieldTypes(Field: Integer): Char;
     Function GetFieldValues(Field: Integer): Variant;
   public
-    Constructor Create(const FileName: String);
     Function IndexOf(const FieldName: String): Integer;
-    Function NextRecord: Boolean;
+  public
     Property FileName: String read FFileName;
     Property FieldCount: Integer read FFieldCount;
     Property RecordCount: Integer read FRecordCount;
@@ -46,11 +43,49 @@ Type
     Property FieldNames[Field: Integer]: String read GetFieldNames;
     Property FieldTypes[Field: Integer]: Char read GetFieldTypes;
     Property FieldValues[Field: Integer]: Variant read GetFieldValues; default;
+  end;
+
+  TDBFReader = Class(TDBFFile)
+  private
+    FileReader: TBinaryReader;
+    Version: Byte;
+    FormatSettings: TFormatSettings;
+  public
+    Constructor Create(const FileName: String);
+    Function NextRecord: Boolean;
     Destructor Destroy; override;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
 implementation
+////////////////////////////////////////////////////////////////////////////////
+
+Function TDBFFile.GetFieldNames(Field: Integer): String;
+begin
+  Result := FFields[Field].FieldName;
+end;
+
+Function TDBFFile.GetFieldTypes(Field: Integer): Char;
+begin
+  Result := FFields[Field].FieldType;
+end;
+
+Function TDBFFile.GetFieldValues(Field: Integer): variant;
+begin
+  Result := FFields[Field].FieldValue;
+end;
+
+Function TDBFFile.IndexOf(const FieldName: String): Integer;
+begin
+  Result := -1;
+  for var Field := 0 to FFieldCount-1 do
+  if SameText(FFields[Field].FieldName,FieldName) then
+  begin
+    Result := Field;
+    Break;
+  end;
+end;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 Constructor TDBFReader.Create(const FileName: String);
@@ -92,32 +127,6 @@ begin
   end;
   // Read header terminator
   FileReader.ReadByte;
-end;
-
-Function TDBFReader.GetFieldNames(Field: Integer): String;
-begin
-  Result := FFields[Field].FieldName;
-end;
-
-Function TDBFReader.GetFieldTypes(Field: Integer): Char;
-begin
-  Result := FFields[Field].FieldType;
-end;
-
-Function TDBFReader.GetFieldValues(Field: Integer): variant;
-begin
-  Result := FFields[Field].FieldValue;
-end;
-
-Function TDBFReader.IndexOf(const FieldName: String): Integer;
-begin
-  Result := -1;
-  for var Field := 0 to FFieldCount-1 do
-  if SameText(FFields[Field].FieldName,FieldName) then
-  begin
-    Result := Field;
-    Break;
-  end;
 end;
 
 Function TDBFReader.NextRecord: Boolean;
