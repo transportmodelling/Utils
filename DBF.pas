@@ -33,6 +33,7 @@ Type
       Version: Byte;
       FormatSettings: TFormatSettings;
     Function GetFieldNames(Field: Integer): String;
+    Function GetFieldTypes(Field: Integer): Char;
     Function GetFieldValues(Field: Integer): Variant;
   public
     Constructor Create(const FileName: String);
@@ -43,6 +44,7 @@ Type
     Property RecordCount: Integer read FRecordCount;
     Property RecordIndex: Integer read FRecordIndex;
     Property FieldNames[Field: Integer]: String read GetFieldNames;
+    Property FieldTypes[Field: Integer]: Char read GetFieldTypes;
     Property FieldValues[Field: Integer]: Variant read GetFieldValues; default;
     Destructor Destroy; override;
   end;
@@ -95,6 +97,11 @@ end;
 Function TDBFReader.GetFieldNames(Field: Integer): String;
 begin
   Result := FFields[Field].FieldName;
+end;
+
+Function TDBFReader.GetFieldTypes(Field: Integer): Char;
+begin
+  Result := FFields[Field].FieldType;
 end;
 
 Function TDBFReader.GetFieldValues(Field: Integer): variant;
