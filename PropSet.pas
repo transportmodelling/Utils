@@ -46,6 +46,10 @@ Type
   public
     Class Operator Initialize(out PropertySet: TPropertySet);
     Class Operator Assign(var Left: TPropertySet; const [ref] Right: TPropertySet);
+    Class Operator Implicit(Properties: String): TPropertySet;
+    Class Operator Implicit(Properties: TPropertySet): String;
+    Class Operator Implicit(Properties: TStringDynArray): TPropertySet;
+    Class Operator Implicit(Properties: TPropertySet): TStringDynArray;
   public
     // Separator properties
     Property NameValueSeparator: Char read FNameValueSeparator write SetNameValueSeparator;
@@ -68,7 +72,8 @@ Type
    	Function ToPath(const Name: String): String;
     Function Parse(const Name: String; Delimiter: TDelimiter = Comma): TTokenizer;
     // Manage content
-    Constructor Create(NameValueSeparator,PropertiesSeparator: Char);
+    Constructor Create(NameValueSeparator,PropertiesSeparator: Char); overload;
+    Constructor Create(const [ref] Properties: TPropertySet); overload;
     Procedure Clear;
     Procedure RemoveUnassigned;
     Procedure Append(const Name,Value: String); overload;
@@ -108,8 +113,28 @@ end;
 Class Operator TPropertySet.Assign(var Left: TPropertySet; const [ref] Right: TPropertySet);
 begin
   Left.FNameValueSeparator := Right.FNameValueSeparator;
-  Left.PropertiesSeparator := Right.PropertiesSeparator;
+  Left.FPropertiesSeparator := Right.FPropertiesSeparator;
   Left.FProperties := Copy(Right.FProperties);
+end;
+
+Class Operator TPropertySet.Implicit(Properties: String): TPropertySet;
+begin
+  Result.AsString := Properties;
+end;
+
+Class Operator TPropertySet.Implicit(Properties: TPropertySet): String;
+begin
+  Result := Properties.AsString;
+end;
+
+Class Operator TPropertySet.Implicit(Properties: TStringDynArray): TPropertySet;
+begin
+  Result.AsStrings := Properties;
+end;
+
+Class Operator TPropertySet.Implicit(Properties: TPropertySet): TStringDynArray;
+begin
+  Result := Properties.AsStrings;
 end;
 
 Constructor TPropertySet.Create(NameValueSeparator,PropertiesSeparator: Char);
@@ -117,6 +142,13 @@ begin
   FNameValueSeparator := NameValueSeparator;
   FPropertiesSeparator := PropertiesSeparator;
   FProperties := nil;
+end;
+
+Constructor TPropertySet.Create(const [ref] Properties: TPropertySet);
+begin
+  FNameValueSeparator := Properties.FNameValueSeparator;
+  FPropertiesSeparator := Properties.FPropertiesSeparator;
+  FProperties := Copy(Properties.FProperties);
 end;
 
 Function TPropertySet.IndexOf(const Name: String): Integer;
