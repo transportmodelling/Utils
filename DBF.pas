@@ -70,6 +70,7 @@ Type
 
   TDBFWriter = Class(TDBFFile)
   private
+    FileWriter: TBinaryWriter;
     Procedure SetFieldValues(Field: Integer; Value: Variant);
   public
     Constructor Create(const FileName: String; const Fields: array of TDBFField); overload;
@@ -293,16 +294,59 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 Constructor TDBFWriter.Create(const FileName: String; const Fields: array of TDBFField);
+Var
+  B: Byte;
+  HeaderSize,RecordSize: Word;
+  Year,Month,Day: Word;
 begin
   inherited Create;
   FFieldCount := Length(Fields);
   FFields := TArrayBuilder<TDBFField>.Create(Fields);
   // Validate fields
+  RecordSize := 1; // Deletion marker
   for var Field := low(FFields) to high(FFields) do
   if IndexOf(Fields[Field].FFieldName) = Field then
-    Fields[Field].Validate
-  else
+  begin
+    Fields[Field].Validate;
+    Inc(RecordSize,Fields[Field].FFieldLength);
+  end else
     raise Exception.Create('Duplicate Field ' + Fields[field].FFieldName);
+  // Open File
+  FileStream := TBufferedFileStream.Create(FileName,fmCreate or fmShareDenyWrite,32768);
+  FileWriter := TBinaryWriter.Create(FileStream,TEncoding.ANSI);
+  // Write table file header
+  B := 3; // Version
+  FileWriter.Write(B);
+  DecodeDate(Now,Year,Month,Day);
+  B := Year-1900; // Year
+  FileWriter.Write(B);
+  B := Month; // Month
+  FileWriter.Write(B);
+  B := Day; // Day
+  FileWriter.Write(B);
+  FileWriter.Write(RecordCount);
+  HeaderSize := (FFieldCount+1)*32 + 1;
+  FileWriter.Write(HeaderSize);
+  FileWriter.Write(RecordSize);
+  B := 0; // Reserved
+  for var Skip := 1 to 20 do FileWriter.Write(B);
+  // Write field descriptor records
+  for var Field := 0 to FFieldCount-1 do
+  begin
+    for var NameChar := 1 to 11 do
+    if NameChar <= Length(FFields[Field].FFieldName) then
+      FileWriter.Write(FFields[Field].FFieldName[NameChar])
+    else
+      FileWriter.Write(B);
+    FileWriter.Write(FFields[Field].FFieldType);
+    for var Skip := 1 to 4 do FileWriter.Write(B); // Reserved
+    FileWriter.Write(FFields[Field].FFieldLength);
+    FileWriter.Write(FFields[Field].FDecimalCount);
+    for var Skip := 1 to 14 do FileWriter.Write(B); // Reserved
+  end;
+  // Write header terminator
+  B := 13;
+  FileWriter.Write(B);
 end;
 
 Constructor TDBFWriter.Create(const FileName: String; const DBFFile: TDBFFile);
@@ -323,6 +367,14 @@ end;
 Destructor TDBFWriter.Destroy;
 begin
   // Update record count
+  var EOF: Byte := 26;
+  FileWriter.Write(EOF);
+  FileStream.FlushBuffer;
+  FileStream.Position := 4;
+  FileWriter.Write(RecordCount);
+  // Close file
+  FileWriter.Free;
+  FileStream.Free;
   inherited Destroy;
 end;
 
