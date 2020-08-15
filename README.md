@@ -40,16 +40,16 @@ Provides a property set, implemented as a set of name-value pairs.
   writeln(Properties['Property3']);
 ```
 
-## Tokenize.pas
-Provides a Tokenizer that splits strings into multiple tokens.
+## Parse.pas
+Provides a TStringParser that splits strings into multiple tokens.
 
 ```
-  var Tokenizer := TTokenizer.Create(Comma,'1,2,3,4');
-  writeln(Tokenizer.Count);
+  var Parser := TStringParser.Create(Comma,'1,2,3,4');
+  writeln(Parser.Count);
   // List tokens
-  for var Token := 0 to Tokenizer.Count-1 do writeln(Tokenizer[Token]);
+  for var Token := 0 to Parser.Count-1 do writeln(Parser[Token].Value);
   // Typecast tokens to integers
-  for var Token := 0 to Tokenizer.Count-1 do writeln(Tokenizer.Int[Token]);
+  for var Token := 0 to Parser.Count-1 do writeln(Parser.Int[Token]);
 ```
 
 ## Polynom.pas
