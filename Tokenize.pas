@@ -34,7 +34,7 @@ Type
 
   TDelimiter = (Comma,Tab,Semicolon,Space);
 
-  TTokenizer = record
+  TStringParser = record
   private
     FTokens: TArray<String>;
     FSeparators: TArray<Char>;
@@ -47,7 +47,7 @@ Type
     Function GetInt64(Token: Integer): Int64; inline;
     Function GetFloat(Token: Integer): Float64; inline;
   public
-    Class Operator Initialize(out Tokenizer: TTokenizer);
+    Class Operator Initialize(out Tokenizer: TStringParser);
   public
     // Parse options
     Procedure SetSeparators(const Separators: array of Char);
@@ -145,18 +145,18 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Class Operator TTokenizer.Initialize(out Tokenizer: TTokenizer);
+Class Operator TStringParser.Initialize(out Tokenizer: TStringParser);
 begin
   Tokenizer.ParseMethod := -1;
   Tokenizer.SpaceDelimited;
 end;
 
-Function TTokenizer.GetExcludeEmpty: Boolean;
+Function TStringParser.GetExcludeEmpty: Boolean;
 begin
   Result := (SplitOptions = TStringSplitOptions.ExcludeEmpty);
 end;
 
-Procedure TTokenizer.SetExcludeEmpty(ExcludeEmpty: Boolean);
+Procedure TStringParser.SetExcludeEmpty(ExcludeEmpty: Boolean);
 begin
   if ExcludeEmpty <> GetExcludeEmpty then
   begin
@@ -169,44 +169,44 @@ begin
   end;
 end;
 
-Function TTokenizer.GetTokens(Token: Integer): TToken;
+Function TStringParser.GetTokens(Token: Integer): TToken;
 begin
   Result.FValue := FTokens[Token];
 end;
 
-Function TTokenizer.GetInt(Token: Integer): Integer;
+Function TStringParser.GetInt(Token: Integer): Integer;
 begin
   Result := FTokens[Token].ToInteger;
 end;
 
-Function TTokenizer.GetInt64(Token: Integer): Int64;
+Function TStringParser.GetInt64(Token: Integer): Int64;
 begin
   Result := FTokens[Token].ToInt64;
 end;
 
-Function TTokenizer.GetFloat(Token: Integer): Float64;
+Function TStringParser.GetFloat(Token: Integer): Float64;
 begin
   Result := FTokens[Token].ToDouble;
 end;
 
-Procedure TTokenizer.SetSeparators(const Separators: array of Char);
+Procedure TStringParser.SetSeparators(const Separators: array of Char);
 begin
   FTokens := nil;
   ParseMethod := -1;
   FSeparators := TCharArrayBuilder.Create(Separators);
 end;
 
-Function TTokenizer.SeparatorCount: Integer;
+Function TStringParser.SeparatorCount: Integer;
 begin
   Result := Length(FSeparators);
 end;
 
-Function TTokenizer.GetSeparators(Index: Integer): Char;
+Function TStringParser.GetSeparators(Index: Integer): Char;
 begin
   Result := FSeparators[Index];
 end;
 
-Procedure TTokenizer.CSV;
+Procedure TStringParser.CSV;
 begin
   if ParseMethod <> Ord(Comma) then
   begin
@@ -216,7 +216,7 @@ begin
   end;
 end;
 
-Procedure TTokenizer.TabDelimited;
+Procedure TStringParser.TabDelimited;
 begin
   if ParseMethod <> Ord(Tab) then
   begin
@@ -226,7 +226,7 @@ begin
   end;
 end;
 
-Procedure TTokenizer.SpaceDelimited;
+Procedure TStringParser.SpaceDelimited;
 begin
   if ParseMethod <> Ord(Space) then
   begin
@@ -236,7 +236,7 @@ begin
   end;
 end;
 
-Procedure TTokenizer.SemicolonDelimited;
+Procedure TStringParser.SemicolonDelimited;
 begin
   if ParseMethod <> Ord(Semicolon) then
   begin
@@ -246,7 +246,7 @@ begin
   end;
 end;
 
-Constructor TTokenizer.Create(Delimiter: TDelimiter; const Line: String = '');
+Constructor TStringParser.Create(Delimiter: TDelimiter; const Line: String = '');
 begin
   // Initialize
   case Delimiter of
@@ -259,22 +259,22 @@ begin
   Assign(Line);
 end;
 
-Procedure TTokenizer.Clear;
+Procedure TStringParser.Clear;
 begin
   FTokens := nil;
 end;
 
-Procedure TTokenizer.Assign(const Line: String);
+Procedure TStringParser.Assign(const Line: String);
 begin
   FTokens := Line.Split(FSeparators,SplitOptions);
 end;
 
-Procedure TTokenizer.Assign(const Line: String; Quote: Char);
+Procedure TStringParser.Assign(const Line: String; Quote: Char);
 begin
   FTokens := Line.Split(FSeparators,Quote,Quote,SplitOptions);
 end;
 
-Procedure TTokenizer.ReadLine(var TextFile: TextFile);
+Procedure TStringParser.ReadLine(var TextFile: TextFile);
 var
   Line: String;
 begin
@@ -282,54 +282,54 @@ begin
   Assign(Line);
 end;
 
-Procedure TTokenizer.ReadLine(const TextReader: TTextReader);
+Procedure TStringParser.ReadLine(const TextReader: TTextReader);
 begin
   Assign(TextReader.ReadLine);
 end;
 
-Function TTokenizer.Count: Integer;
+Function TStringParser.Count: Integer;
 begin
   Result := Length(FTokens);
 end;
 
-Function TTokenizer.ToStrArray: TArray<String>;
+Function TStringParser.ToStrArray: TArray<String>;
 begin
   Result := ToStrArray(0,Count);
 end;
 
-Function TTokenizer.ToStrArray(Offset,Count: Integer): TArray<String>;
+Function TStringParser.ToStrArray(Offset,Count: Integer): TArray<String>;
 begin
   SetLength(Result,Count);
   for var Token := 0 to Count-1 do Result[Token] := FTokens[Token+Offset];
 end;
 
-Function TTokenizer.ToIntArray: TArray<Int32>;
+Function TStringParser.ToIntArray: TArray<Int32>;
 begin
   Result := ToIntArray(0,Count);
 end;
 
-Function TTokenizer.ToIntArray(Offset,Count: Integer): TArray<Int32>;
+Function TStringParser.ToIntArray(Offset,Count: Integer): TArray<Int32>;
 begin
   SetLength(Result,Count);
   for var Token := 0 to Count-1 do Result[Token] := StrToInt(FTokens[Token+Offset]);
 end;
 
-Function TTokenizer.ToFloatArray: TArray<Float64>;
+Function TStringParser.ToFloatArray: TArray<Float64>;
 begin
   Result := ToFloatArray(FormatSettings,0,Count);
 end;
 
-Function TTokenizer.ToFloatArray(Offset,Count: Integer): TArray<Float64>;
+Function TStringParser.ToFloatArray(Offset,Count: Integer): TArray<Float64>;
 begin
   Result := ToFloatArray(FormatSettings,Offset,Count);
 end;
 
-Function TTokenizer.ToFloatArray(const FormatSettings: TFormatSettings): TArray<Float64>;
+Function TStringParser.ToFloatArray(const FormatSettings: TFormatSettings): TArray<Float64>;
 begin
   Result := ToFloatArray(FormatSettings,0,Count);
 end;
 
-Function TTokenizer.ToFloatArray(const FormatSettings: TFormatSettings; Offset,Count: Integer): TArray<Float64>;
+Function TStringParser.ToFloatArray(const FormatSettings: TFormatSettings; Offset,Count: Integer): TArray<Float64>;
 begin
   SetLength(Result,Count);
   for var Token := 0 to Count-1 do Result[Token] := StrToFloat(FTokens[Token+Offset],FormatSettings);
