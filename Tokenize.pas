@@ -82,6 +82,23 @@ Type
     Function ToFloatArray(const FormatSettings: TFormatSettings; Offset,Count: Integer): TArray<Float64>; overload;
   end;
 
+  TFixedWidthParser = record
+  private
+    FTokens: TArray<String>;
+    Widths: TArray<Integer>;
+    Function GetTokens(Token: Integer): TToken; inline;
+  public
+    // Initialization
+    Constructor Create(const FixedWidths: array of Integer);
+    // Manage content
+    Procedure Assign(Line: String); overload;
+    Procedure ReadLine(var TextFile: TextFile); overload;
+    Procedure ReadLine(const TextReader: TTextReader); overload;
+    // Query Tokens
+    Function Count: Integer; inline;
+    Property Tokens[Token: Integer]: TToken read GetTokens; default;
+  end;
+
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
@@ -316,6 +333,48 @@ Function TTokenizer.ToFloatArray(const FormatSettings: TFormatSettings; Offset,C
 begin
   SetLength(Result,Count);
   for var Token := 0 to Count-1 do Result[Token] := StrToFloat(FTokens[Token+Offset],FormatSettings);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Constructor TFixedWidthParser.Create(const FixedWidths: array of Integer);
+begin
+  Finalize(FTokens);
+  Widths := TArrayBuilder<Integer>.Create(FixedWidths);
+end;
+
+Function TFixedWidthParser.GetTokens(Token: Integer): TToken;
+begin
+  Result.FValue := FTokens[Token];
+end;
+
+Procedure TFixedWidthParser.Assign(Line: String);
+begin
+  var Pos := 1;
+  SetLength(FTokens,Length(Widths));
+  for var Token := 0 to Count-1 do
+  begin
+    FTokens[Token] := Copy(Line,Pos,Widths[Token]);
+    Inc(Pos,Widths[Token]);
+  end;
+end;
+
+Procedure TFixedWidthParser.ReadLine(var TextFile: TextFile);
+var
+  Line: String;
+begin
+  readln(TextFile,Line);
+  Assign(Line);
+end;
+
+Procedure TFixedWidthParser.ReadLine(const TextReader: TTextReader);
+begin
+  Assign(TextReader.ReadLine);
+end;
+
+Function TFixedWidthParser.Count: Integer;
+begin
+  Result := Length(FTokens);
 end;
 
 end.
