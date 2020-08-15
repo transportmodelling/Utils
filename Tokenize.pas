@@ -15,6 +15,23 @@ Uses
   Classes,SysUtils,ArrayBld;
 
 Type
+  TToken = record
+  private
+    FValue: String;
+  public
+    Class Operator Implicit(Token: TToken): String;
+    Class Operator Implicit(Token: TToken): Integer;
+    Class Operator Implicit(Token: TToken): Int64;
+    Class Operator Implicit(Token: TToken): Float32;
+    Class Operator Implicit(Token: TToken): Float64;
+  public
+    Function ToInt: Integer; inline;
+    Function ToFloat: Float64; inline;
+    Function Round: Integer; inline;
+  public
+    Property Value: string read FValue;
+  end;
+
   TDelimiter = (Comma,Tab,Semicolon,Space);
 
   TTokenizer = record
@@ -25,7 +42,7 @@ Type
     ParseMethod: Integer;
     Function GetExcludeEmpty: Boolean;
     Procedure SetExcludeEmpty(ExcludeEmpty: Boolean);
-    Function GetTokens(Token: Integer): String; inline;
+    Function GetTokens(Token: Integer): TToken; inline;
     Function GetInt(Token: Integer): Integer; inline;
     Function GetInt64(Token: Integer): Int64; inline;
     Function GetFloat(Token: Integer): Float64; inline;
@@ -51,7 +68,7 @@ Type
     Procedure ReadLine(const TextReader: TTextReader); overload;
     // Query Tokens
     Function Count: Integer; inline;
-    Property Tokens[Token: Integer]: String read GetTokens; default;
+    Property Tokens[Token: Integer]: TToken read GetTokens; default;
     Property Int[Token: Integer]: Integer read GetInt;
     Property Int64[Token: Integer]: Int64 read GetInt64;
     Property Float[Token: Integer]: Float64 read GetFloat;
@@ -67,6 +84,48 @@ Type
 
 ////////////////////////////////////////////////////////////////////////////////
 implementation
+////////////////////////////////////////////////////////////////////////////////
+
+Class Operator TToken.Implicit(Token: TToken): String;
+begin
+  Result := Token.Value;
+end;
+
+Class Operator TToken.Implicit(Token: TToken): Integer;
+begin
+  Result := Token.Value.ToInteger;
+end;
+
+Class Operator TToken.Implicit(Token: TToken): Int64;
+begin
+  Result := Token.Value.ToInt64;
+end;
+
+Class Operator TToken.Implicit(Token: TToken): Float32;
+begin
+  Result := Token.Value.ToSingle;
+end;
+
+Class Operator TToken.Implicit(Token: TToken): Float64;
+begin
+  Result := Token.Value.ToDouble;
+end;
+
+Function TToken.ToInt: Integer;
+begin
+  Result := Value.ToInteger;
+end;
+
+Function TToken.ToFloat: Float64;
+begin
+  Result := Value.ToDouble;
+end;
+
+Function TToken.Round: Integer;
+begin
+  Result := System.Round(ToFloat);
+end;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 Class Operator TTokenizer.Initialize(out Tokenizer: TTokenizer);
@@ -93,9 +152,9 @@ begin
   end;
 end;
 
-Function TTokenizer.GetTokens(Token: Integer): String;
+Function TTokenizer.GetTokens(Token: Integer): TToken;
 begin
-  Result := FTokens[Token];
+  Result.FValue := FTokens[Token];
 end;
 
 Function TTokenizer.GetInt(Token: Integer): Integer;
