@@ -21,10 +21,12 @@ Type
     FFieldType: Char;
     FFieldLength,FDecimalCount: Byte;
     FieldValue: Variant;
+    FieldFormat: String;
     Procedure SetFieldName(Value: string);
     Procedure SetFieldType(Value: Char);
     Procedure SetFieldLength(Value: Byte);
     Procedure SetDecimalCount(Value: Byte);
+    Procedure SetFieldFormat;
     Procedure Validate;
   public
     Property FieldName: String read FFieldName write SetFieldName;
@@ -46,6 +48,7 @@ Type
   public
     Function IndexOf(const FieldName: String): Integer;
   public
+    Constructor Create;
     Property FileName: String read FFileName;
     Property FieldCount: Integer read FFieldCount;
     Property RecordCount: Integer read FRecordCount;
@@ -59,7 +62,6 @@ Type
     FRecordIndex: Integer;
     FileReader: TBinaryReader;
     Version: Byte;
-    FormatSettings: TFormatSettings;
   public
     Constructor Create(const FileName: String);
     Function NextRecord: Boolean;
@@ -137,8 +139,11 @@ begin
       'D': if Value <> 8 then raise Exception.Create('Invalid Field Length');
       'L': if Value <> 1 then raise Exception.Create('Invalid Field Length');
       'F','N':
-        if Value > 20 then raise Exception.Create('Invalid Field Length') else
-        if Value < FDecimalCount+2 then raise Exception.Create('Field Length too small');
+           begin
+             if Value > 20 then raise Exception.Create('Invalid Field Length') else
+             if Value < FDecimalCount+2 then raise Exception.Create('Field Length too small');
+             SetFieldFormat;
+           end;
     end;
   end;
 end;
@@ -150,11 +155,21 @@ begin
     FDecimalCount := Value;
     if FFieldType in ['F','N'] then
     begin
+      SetFieldFormat;
       if Value > FFieldlength-2 then raise Exception.Create('Field Length too small');
     end else
     begin
       if Value <> 0 then raise Exception.Create('Invalid Decimal Count');
     end;
+  end;
+end;
+
+Procedure TDBFField.SetFieldFormat;
+begin
+  if FDecimalCount = 0 then FieldFormat := '0' else
+  begin
+    FieldFormat := '0.';
+    for var Decimal := 1 to FDecimalCount do FieldFormat := FieldFormat + '#';
   end;
 end;
 
@@ -164,6 +179,12 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+
+Constructor TDBFFile.Create;
+begin
+  inherited Create;
+  FormatSettings.DecimalSeparator := '.';
+end;
 
 Function TDBFFile.GetFieldNames(Field: Integer): String;
 begin
@@ -197,7 +218,6 @@ Constructor TDBFReader.Create(const FileName: String);
 begin
   inherited Create;
   FRecordIndex := -1;
-  FormatSettings.DecimalSeparator := '.';
   FFileName := FileName;
   FileStream := TBufferedFileStream.Create(FileName,fmOpenRead or fmShareDenyWrite,32768);
   FileReader := TBinaryReader.Create(FileStream,TEncoding.ANSI);
@@ -315,8 +335,7 @@ begin
   FileStream := TBufferedFileStream.Create(FileName,fmCreate or fmShareDenyWrite,32768);
   FileWriter := TBinaryWriter.Create(FileStream,TEncoding.ANSI);
   // Write table file header
-  B := 3; // Version
-  FileWriter.Write(B);
+  FileWriter.Write(#3); // Version
   DecodeDate(Now,Year,Month,Day);
   B := Year-1900; // Year
   FileWriter.Write(B);
@@ -328,25 +347,21 @@ begin
   HeaderSize := (FFieldCount+1)*32 + 1;
   FileWriter.Write(HeaderSize);
   FileWriter.Write(RecordSize);
-  B := 0; // Reserved
-  for var Skip := 1 to 20 do FileWriter.Write(B);
+  for var Skip := 1 to 20 do FileWriter.Write(#0);
   // Write field descriptor records
   for var Field := 0 to FFieldCount-1 do
   begin
-    for var NameChar := 1 to 11 do
-    if NameChar <= Length(FFields[Field].FFieldName) then
-      FileWriter.Write(FFields[Field].FFieldName[NameChar])
-    else
-      FileWriter.Write(B);
+    var Name := FFields[Field].FFieldName;
+    while Length(Name) < 11 do Name := Name + #0;
+    FileWriter.Write(Name.ToCharArray);
     FileWriter.Write(FFields[Field].FFieldType);
-    for var Skip := 1 to 4 do FileWriter.Write(B); // Reserved
+    for var Skip := 1 to 4 do FileWriter.Write(#0); // Reserved
     FileWriter.Write(FFields[Field].FFieldLength);
     FileWriter.Write(FFields[Field].FDecimalCount);
-    for var Skip := 1 to 14 do FileWriter.Write(B); // Reserved
+    for var Skip := 1 to 14 do FileWriter.Write(#0); // Reserved
   end;
   // Write header terminator
-  B := 13;
-  FileWriter.Write(B);
+  FileWriter.Write(#13);
 end;
 
 Constructor TDBFWriter.Create(const FileName: String; const DBFFile: TDBFFile);
@@ -360,15 +375,58 @@ begin
 end;
 
 Procedure TDBFWriter.AppendRecord;
+Var
+  Year,Month,Day: Word;
 begin
+  FileWriter.Write(' '); // Undeleted record
+  for var Field := 0 to FFieldCount-1 do
+  begin
+    case FFields[Field].FFieldType of
+      'C': begin
+             var Value: String := FFields[Field].FieldValue;
+             while Length(Value) < FFields[Field].FieldLength do Value := Value + #0;
+             FileWriter.Write(Value.ToCharArray);
+           end;
+      'D': begin
+             var Value: TDateTime := FFields[Field].FieldValue;
+             DecodeDate(Value,Year,Month,Day);
+             FileWriter.Write(IntToStr(Year).ToCharArray);
+             if Month < 10 then
+               FileWriter.Write(('0'+IntToStr(Month)).ToCharArray)
+             else
+               FileWriter.Write(IntToStr(Month).ToCharArray);
+             if Day < 10 then
+               FileWriter.Write(('0'+IntToStr(Day)).ToCharArray)
+             else
+               FileWriter.Write(IntToStr(Day).ToCharArray);
+           end;
+      'L': begin
+             var Value: Boolean := FFields[Field].FieldValue;
+             if Value then FileWriter.Write('T') else FileWriter.Write('F');
+           end;
+      'F','N':
+           begin
+             var Value: Float64 := FFields[Field].FieldValue;
+             var Text := FormatFloat(FFields[Field].FieldFormat,Value,FormatSettings);
+             while Length(Text) < FFields[Field].FieldLength do Text := ' ' + Text;
+             if Length(Text) = FFields[Field].FieldLength then
+               FileWriter.Write(Text.ToCharArray)
+             else
+               raise Exception.Create('Numeric value out of range');
+           end;
+      else raise Exception.Create('Unsupported field type');
+    end;
+    VarClear(FFields[Field].FieldValue);
+  end;
   Inc(FRecordCount);
 end;
 
 Destructor TDBFWriter.Destroy;
 begin
-  // Update record count
+  // Write eof marker
   var EOF: Byte := 26;
   FileWriter.Write(EOF);
+  // Update record count
   FileStream.FlushBuffer;
   FileStream.Position := 4;
   FileWriter.Write(RecordCount);
