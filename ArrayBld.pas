@@ -25,9 +25,11 @@ Type
     Class Function Concat(const A: array of T; const B: array of T; const C: array of T): TArray<T>; overload; static;
   public
     Constructor Create(const Values: array of T); overload;
+    Constructor Create(const Values: array of T; const First,count: Integer); overload;
     Constructor Create(const Length: Integer; const Values: T); overload;
     Function Length: Integer; inline;
-    Procedure Append(const Values: array of T);
+    Procedure Append(const Values: array of T); overload;
+    Procedure Append(const Values: array of T; const First,Count: Integer); overload;
     Procedure Clear;
   public
     Property AsArray: TArray<T> read FValues;
@@ -87,7 +89,14 @@ end;
 
 Constructor TArrayBuilder<T>.Create(const Values: array of T);
 begin
+  Finalize(FValues);
   Append(Values);
+end;
+
+Constructor TArrayBuilder<T>.Create(const Values: array of T; const First,count: Integer);
+begin
+  Finalize(FValues);
+  Append(Values,First,Count);
 end;
 
 Constructor TArrayBuilder<T>.Create(const Length: Integer; const Values: T);
@@ -108,9 +117,14 @@ end;
 
 Procedure TArrayBuilder<T>.Append(const Values: array of T);
 begin
+  Append(Values,low(Values),System.Length(Values));
+end;
+
+Procedure TArrayBuilder<T>.Append(const Values: array of T; const First,Count: Integer);
+begin
   var Offset := Length;
-  SetLength(FValues,Offset+System.Length(Values));
-  for var Index := low(Values) to high(Values) do FValues[Index+Offset] := Values[Index];
+  SetLength(FValues,Offset+Count);
+  for var Index := 0 to Count-1 do FValues[Index+Offset] := Values[First+Index];
 end;
 
 Procedure TArrayBuilder<T>.Clear;
