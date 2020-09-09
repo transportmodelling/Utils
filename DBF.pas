@@ -219,7 +219,7 @@ begin
   inherited Create;
   FRecordIndex := -1;
   FFileName := FileName;
-  FileStream := TBufferedFileStream.Create(FileName,fmOpenRead or fmShareDenyWrite,32768);
+  FileStream := TBufferedFileStream.Create(FileName,fmOpenRead or fmShareDenyWrite,4096);
   FileReader := TBinaryReader.Create(FileStream,TEncoding.ANSI);
   // Read table file header
   Version := FileReader.ReadByte and 7;
@@ -332,7 +332,7 @@ begin
   end else
     raise Exception.Create('Duplicate Field ' + Fields[field].FFieldName);
   // Open File
-  FileStream := TBufferedFileStream.Create(FileName,fmCreate or fmShareDenyWrite,32768);
+  FileStream := TBufferedFileStream.Create(FileName,fmCreate or fmShareDenyWrite,4096);
   FileWriter := TBinaryWriter.Create(FileStream,TEncoding.ANSI);
   // Write table file header
   FileWriter.Write(#3); // Version
