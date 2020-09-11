@@ -44,16 +44,20 @@ Type
     FormatSettings: TFormatSettings;
     Function GetFieldNames(Field: Integer): String;
     Function GetFieldTypes(Field: Integer): Char;
+    Function GetFieldLength(Field: Integer): Byte;
+    Function GetDecimalCount(Field: Integer): Byte;
     Function GetFieldValues(Field: Integer): Variant;
   public
+    Constructor Create;
     Function IndexOf(const FieldName: String): Integer;
   public
-    Constructor Create;
     Property FileName: String read FFileName;
     Property FieldCount: Integer read FFieldCount;
     Property RecordCount: Integer read FRecordCount;
     Property FieldNames[Field: Integer]: String read GetFieldNames;
     Property FieldTypes[Field: Integer]: Char read GetFieldTypes;
+    Property FieldLength[Field: Integer]: Byte read GetFieldLength;
+    Property DecimalCount[Field: Integer]: Byte read GetDecimalCount;
     Property FieldValues[Field: Integer]: Variant read GetFieldValues; default;
   end;
 
@@ -194,6 +198,16 @@ end;
 Function TDBFFile.GetFieldTypes(Field: Integer): Char;
 begin
   Result := FFields[Field].FFieldType;
+end;
+
+Function TDBFFile.GetFieldLength(Field: Integer): Byte;
+begin
+  Result := FFields[Field].FieldLength;
+end;
+
+Function TDBFFile.GetDecimalCount(Field: Integer): Byte;
+begin
+  Result := FFields[Field].DecimalCount;
 end;
 
 Function TDBFFile.GetFieldValues(Field: Integer): variant;
