@@ -70,6 +70,7 @@ Type
     Function ToFloat(const Name: String): Float64; overload;
     Function ToFloat(const Name: String; Default: Float64): Float64; overload;
    	Function ToPath(const Name: String): String;
+   	Function ToFileName(const Name: String; MustExist: Boolean): String;
     Function Parse(const Name: String; Delimiter: TDelimiter = Comma): TStringParser;
     // Manage content
     Constructor Create(NameValueSeparator,PropertiesSeparator: Char); overload;
@@ -307,6 +308,12 @@ end;
 Function TPropertySet.ToPath(const Name: String): String;
 begin
   if Contains(Name,Result) then Result := FullPath(Result);
+end;
+
+Function TPropertySet.ToFileName(const Name: String; MustExist: Boolean): String;
+begin
+  Result := ToPath(Name);
+  if MustExist and not FileExists(Result) then raise Exception.Create('File does not exist (' + Name + ')');
 end;
 
 Function TPropertySet.Parse(const Name: String; Delimiter: TDelimiter = Comma): TStringParser;
