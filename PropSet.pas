@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils,Types,IOUtils,Parse;
+  SysUtils,Types,IOUtils,BaseDir,Parse;
 
 Type
   TPropertySet = record
@@ -21,13 +21,10 @@ Type
       TProperty = record
         Name,Value: string;
       end;
-    Class Var
-      FBaseDirectory: String;
     Var
       FNameValueSeparator: Char;
       FPropertiesSeparator: Char;
       FProperties: array of TProperty;
-    Class Procedure SetBaseDirectory(BaseDir: String); static;
     Function IndexOf(const Name: String): Integer;
     Procedure SetNameValueSeparator(Separator: Char);
     Procedure SetPropertiesSeparator(Separator: Char);
@@ -40,9 +37,8 @@ Type
     Procedure SetAsStrings(AsStrings: TStringDynArray);
     Procedure Append(const AsString: String); overload;
   public
+    Class Var BaseDirectory: TBaseDirectory;
     Class Constructor Create;
-    Class Property BaseDirectory: String read FBaseDirectory write SetBaseDirectory;
-    Class Function FullPath(const RelativePath: String): String; static;
   public
     Class Operator Initialize(out PropertySet: TPropertySet);
     Class Operator Assign(var Left: TPropertySet; const [ref] Right: TPropertySet);
@@ -88,21 +84,6 @@ implementation
 Class Constructor TPropertySet.Create;
 begin
   BaseDirectory := ExtractFileDir(ParamStr(0));
-end;
-
-Class Procedure TPropertySet.SetBaseDirectory(BaseDir: String);
-begin
-  FBaseDirectory := IncludeTrailingPathDelimiter(BaseDir);
-end;
-
-Class Function TPropertySet.FullPath(const RelativePath: String): String;
-// Relative paths are assumed to be relative to the base directory
-// of the property set instead of relative to the current directory
-begin
-  if TPath.IsRelativePath(RelativePath) then
-    Result := ExpandFileName(FBaseDirectory+RelativePath)
-  else
-    Result := RelativePath;
 end;
 
 Class Operator TPropertySet.Initialize(out PropertySet: TPropertySet);
@@ -307,7 +288,7 @@ end;
 
 Function TPropertySet.ToPath(const Name: String): String;
 begin
-  if Contains(Name,Result) then Result := FullPath(Result);
+  if Contains(Name,Result) then Result := BaseDirectory.AbsolutePath(Result);
 end;
 
 Function TPropertySet.ToFileName(const Name: String; MustExist: Boolean): String;
