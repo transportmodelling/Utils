@@ -196,15 +196,15 @@ end;
 
 Function TPropertySet.GetValueFromIndex(Index: Integer): String;
 begin
-  if not FReadOnly then
-    Result := FProperties[Index].Value
-  else
-    raise Exception.Create('Cannot modify a read only property set');
+  Result := FProperties[Index].Value;
 end;
 
 Procedure TPropertySet.SetValueFromIndex(Index: Integer; const Value: String);
 begin
-  FProperties[Index].Value := Value;
+  if not FReadOnly then
+    FProperties[Index].Value := Value
+  else
+    raise Exception.Create('Cannot modify a read only property set');
 end;
 
 Function TPropertySet.GetAsString: String;
