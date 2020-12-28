@@ -69,6 +69,8 @@ Type
     Function ToInt(const Name: String; Default: Integer): Integer; overload;
     Function ToFloat(const Name: String): Float64; overload;
     Function ToFloat(const Name: String; Default: Float64): Float64; overload;
+    Function ToBool(const Name,FalseStr,TrueStr: String): Boolean; overload;
+    Function ToBool(const Name,FalseStr,TrueStr: String; Default: Boolean): Boolean; overload;
    	Function ToPath(const Name: String): String;
    	Function ToFileName(const Name: String; MustExist: Boolean): String;
     Function Parse(const Name: String; Delimiter: TDelimiter = Comma): TStringParser;
@@ -319,6 +321,27 @@ begin
       raise Exception.Create('Invalid floating point value (' + Name + ')');
     end
   else
+    Result := Default;
+end;
+
+Function TPropertySet.ToBool(const Name,FalseStr,TrueStr: String): Boolean;
+begin
+  var Value := GetValues(Name);
+  if SameText(Value,FalseStr) then Result := false else
+  if SameText(Value,TrueStr) then Result := true else
+  raise Exception.Create('Invalid boolean value (' + Name + ')');
+end;
+
+Function TPropertySet.ToBool(const Name,FalseStr,TrueStr: String; Default: Boolean): Boolean;
+Var
+  Value: String;
+begin
+  if Contains(Name,Value) then
+  begin
+    if SameText(Value,FalseStr) then Result := false else
+    if SameText(Value,TrueStr) then Result := true else
+    raise Exception.Create('Invalid boolean value (' + Name + ')')
+  end else
     Result := Default;
 end;
 
