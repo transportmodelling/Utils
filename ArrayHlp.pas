@@ -45,6 +45,17 @@ Type
     Property Length: Integer read GetLength write SetLength;
   end;
 
+  TStringArrayHelper = record helper for TArray<String>
+  private
+    Function GetLength: Integer; inline;
+    Procedure SetLength(Length: Integer); inline;
+  public
+    Procedure Assign(const Values: array of String);
+    Procedure Append(const Values: array of String);
+  public
+    Property Length: Integer read GetLength write SetLength;
+  end;
+
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
@@ -137,6 +148,31 @@ Function TFloat64ArrayHelper.Total: Float64;
 begin
   Result := 0.0;
   for var Index := 0 to Length-1 do Result := Result  + Self[Index];
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Function TStringArrayHelper.GetLength: Integer;
+begin
+  Result := System.Length(Self);
+end;
+
+Procedure TStringArrayHelper.SetLength(Length: Integer);
+begin
+  System.SetLength(Self,Length);
+end;
+
+Procedure TStringArrayHelper.Assign(const Values: array of String);
+begin
+  Length := System.Length(Values);
+  for var Index := 0 to Length-1 do Self[Index] := Values[Index];
+end;
+
+Procedure TStringArrayHelper.Append(const Values: array of String);
+begin
+  var Offset := Length;
+  Length := Offset + System.Length(Values);
+  for var Index := Offset to Length-1 do Self[Index] := Values[Index-Offset];
 end;
 
 end.
