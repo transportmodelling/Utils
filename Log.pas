@@ -21,7 +21,7 @@ Type
     LogStream: TFileStream;
     LogWriter: TStreamWriter;
   public
-    Constructor Create(const LogFileName: String; Echo: Boolean = true);
+    Constructor Create(const LogFileName: String; Echo: Boolean = true; Append: Boolean = false);
     Procedure Log(const Line: String = ''); overload;
     Procedure Log(const Error: Exception); overload;
     Procedure Log(const FileLabel,FileName: String); overload;
@@ -32,15 +32,21 @@ Type
 implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-Constructor TLogFile.Create(const LogFileName: String; Echo: Boolean = true);
+Constructor TLogFile.Create(const LogFileName: String; Echo: Boolean = true; Append: Boolean = false);
 begin
   inherited Create;
   ConsoleMessages := IsConsole and Echo;
-  LogStream := TFileStream.Create(LogFileName,fmCreate or fmShareDenyWrite);
+  if Append then
+  begin
+    LogStream := TFileStream.Create(LogFileName,fmOpenWrite or fmShareDenyWrite);
+    LogStream.Seek(0,soEnd);
+  end else
+    LogStream := TFileStream.Create(LogFileName,fmCreate or fmShareDenyWrite);
   LogWriter := TStreamWriter.Create(LogStream,TEncoding.ASCII,4096);
+  if Append and (LogStream.Size > 0) then LOGWriter.WriteLine;
   Log('START ' + DateTimeToStr(Now));
   Log('Executable',ParamStr(0));
-  Log('Running on: ' + GetEnvironmentVariable('COMPUTERNAME'));
+  Log('Computer: ' + GetEnvironmentVariable('COMPUTERNAME'));
  end;
 
 Procedure TLogFile.Log(const Line: String = '');
