@@ -20,6 +20,7 @@ Type
     Function GetLength: Integer; inline;
     Procedure SetLength(Length: Integer); inline;
   public
+    Constructor Create(const Values: array of Integer);
     Procedure Initialize(Value: Integer);
     Procedure Assign(const Values: array of Integer);
     Procedure Append(const Values: array of Integer);
@@ -35,6 +36,7 @@ Type
     Function GetLength: Integer; inline;
     Procedure SetLength(Length: Integer); inline;
   public
+    Constructor Create(const Values: array of Float64);
     Procedure Initialize(Value: Float64);
     Procedure Assign(const Values: array of Float64);
     Procedure Append(const Values: array of Float64);
@@ -50,6 +52,7 @@ Type
     Function GetLength: Integer; inline;
     Procedure SetLength(Length: Integer); inline;
   public
+    Constructor Create(const Values: array of String);
     Procedure Assign(const Values: array of String);
     Procedure Append(const Values: array of String);
   public
@@ -59,6 +62,11 @@ Type
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
+
+Constructor TIntArrayHelper.Create(const Values: array of Integer);
+begin
+  Assign(Values)
+end;
 
 Function TIntArrayHelper.GetLength: Integer;
 begin
@@ -106,6 +114,11 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
+Constructor TFloat64ArrayHelper.Create(const Values: array of Float64);
+begin
+  Assign(Values)
+end;
+
 Function TFloat64ArrayHelper.GetLength: Integer;
 begin
   Result := System.Length(Self);
@@ -151,6 +164,11 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
+
+Constructor TStringArrayHelper.Create(const Values: array of String);
+begin
+  Assign(Values)
+end;
 
 Function TStringArrayHelper.GetLength: Integer;
 begin
