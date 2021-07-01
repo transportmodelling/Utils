@@ -43,6 +43,7 @@ Type
     Function GetExcludeEmpty: Boolean;
     Procedure SetExcludeEmpty(ExcludeEmpty: Boolean);
     Function GetTokens(Token: Integer): TToken; inline;
+    Function GetChar(Token: Integer): Char; inline;
     Function GetStr(Token: Integer): String; inline;
     Function GetByte(Token: Integer): Byte; inline;
     Function GetInt(Token: Integer): Integer; inline;
@@ -71,6 +72,7 @@ Type
     // Query Tokens
     Function Count: Integer; inline;
     Property Tokens[Token: Integer]: TToken read GetTokens; default;
+    Property Char[Token: Integer]: Char read GetChar;
     Property Str[Token: Integer]: String read GetStr;
     Property Byte[Token: Integer]: Byte read GetByte;
     Property Int[Token: Integer]: Integer read GetInt;
@@ -180,6 +182,14 @@ end;
 Function TStringParser.GetTokens(Token: Integer): TToken;
 begin
   Result.FValue := FTokens[Token];
+end;
+
+Function TStringParser.GetChar(Token: Integer): Char;
+begin
+  if FTokens[Token].Length = 1 then
+    Result := FTokens[Token][1]
+  else
+    raise Exception.Create('Invalid token length');
 end;
 
 Function TStringParser.GetStr(Token: Integer): String;
