@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  Math;
+  Math,System.Generics.Collections;
 
 Type
   TIntArrayHelper = record helper for TArray<Integer>
@@ -27,6 +27,7 @@ Type
     Function  MinValue: Integer;
     Function  MaxValue: Integer;
     Function  Total: Integer;
+    Procedure Sort;
   public
     Property Length: Integer read GetLength write SetLength;
   end;
@@ -110,6 +111,11 @@ Function TIntArrayHelper.Total: Integer;
 begin
   Result := 0;
   for var Index := 0 to Length-1 do Result := Result  + Self[Index];
+end;
+
+Procedure TIntArrayHelper.Sort;
+begin
+  System.Generics.Collections.TArray.Sort<Integer>(Self);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
