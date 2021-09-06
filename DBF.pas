@@ -29,6 +29,9 @@ Type
     Procedure SetFieldFormat;
     Procedure Validate;
   public
+    Constructor Create(const FieldName: String; const FieldType: Char;
+                       const FieldLength,DecimalCount: Byte);
+  public
     Property FieldName: String read FFieldName write SetFieldName;
     Property FieldType: Char read FFieldType write SetFieldType;
     Property FieldLength: Byte read FFieldLength write SetFieldLength;
@@ -90,6 +93,15 @@ Type
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
+
+Constructor TDBFField.Create(const FieldName: String; const FieldType: Char;
+                             const FieldLength,DecimalCount: Byte);
+begin
+  SetFieldName(FieldName);
+  SetFieldType(FieldType);
+  SetFieldLength(FieldLength);
+  SetDecimalCount(DecimalCount);
+end;
 
 Procedure TDBFField.SetFieldName(Value: string);
 begin
