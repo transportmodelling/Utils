@@ -49,7 +49,7 @@ Type
     Function GetFieldValues(Field: Integer): Variant;
   public
     Constructor Create;
-    Function IndexOf(const FieldName: String): Integer;
+    Function IndexOf(const FieldName: String; const MustExist: Boolean = false): Integer;
   public
     Property FileName: String read FFileName;
     Property FieldCount: Integer read FFieldCount;
@@ -215,15 +215,12 @@ begin
   Result := FFields[Field].FieldValue;
 end;
 
-Function TDBFFile.IndexOf(const FieldName: String): Integer;
+Function TDBFFile.IndexOf(const FieldName: String; const MustExist: Boolean = false): Integer;
 begin
   Result := -1;
   for var Field := 0 to FFieldCount-1 do
-  if SameText(FFields[Field].FFieldName,FieldName) then
-  begin
-    Result := Field;
-    Break;
-  end;
+  if SameText(FFields[Field].FFieldName,FieldName) then Exit(Field);
+  if MustExist then raise Exception.Create('Unknown field ' + FieldName + ' in ' + FFileName);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
