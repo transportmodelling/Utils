@@ -84,7 +84,8 @@ Type
   public
     Constructor Create(const FileName: String; const Fields: array of TDBFField); overload;
     Constructor Create(const FileName: String; const DBFFile: TDBFFile); overload;
-    Procedure AppendRecord;
+    Procedure AppendRecord; overload;
+    Procedure AppendRecord(const Values: array of Variant); overload;
     Destructor Destroy; override;
   public
     Property FieldValues[Field: Integer]: Variant read GetFieldValues write SetFieldValues; default;
@@ -442,6 +443,16 @@ begin
     VarClear(FFields[Field].FieldValue);
   end;
   Inc(FRecordCount);
+end;
+
+Procedure TDBFWriter.AppendRecord(const Values: array of Variant);
+begin
+  if Length(Values) = FFieldCount then
+  begin
+    for var Field := 0 to FFieldCount-1 do SetFieldValues(Field,Values[Field]);
+    AppendRecord;
+  end else
+    raise Exception.Create('Invalid number of fields');
 end;
 
 Destructor TDBFWriter.Destroy;
