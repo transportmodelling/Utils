@@ -20,7 +20,8 @@ Type
     Function GetLength: Integer; inline;
     Procedure SetLength(Length: Integer); inline;
   public
-    Constructor Create(const Values: array of Integer);
+    Constructor Create(const Values: array of Integer); overload;
+    Constructor Create(const Length: Integer; Value: Integer = 0); overload;
     Procedure Initialize(Value: Integer);
     Procedure Assign(const Values: array of Integer);
     Procedure Append(const Values: array of Integer);
@@ -37,7 +38,8 @@ Type
     Function GetLength: Integer; inline;
     Procedure SetLength(Length: Integer); inline;
   public
-    Constructor Create(const Values: array of Float64);
+    Constructor Create(const Values: array of Float64); overload;
+    Constructor Create(const Length: Integer; Value: Float64 = 0.0); overload;
     Procedure Initialize(Value: Float64);
     Procedure Assign(const Values: array of Float64);
     Procedure Append(const Values: array of Float64);
@@ -67,6 +69,12 @@ implementation
 Constructor TIntArrayHelper.Create(const Values: array of Integer);
 begin
   Assign(Values)
+end;
+
+Constructor TIntArrayHelper.Create(const Length: Integer; Value: Integer = 0);
+begin
+  System.SetLength(Self,Length);
+  for var Index := 0 to Length-1 do Self[Index] := Value;
 end;
 
 Function TIntArrayHelper.GetLength: Integer;
@@ -123,6 +131,12 @@ end;
 Constructor TFloat64ArrayHelper.Create(const Values: array of Float64);
 begin
   Assign(Values)
+end;
+
+Constructor TFloat64ArrayHelper.Create(const Length: Integer; Value: Float64 = 0.0);
+begin
+  System.SetLength(Self,Length);
+  for var Index := 0 to Length-1 do Self[Index] := Value;
 end;
 
 Function TFloat64ArrayHelper.GetLength: Integer;
