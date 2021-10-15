@@ -151,17 +151,20 @@ begin
   if Value <> FFieldLength then
   begin
     FFieldLength := Value;
-    case FFieldType of
-      'C': if Value > 254 then raise Exception.Create('Invalid Field Length');
-      'D': if Value <> 8 then raise Exception.Create('Invalid Field Length');
-      'L': if Value <> 1 then raise Exception.Create('Invalid Field Length');
-      'F','N':
-           begin
-             if Value > 20 then raise Exception.Create('Invalid Field Length') else
-             if Value < FDecimalCount+2 then raise Exception.Create('Field Length too small');
-             SetFieldFormat;
-           end;
-    end;
+    if Value > 0 then
+      case FFieldType of
+        'C': if Value > 254 then raise Exception.Create('Invalid Field Length');
+        'D': if Value <> 8 then raise Exception.Create('Invalid Field Length');
+        'L': if Value <> 1 then raise Exception.Create('Invalid Field Length');
+        'F','N':
+             begin
+               if Value > 20 then raise Exception.Create('Invalid Field Length') else
+               if (FDecimalCount > 0) and (Value < FDecimalCount+2) then raise Exception.Create('Invalid Field Length');
+               SetFieldFormat;
+             end;
+      end
+    else
+      raise Exception.Create('Invalid Field Length');
   end;
 end;
 
