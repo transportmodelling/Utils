@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  Math,System.Generics.Collections;
+  SysUtils,Math,System.Generics.Collections;
 
 Type
   TIntArrayHelper = record helper for TArray<Integer>
@@ -22,6 +22,7 @@ Type
   public
     Constructor Create(const Values: array of Integer); overload;
     Constructor Create(const Length: Integer; Value: Integer = 0); overload;
+    Function ToString(const Separator: Char = ','): String;
     Procedure Initialize(Value: Integer);
     Procedure Assign(const Values: array of Integer);
     Procedure Append(const Values: array of Integer);
@@ -40,6 +41,7 @@ Type
   public
     Constructor Create(const Values: array of Float64); overload;
     Constructor Create(const Length: Integer; Value: Float64 = 0.0); overload;
+    Function ToString(const Format: String; const Separator: Char = ','): String;
     Procedure Initialize(Value: Float64);
     Procedure Assign(const Values: array of Float64);
     Procedure Append(const Values: array of Float64);
@@ -75,6 +77,16 @@ Constructor TIntArrayHelper.Create(const Length: Integer; Value: Integer = 0);
 begin
   System.SetLength(Self,Length);
   for var Index := 0 to Length-1 do Self[Index] := Value;
+end;
+
+Function TIntArrayHelper.ToString(const Separator: Char = ','): String;
+begin
+  if Self.Length > 0 then
+  begin
+    Result := Self[0].ToString;
+    for var Index := 1 to Length-1 do Result := Result + Separator + Self[Index].ToString;
+  end else
+    Result := '';
 end;
 
 Function TIntArrayHelper.GetLength: Integer;
@@ -137,6 +149,16 @@ Constructor TFloat64ArrayHelper.Create(const Length: Integer; Value: Float64 = 0
 begin
   System.SetLength(Self,Length);
   for var Index := 0 to Length-1 do Self[Index] := Value;
+end;
+
+Function TFloat64ArrayHelper.ToString(const Format: String; const Separator: Char = ','): String;
+begin
+  if Self.Length > 0 then
+  begin
+    Result := FormatFloat(Format,Self[0]);
+    for var Index := 1 to Length-1 do Result := Result + Separator + FormatFloat(Format,Self[Index]);
+  end else
+    Result := '';
 end;
 
 Function TFloat64ArrayHelper.GetLength: Integer;
