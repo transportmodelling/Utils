@@ -60,7 +60,7 @@ end;
 
 Procedure TLogFile.Log(const Error: Exception);
 begin
-  Log('ERROR ' + Error.Message);
+  Log('ERROR: ' + Error.Message);
 end;
 
 Procedure TLogFile.Log(const FileLabel,FileName: String);
