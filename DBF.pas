@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  System.Classes,System.SysUtils,ArrayBld;
+  Classes,SysUtils,Generics.Collections,ArrayBld;
 
 Type
   TDBFField = record
@@ -49,10 +49,12 @@ Type
     Function GetFieldTypes(Field: Integer): Char;
     Function GetFieldLength(Field: Integer): Byte;
     Function GetDecimalCount(Field: Integer): Byte;
+    Function GetPairs(Field: Integer): TPair<String,Variant>; overload;
     Function GetFieldValues(Field: Integer): Variant;
   public
     Constructor Create;
     Function IndexOf(const FieldName: String; const MustExist: Boolean = false): Integer;
+    Function GetPairs: TArray<TPair<String,Variant>>; overload;
   public
     Property FileName: String read FFileName;
     Property FieldCount: Integer read FFieldCount;
@@ -61,6 +63,7 @@ Type
     Property FieldTypes[Field: Integer]: Char read GetFieldTypes;
     Property FieldLength[Field: Integer]: Byte read GetFieldLength;
     Property DecimalCount[Field: Integer]: Byte read GetDecimalCount;
+    Property Pairs[Field: Integer]: TPair<String,Variant> read GetPairs;
     Property FieldValues[Field: Integer]: Variant read GetFieldValues; default;
   end;
 
@@ -231,12 +234,24 @@ begin
   Result := FFields[Field].FieldValue;
 end;
 
+Function TDBFFile.GetPairs(Field: Integer): TPair<String,Variant>;
+begin
+  Result.Key := FFields[Field].FFieldName;
+  Result.Value := FFields[Field].FieldValue;
+end;
+
 Function TDBFFile.IndexOf(const FieldName: String; const MustExist: Boolean = false): Integer;
 begin
   Result := -1;
   for var Field := 0 to FFieldCount-1 do
   if SameText(FFields[Field].FFieldName,FieldName) then Exit(Field);
   if MustExist then raise Exception.Create('Unknown field ' + FieldName + ' in ' + FFileName);
+end;
+
+Function TDBFFile.GetPairs: TArray<TPair<String,Variant>>;
+begin
+  SetLength(Result,FFieldCount);
+  for var Field := 0 to FFieldCount-1 do Result[Field] := GetPairs(Field);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
