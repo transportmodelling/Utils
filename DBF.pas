@@ -454,7 +454,9 @@ begin
              if Length(Text) = FFields[Field].FieldLength then
                FileWriter.Write(Text.ToCharArray)
              else
-               raise Exception.Create('Numeric value out of range');
+               raise Exception.Create('Numeric value out of range (field=' +
+                                      FFields[Field].FFieldName + '; value=' +
+                                      Value.ToString + ')');
            end;
       else raise Exception.Create('Unsupported field type');
     end;
