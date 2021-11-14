@@ -26,6 +26,7 @@ Type
     Procedure Initialize(Value: Integer);
     Procedure Assign(const Values: array of Integer);
     Procedure Append(const Values: array of Integer);
+    Function Contains(Value: Integer): Boolean;
     Function  MinValue: Integer;
     Function  MaxValue: Integer;
     Function  Total: Integer;
@@ -115,6 +116,13 @@ begin
   var Offset := Length;
   Length := Offset + System.Length(Values);
   for var Index := Offset to Length-1 do Self[Index] := Values[Index-Offset];
+end;
+
+Function TIntArrayHelper.Contains(Value: Integer): Boolean;
+begin
+  Result := false;
+  for var Index := 0 to Length-1 do
+  if Self[Index] = Value then Exit(true);
 end;
 
 Function TIntArrayHelper.MinValue: Integer;
