@@ -25,6 +25,7 @@ Type
     Class Operator Implicit(Token: TToken): Float32;
     Class Operator Implicit(Token: TToken): Float64;
   public
+    Function ToChar: Char; inline;
     Function ToInt: Integer; inline;
     Function ToFloat: Float64; inline;
     Function Round: Integer; inline;
@@ -136,6 +137,14 @@ end;
 Class Operator TToken.Implicit(Token: TToken): Float64;
 begin
   Result := Token.Value.ToDouble;
+end;
+
+Function TToken.ToChar: Char;
+begin
+  if Value.Length = 1 then
+    Result := Value[1]
+  else
+    raise Exception.Create('Invalid token length');
 end;
 
 Function TToken.ToInt: Integer;
