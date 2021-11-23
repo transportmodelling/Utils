@@ -479,11 +479,14 @@ Destructor TDBFWriter.Destroy;
 begin
   // Write eof marker
   var EOF: Byte := 26;
-  FileWriter.Write(EOF);
+  if FileWriter <> nil then FileWriter.Write(EOF);
   // Update record count
-  FileStream.FlushBuffer;
-  FileStream.Position := 4;
-  FileWriter.Write(RecordCount);
+  if FileStream <> nil then
+  begin
+    FileStream.FlushBuffer;
+    FileStream.Position := 4;
+    FileWriter.Write(RecordCount);
+  end;
   // Close file
   FileWriter.Free;
   FileStream.Free;
