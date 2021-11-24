@@ -61,6 +61,8 @@ Type
     Function Count: Integer; inline;
     Function Contains(const Name: String): Boolean; overload;
     Function Contains(const Name: String; var Value: String): Boolean; overload;
+    Function ContainsValue(const Name: String): Boolean; overload;
+    Function ContainsValue(const Name: String; var Value: String): Boolean; overload;
     Property Names[Index: Integer]: String read GetNames;
     Property Values[const Name: String]: string read GetValues write SetValues; default;
     Property ValueFromIndex[Index: Integer]: String read GetValueFromIndex write SetValueFromIndex;
@@ -255,14 +257,10 @@ begin
 end;
 
 Function TPropertySet.Contains(const Name: String): Boolean;
+Var
+  Value: String;
 begin
-  Result := false;
-  for var Prop := low(FProperties) to high(FProperties) do
-  if SameText(FProperties[Prop].Name,Name) then
-  begin
-    Result := true;
-    Break;
-  end;
+  Result := Contains(Name,Value);
 end;
 
 Function TPropertySet.Contains(const Name: String; var Value: String): Boolean;
@@ -276,6 +274,21 @@ begin
     Value := FProperties[Prop].Value;
     Break;
   end;
+end;
+
+Function TPropertySet.ContainsValue(const Name: String): Boolean;
+Var
+  Value: String;
+begin
+  Result := ContainsValue(Name,Value);
+end;
+
+Function TPropertySet.ContainsValue(const Name: String; var Value: String): Boolean;
+begin
+  if Contains(Name,Value) then
+    Result := (Value <> '')
+  else
+    Result := false;
 end;
 
 Function TPropertySet.ToInt(const Name: String): Integer;
