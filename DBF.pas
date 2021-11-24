@@ -54,6 +54,7 @@ Type
   public
     Constructor Create;
     Function IndexOf(const FieldName: String; const MustExist: Boolean = false): Integer;
+    Function GetFields: TArray<TDBFField>;
     Function GetPairs: TArray<TPair<String,Variant>>; overload;
   public
     Property FileName: String read FFileName;
@@ -258,6 +259,11 @@ begin
   if MustExist then raise Exception.Create('Unknown field ' + FieldName + ' in ' + FFileName);
 end;
 
+Function TDBFFile.GetFields: TArray<TDBFField>;
+begin
+  Result := Copy(FFields);
+end;
+
 Function TDBFFile.GetPairs: TArray<TPair<String,Variant>>;
 begin
   SetLength(Result,FFieldCount);
@@ -318,12 +324,12 @@ begin
       DeletedRecord := (FileReader.ReadChar = '*');
       for var Field := 0 to FFieldCount-1 do
       begin
-        var FieldValue := '';
         case FFields[Field].FFieldType of
           'I': FFields[Field].FieldValue := FileReader.ReadInt32;
           'O': FFields[Field].FieldValue := FileReader.ReadDouble;
           else
             begin
+              var FieldValue := '';
               for var FieldChar := 1 to FFields[Field].FFieldLength do FieldValue := FieldValue + FileReader.ReadChar;
               case FFields[Field].FFieldType of
                 'C': FFields[Field].FieldValue := Trim(FieldValue);
