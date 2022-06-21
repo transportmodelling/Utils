@@ -256,7 +256,7 @@ begin
   Result := -1;
   for var Field := 0 to FFieldCount-1 do
   if SameText(FFields[Field].FFieldName,FieldName) then Exit(Field);
-  if MustExist then raise Exception.Create('Unknown field ' + FieldName + ' in ' + FFileName);
+  if MustExist then raise Exception.Create('Field ' + FieldName + ' not found in ' + FFileName);
 end;
 
 Function TDBFFile.GetFields: TArray<TDBFField>;
