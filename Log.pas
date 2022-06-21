@@ -23,6 +23,8 @@ Type
   public
     Constructor Create(const LogFileName: String; Echo: Boolean = true; Append: Boolean = false);
     Procedure Log(const Line: String = ''); overload;
+    Procedure Log(const Columns: array of String; const ColumnWidths: Integer); overload;
+    Procedure Log(const Columns: array of String; const ColumnWidths: array of Integer); overload;
     Procedure Log(const Error: Exception); overload;
     Procedure Log(const FileLabel,FileName: String); overload;
     Destructor Destroy; override;
@@ -55,7 +57,36 @@ begin
 Procedure TLogFile.Log(const Line: String = '');
 begin
   if ConsoleMessages then writeln(Line);
-  if LOGWriter <> nil then LOGWriter.WriteLine(Line)
+  if LogWriter <> nil then LogWriter.WriteLine(Line)
+end;
+
+Procedure TLogFile.Log(const Columns: array of String; const ColumnWidths:Integer);
+begin
+  var Line := '';
+  for var Column := low(Columns) to high(Columns) do
+  begin
+    var Text := Columns[Column];
+    while Length(Text) < ColumnWidths do Text := ' ' + Text;
+    Line := Line + Text;
+  end;
+  Log(Line);
+end;
+
+Procedure TLogFile.Log(const Columns: array of String; const ColumnWidths: array of Integer);
+begin
+  if Length(Columns) = Length(ColumnWidths) then
+  begin
+    var Line := '';
+    for var Column := low(Columns) to high(Columns) do
+    begin
+      var Text := Columns[Column];
+      var Width := ColumnWidths[Column];
+      while Length(Text) < Width do Text := ' ' + Text;
+      Line := Line + Text;
+    end;
+    Log(Line);
+  end else
+    raise Exception.Create('Inconsistent method arguments');
 end;
 
 Procedure TLogFile.Log(const Error: Exception);
