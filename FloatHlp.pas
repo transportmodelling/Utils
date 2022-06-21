@@ -19,7 +19,9 @@ Type
   public
     Function Round: Int64;
     Procedure Add(const Value: Float64);
+    Procedure Subtract(const Value: Float64);
     Procedure MultiplyBy(const Value: Float64);
+    Procedure DivideBy(const Value: Float64);
     Function ToString: String; overload;
     Function ToString(const Format: String): String; overload;
   end;
@@ -38,9 +40,19 @@ begin
   Self := Self + Value;
 end;
 
+Procedure TFloat64Helper.Subtract(const Value: Float64);
+begin
+  Self := Self - Value;
+end;
+
 Procedure TFloat64Helper.MultiplyBy(const Value: Float64);
 begin
   Self := Value*Self;
+end;
+
+Procedure TFloat64Helper.DivideBy(const Value: Float64);
+begin
+  Self := Self/Value;
 end;
 
 Function TFloat64Helper.ToString: String;
