@@ -87,6 +87,12 @@ Type
     Function ToFloatArray(Offset,Count: Integer): TArray<Float64>; overload;
     Function ToFloatArray(const FormatSettings: TFormatSettings): TArray<Float64>; overload;
     Function ToFloatArray(const FormatSettings: TFormatSettings; Offset,Count: Integer): TArray<Float64>; overload;
+    Function TryToIntArray(out Values: TArray<Int32>): Boolean; overload;
+    Function TryToIntArray(Offset,Count: Integer; out Values: TArray<Int32>): Boolean; overload;
+    Function TryToFloatArray(out Values: TArray<Float64>): Boolean; overload;
+    Function TryToFloatArray(Offset,Count: Integer; out Values: TArray<Float64>): Boolean; overload;
+    Function TryToFloatArray(const FormatSettings: TFormatSettings; out Values: TArray<Float64>): Boolean; overload;
+    Function TryToFloatArray(const FormatSettings: TFormatSettings; Offset,Count: Integer; out Values: TArray<Float64>): Boolean; overload;
   end;
 
   TFixedWidthParser = record
@@ -370,6 +376,42 @@ Function TStringParser.ToFloatArray(const FormatSettings: TFormatSettings; Offse
 begin
   SetLength(Result,Count);
   for var Token := 0 to Count-1 do Result[Token] := StrToFloat(FTokens[Token+Offset],FormatSettings);
+end;
+
+Function TStringParser.TryToIntArray(out Values: TArray<Int32>): Boolean;
+begin
+  Result := TryToIntArray(0,Count,Values);
+end;
+
+Function TStringParser.TryToIntArray(Offset,Count: Integer; out Values: TArray<Int32>): Boolean;
+begin
+  Result := true;
+  SetLength(Values,Count);
+  for var Token := 0 to Count-1 do
+  if not TryStrToInt(FTokens[Token+Offset],Values[Token]) then Exit(false);
+end;
+
+Function TStringParser.TryToFloatArray(out Values: TArray<Float64>): Boolean;
+begin
+  Result := TryToFloatArray(FormatSettings,0,Count,Values);
+end;
+
+Function TStringParser.TryToFloatArray(Offset,Count: Integer; out Values: TArray<Float64>): Boolean;
+begin
+  Result := TryToFloatArray(FormatSettings,Offset,Count,Values);
+end;
+
+Function TStringParser.TryToFloatArray(const FormatSettings: TFormatSettings; out Values: TArray<Float64>): Boolean;
+begin
+  Result := TryToFloatArray(FormatSettings,0,Count,Values);
+end;
+
+Function TStringParser.TryToFloatArray(const FormatSettings: TFormatSettings; Offset,Count: Integer; out Values: TArray<Float64>): Boolean;
+begin
+  Result := true;
+  SetLength(Values,Count);
+  for var Token := 0 to Count-1 do
+  if not TryStrToFloat(FTokens[Token+Offset],Values[Token],FormatSettings) then Exit(false);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
