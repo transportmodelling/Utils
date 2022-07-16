@@ -81,7 +81,7 @@ begin
     for var Field := 0 to FFieldCount-1 do
     if SameText(FNames[Field],FieldName) then Exit(Field)
   end;
-  if MustExist then raise Exception.Create('Unknown field ' + FieldName + ' in ' + FFileName);
+  if MustExist then raise Exception.Create('Missing field ' + FieldName + ' in ' + FFileName);
 end;
 
 Function TTextTableReader.ReadLine: Boolean;
