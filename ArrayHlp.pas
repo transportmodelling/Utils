@@ -25,6 +25,9 @@ Type
     Function ToString(const Separator: Char = ','): String;
     Procedure Initialize(Value: Integer);
     Procedure Assign(const Values: array of Integer);
+    Procedure AssignTo(var Value0, Value1: Integer); overload;
+    Procedure AssignTo(var Value0, Value1, Value2: Integer); overload;
+    Procedure AssignTo(var Values: array of Integer); overload;
     Procedure Append(const Values: array of Integer);
     Function Contains(Value: Integer): Boolean;
     Function  MinValue: Integer;
@@ -45,6 +48,9 @@ Type
     Function ToString(const Format: String; const Separator: Char = ','): String;
     Procedure Initialize(Value: Float64);
     Procedure Assign(const Values: array of Float64);
+    Procedure AssignTo(var Value0, Value1: Float64); overload;
+    Procedure AssignTo(var Value0, Value1, Value2: Float64); overload;
+    Procedure AssignTo(var Values: array of Float64); overload;
     Procedure Append(const Values: array of Float64);
     Function  MinValue: Float64;
     Function  MaxValue: Float64;
@@ -109,6 +115,35 @@ Procedure TIntArrayHelper.Assign(const Values: array of Integer);
 begin
   Length := System.Length(Values);
   for var Index := 0 to Length-1 do Self[Index] := Values[Index];
+end;
+
+Procedure TIntArrayHelper.AssignTo(var Value0, Value1: Integer);
+begin
+  if Length = 2 then
+  begin
+    Value0 := Self[0];
+    Value1 := Self[1];
+  end else
+    raise Exception.Create('Invalid length');
+end;
+
+Procedure TIntArrayHelper.AssignTo(var Value0, Value1, Value2: Integer);
+begin
+  if Length = 3 then
+  begin
+    Value0 := Self[0];
+    Value1 := Self[1];
+    Value2 := Self[2];
+  end else
+    raise Exception.Create('Invalid length');
+end;
+
+Procedure TIntArrayHelper.AssignTo(var Values: array of Integer);
+begin
+  if Length = System.Length(Values) then
+    for var Index := 0 to Length-1 do Values[Index] := Self[Index]
+  else
+    raise Exception.Create('Invalid length');
 end;
 
 Procedure TIntArrayHelper.Append(const Values: array of Integer);
@@ -189,6 +224,36 @@ begin
   Length := System.Length(Values);
   for var Index := 0 to Length-1 do Self[Index] := Values[Index];
 end;
+
+Procedure TFloat64ArrayHelper.AssignTo(var Value0, Value1: Float64);
+begin
+  if Length = 2 then
+  begin
+    Value0 := Self[0];
+    Value1 := Self[1];
+  end else
+    raise Exception.Create('Invalid length');
+end;
+
+Procedure TFloat64ArrayHelper.AssignTo(var Value0, Value1, Value2: Float64);
+begin
+  if Length = 3 then
+  begin
+    Value0 := Self[0];
+    Value1 := Self[1];
+    Value2 := Self[2];
+  end else
+    raise Exception.Create('Invalid length');
+end;
+
+Procedure TFloat64ArrayHelper.AssignTo(var Values: array of Float64);
+begin
+  if Length = System.Length(Values) then
+    for var Index := 0 to Length-1 do Values[Index] := Self[Index]
+  else
+    raise Exception.Create('Invalid length');
+end;
+
 
 Procedure TFloat64ArrayHelper.Append(const Values: array of Float64);
 begin
