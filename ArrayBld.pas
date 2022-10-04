@@ -27,6 +27,7 @@ Type
     Constructor Create(const Values: array of T); overload;
     Constructor Create(const Values: array of T; const First,count: Integer); overload;
     Constructor Create(const Length: Integer; const Values: T); overload;
+    Constructor Create(const Length: Integer); overload;
     Function Length: Integer; inline;
     Procedure Append(const Values: array of T); overload;
     Procedure Append(const Values: array of T; const First,Count: Integer); overload;
@@ -103,6 +104,11 @@ Constructor TArrayBuilder<T>.Create(const Length: Integer; const Values: T);
 begin
   SetLength(FValues,Length);
   for var Index := 0 to Length-1 do FValues[Index] := Values;
+end;
+
+Constructor TArrayBuilder<T>.Create(const Length: Integer);
+begin
+  SetLength(FValues,Length);
 end;
 
 Function TArrayBuilder<T>.GetValues(Index: Integer): T;
