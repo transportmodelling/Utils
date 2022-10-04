@@ -36,6 +36,7 @@ Type
     Class Operator Implicit(Ranges: String): TRanges;
     Class Operator Implicit(Ranges: TRanges): String;
   public
+    Constructor Create(const Ranges: string);
     Function Count: Integer;
     Function Contains(const Value: Integer): Boolean;
   public
@@ -121,6 +122,11 @@ begin
       Result := Result + Separator + Ranges[Range].FMin.ToString + '-' + Ranges[Range].FMax.ToString;
     Separator := ',';
   end;
+end;
+
+Constructor TRanges.Create(const Ranges: string);
+begin
+  Self := Ranges;
 end;
 
 Function TRanges.GetRanges(Range: Integer): TRange;
