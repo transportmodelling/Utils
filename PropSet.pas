@@ -67,6 +67,7 @@ Type
     Property Values[const Name: String]: string read GetValues write SetValues; default;
     Property ValueFromIndex[Index: Integer]: String read GetValueFromIndex write SetValueFromIndex;
     // Convert property values
+    Function ToStr(const Name,Default: String): String;
     Function ToInt(const Name: String): Integer; overload;
     Function ToInt(const Name: String; Default: Integer): Integer; overload;
     Function ToFloat(const Name: String): Float64; overload;
@@ -74,7 +75,8 @@ Type
     Function ToBool(const Name,FalseStr,TrueStr: String): Boolean; overload;
     Function ToBool(const Name,FalseStr,TrueStr: String; Default: Boolean): Boolean; overload;
    	Function ToPath(const Name: String): String;
-   	Function ToFileName(const Name: String; MustExist: Boolean): String;
+   	Function ToFileName(const Name: String): String; overload;
+   	Function ToFileName(const Name,Extension: String): String; overload;
     Function Parse(const Name: String; Delimiter: TDelimiter = Comma): TStringParser;
     // Manage content
     Constructor Create(ReadOnly: Boolean); overload;
@@ -84,6 +86,7 @@ Type
     Procedure RemoveUnassigned;
     Procedure Append(const Name,Value: String); overload;
     Procedure Append(const Properties: TPropertySet; SkipUnassigned,SkipDuplicates: Boolean); overload;
+    Procedure Lock;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -291,6 +294,11 @@ begin
     Result := false;
 end;
 
+Function TPropertySet.ToStr(const Name,Default: String): String;
+begin
+  if not Contains(Name,Result) then Result := Default;
+end;
+
 Function TPropertySet.ToInt(const Name: String): Integer;
 begin
   try
@@ -360,13 +368,34 @@ end;
 
 Function TPropertySet.ToPath(const Name: String): String;
 begin
-  if Contains(Name,Result) then Result := BaseDirectory.AbsolutePath(Result);
+  if Contains(Name,Result) then
+    Result := BaseDirectory.AbsolutePath(Result)
+  else
+    Result := '';
 end;
 
-Function TPropertySet.ToFileName(const Name: String; MustExist: Boolean): String;
+Function TPropertySet.ToFileName(const Name: String): String;
 begin
-  Result := ToPath(Name);
-  if MustExist and not FileExists(Result) then raise Exception.Create('File does not exist (' + Name + ')');
+  // Set file name
+  if Contains(Name,Result) then
+    if Result <> '' then
+      Result := BaseDirectory.AbsolutePath(Result)
+    else
+      Result := ''
+  else
+    Result := '';
+end;
+
+Function TPropertySet.ToFileName(const Name,Extension: String): String;
+begin
+  // Set file name
+  if Contains(Name,Result) then
+    if Result <> '' then
+      Result := ChangeFileExt(BaseDirectory.AbsolutePath(Result),Extension)
+    else
+      Result := ''
+  else
+    Result := '';
 end;
 
 Function TPropertySet.Parse(const Name: String; Delimiter: TDelimiter = Comma): TStringParser;
@@ -450,6 +479,11 @@ begin
       raise Exception.Create('Duplicate property (' + Properties.Names[Prop] + ')')
   end;
   SetLength(FProperties,Index);
+end;
+
+Procedure TPropertySet.Lock;
+begin
+  FReadOnly := true;
 end;
 
 end.
