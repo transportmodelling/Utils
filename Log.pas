@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils,IOUtils,Classes,Parse;
+  SysUtils,IOUtils,DateUtils,Classes,Parse;
 
 Type
   TLogFile = Class
@@ -24,6 +24,7 @@ Type
     Const
       MaxPathLevels = 4;
     Var
+      StartTime: TDateTime;
       ConsoleMessages: Boolean;
       LogStream: TFileStream;
       LogWriter: TStreamWriter;
@@ -31,11 +32,14 @@ Type
     Function ShortenPath(const Path: string): string;
     Function FileProperties(const FileName: string): string;
     Function FileInfo(const FileName: string; NameOnly: Boolean): string;
+    Function VarRecToStr(VarRec: TVarRec; Decimals: Integer): String;
   public
     Constructor Create(const LogFileName: String; Echo: Boolean = true; Append: Boolean = false);
     Procedure Log(const Line: String = ''); overload;
     Procedure Log(const Columns: array of String; const ColumnWidths: Integer); overload;
+    Procedure Log(const Columns: array of Const; const ColumnWidths, Decimals: Integer); overload;
     Procedure Log(const Columns: array of String; const ColumnWidths: array of Integer); overload;
+    Procedure Log(const Columns: array of Const; const ColumnWidths: array of Integer; Decimals: Integer); overload;
     Procedure Log(const Error: Exception); overload;
     Procedure Log(const FileLabel,FileName: String); overload;
     Procedure InputFile(const FileLabel,FileName: String);
@@ -62,7 +66,8 @@ begin
     LogStream := TFileStream.Create(LogFileName,fmCreate or fmShareDenyWrite);
   LogWriter := TStreamWriter.Create(LogStream,TEncoding.ASCII,4096);
   if Append and (LogStream.Size > 0) then LOGWriter.WriteLine;
-  Log('START ' + DateTimeToStr(Now));
+  StartTime := Now;
+  Log('START ' + DateTimeToStr(StartTime));
   Log('Executable: ' + FileInfo(ParamStr(0),true));
   Log('Computer: ' + GetEnvironmentVariable('COMPUTERNAME'));
  end;
@@ -100,6 +105,23 @@ begin
   Result := Result + '; ' +  FileProperties(FileName);
 end;
 
+Function TLogFile.VarRecToStr(VarRec: TVarRec; Decimals: Integer): String;
+begin
+  case VarRec.VType of
+    vtInteger:       Result := VarRec.VInteger.ToString;
+    vtInt64:         Result := VarRec.VInt64^.ToString;
+    vtChar:          Result := VarRec.VChar;
+    vtExtended:      Result := FloatToStrF(VarRec.vExtended^,ffFixed,15,Decimals);
+    vtString:        Result := VarRec.VString^;
+    vtUnicodeString: Result := String(VarRec.VUnicodeString);
+    vtPChar:         Result := VarRec.VPChar;
+    vtAnsiString:    Result := String(VarRec.VAnsiString);
+    vtCurrency:      Result := VarRec.VCurrency^.ToString;
+    vtVariant:       Result := String(VarRec.VVariant^);
+    else raise Exception.Create('Unsupported type in Log');
+  end;
+end;
+
 Procedure TLogFile.Log(const Line: String = '');
 begin
   if ConsoleMessages then writeln(Line);
@@ -118,6 +140,15 @@ begin
   Log(Line);
 end;
 
+Procedure TLogFile.Log(const Columns: array of Const; const ColumnWidths, Decimals: Integer);
+Var
+  StringColumns: array of String;
+begin
+  SetLength(StringColumns,Length(Columns));
+  for var Column := low(Columns) to high(Columns) do StringColumns[Column] := VarRecToStr(Columns[Column],Decimals);
+  Log(StringColumns,ColumnWidths);
+end;
+
 Procedure TLogFile.Log(const Columns: array of String; const ColumnWidths: array of Integer);
 begin
   if Length(Columns) = Length(ColumnWidths) then
@@ -133,6 +164,15 @@ begin
     Log(Line);
   end else
     raise Exception.Create('Inconsistent method arguments');
+end;
+
+Procedure TLogFile.Log(const Columns: array of Const; const ColumnWidths: array of Integer; Decimals: Integer);
+Var
+  StringColumns: array of String;
+begin
+  SetLength(StringColumns,Length(Columns));
+  for var Column := low(Columns) to high(Columns) do StringColumns[Column] := VarRecToStr(Columns[Column],Decimals);
+  Log(StringColumns,ColumnWidths);
 end;
 
 Procedure TLogFile.Log(const Error: Exception);
@@ -182,8 +222,12 @@ begin
     Log(OutputFiles[OutpFile].FileLabel + ': ' + FileInfo(OutputFiles[OutpFile].FileInfo,false));
   end;
   // Log stop time
+  var StopTime := Now;
   Log;
-  Log('STOP ' + DateTimeToStr(Now));
+  if DaysBetween(StartTime,StopTime) = 0 then
+    Log('STOP ' + DateTimeToStr(StopTime) + ' (Run time: ' + FormatDateTime('hh:nn:ss',StopTime-StartTime)+ ')')
+  else
+    Log('STOP ' + DateTimeToStr(StopTime) + ' (Run time: ' + FormatDateTime('dd:hh:nn:ss',StopTime-StartTime)+ ')');
   LogWriter.Free;
   LogStream.Free;
   inherited Destroy;
