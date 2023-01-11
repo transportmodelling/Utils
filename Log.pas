@@ -45,6 +45,7 @@ Type
     Procedure LogFileContent(const FileName: String);
     Procedure InputFile(const FileLabel,FileName: String);
     Procedure OutputFile(const FileLabel,FileName: String);
+    Procedure Flush;
     Destructor Destroy; override;
   end;
 
@@ -212,6 +213,11 @@ begin
   OutputFile.FileLabel := FileLabel;
   OutputFile.FileInfo := FileName;
   OutputFiles := OutputFiles + [OutputFile];
+end;
+
+Procedure TLogFile.Flush;
+begin
+  LogWriter.Flush;
 end;
 
 Destructor TLogFile.Destroy;
