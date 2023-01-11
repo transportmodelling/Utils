@@ -42,6 +42,7 @@ Type
     Procedure Log(const Columns: array of Const; const ColumnWidths: array of Integer; Decimals: Integer); overload;
     Procedure Log(const Error: Exception); overload;
     Procedure Log(const FileLabel,FileName: String); overload;
+    Procedure LogFileContent(const FileName: String);
     Procedure InputFile(const FileLabel,FileName: String);
     Procedure OutputFile(const FileLabel,FileName: String);
     Destructor Destroy; override;
@@ -183,6 +184,16 @@ end;
 Procedure TLogFile.Log(const FileLabel,FileName: String);
 begin
   Log(FileLabel + ': ' + FileInfo(FileName,false));
+end;
+
+Procedure TLogFile.LogFileContent(const FileName: String);
+begin
+  var Reader := TStreamReader.Create(FileName);
+  try
+    while not Reader.EndOfStream do Log(Reader.ReadLine);
+  finally
+    Reader.Free;
+  end;
 end;
 
 Procedure TLogFile.InputFile(const FileLabel,FileName: String);
