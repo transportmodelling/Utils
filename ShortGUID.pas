@@ -66,27 +66,37 @@ end;
 
 Class Function TShortGUID.StrToGUID(const GUID: String): TGUID;
 begin
-  Result := TGUID.Create(Base64.DecodeStringToBytes(GUID+'=='));
+  case Length(GUID) of
+    // Short GUID...
+    22: Result := TGUID.Create(Base64.DecodeStringToBytes(GUID+'=='));
+    // Regular GUID...
+    38: result := TGUID.Create(GUID);
+    else raise Exception.Create('Invalid GUID');
+  end;
 end;
 
 Class Function TShortGUID.UrlToGUID(url: String): TGUID;
 begin
-  // Replace _ with /
-  var UnderscorePos := Pos('_',url);
-  while UnderscorePos > 0 do
+  if Length(url) = 22 then
   begin
-    url[UnderscorePos] := '/';
-    UnderscorePos := Pos('_',url);
-  end;
-  // Replace - with +
-  var MinusPos := Pos('-',url);
-  while MinusPos > 0 do
-  begin
-    url[MinusPos] := '+';
-    MinusPos := Pos('-',url);
-  end;
-  // Convert url to GUID
-  Result := StrToGUID(url);
+    // Replace _ with /
+    var UnderscorePos := Pos('_',url);
+    while UnderscorePos > 0 do
+    begin
+      url[UnderscorePos] := '/';
+      UnderscorePos := Pos('_',url);
+    end;
+    // Replace - with +
+    var MinusPos := Pos('-',url);
+    while MinusPos > 0 do
+    begin
+      url[MinusPos] := '+';
+      MinusPos := Pos('-',url);
+    end;
+    // Convert url to GUID
+    Result := StrToGUID(url);
+  end else
+    raise Exception.Create('Invalid url');
 end;
 
 Class Destructor TShortGUID.Destroy;
