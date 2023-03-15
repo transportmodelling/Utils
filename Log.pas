@@ -15,6 +15,8 @@ Uses
   SysUtils,IOUtils,DateUtils,Classes,Parse;
 
 Type
+  TLogEvent = Procedure(Sender: TObject; const Line: String) of Object;
+
   TLogFile = Class
   private
     Type
@@ -24,6 +26,7 @@ Type
     Const
       MaxPathLevels = 4;
     Var
+      LogEvent: TLogEvent;
       StartTime: TDateTime;
       ConsoleMessages: Boolean;
       LogStream: TFileStream;
@@ -34,7 +37,8 @@ Type
     Function FileInfo(const FileName: string; NameOnly: Boolean): string;
     Function VarRecToStr(VarRec: TVarRec; Decimals: Integer): String;
   public
-    Constructor Create(const LogFileName: String; Echo: Boolean = true; Append: Boolean = false);
+    Constructor Create(const LogFileName: String; const Echo: Boolean = true;
+                       const Append: Boolean = false; const OnLog: TLogEvent = nil);
     Procedure Log(const Line: String = ''); overload;
     Procedure Log(const Columns: array of String; const ColumnWidths: Integer); overload;
     Procedure Log(const Columns: array of Const; const ColumnWidths, Decimals: Integer); overload;
@@ -56,9 +60,11 @@ Var
 implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-Constructor TLogFile.Create(const LogFileName: String; Echo: Boolean = true; Append: Boolean = false);
+Constructor TLogFile.Create(const LogFileName: String; const Echo: Boolean = true;
+                            const Append: Boolean = false; const OnLog: TLogEvent = nil);
 begin
   inherited Create;
+  LogEvent := OnLog;
   ConsoleMessages := IsConsole and Echo;
   if Append then
   begin
@@ -127,7 +133,11 @@ end;
 Procedure TLogFile.Log(const Line: String = '');
 begin
   if ConsoleMessages then writeln(Line);
-  if LogWriter <> nil then LogWriter.WriteLine(Line)
+  if LogWriter <> nil then LogWriter.WriteLine(Line);
+  if Assigned(LogEvent) then TThread.Synchronize(nil,Procedure
+                                                     begin
+                                                       LogEvent(Self,Line)
+                                                     end);
 end;
 
 Procedure TLogFile.Log(const Columns: array of String; const ColumnWidths:Integer);
