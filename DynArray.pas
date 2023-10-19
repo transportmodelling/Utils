@@ -14,13 +14,9 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils,ArrayBld;
+  SysUtils, Ranges, ArrayBld;
 
 Type
-  TRange = record
-    Min,Max: Integer;
-  end;
-
   TCompositeIndex = record
   // This record converts between indices and a single composite index
   //
@@ -146,17 +142,19 @@ Function TCompositeIndex.CompositeIndexRange(const Indices: array of Integer): T
 begin
   if Length(Indices) = Rank then
   begin
-    Result.Min := CompositeIndex(Indices);
-    Result.Max := Result.Min;
+    var Index := CompositeIndex(Indices);
+    Result := TRange.Create(Index,Index)
   end else
   if Length(Indices) < Rank then
   begin
     // Set minimum
-    Result.Min := 0;
+    var MinIndex := 0;
     for var Dim := low(Indices) to high(Indices) do
-    Result.Min:= Result.Min + Multipliers[Dim]*Indices[Dim];
+    MinIndex := MinIndex + Multipliers[Dim]*Indices[Dim];
     // Set maximum
-    Result.Max := Result.Min + Multipliers[high(Indices)] - 1;
+    var MaxIndex := MinIndex + Multipliers[high(Indices)] - 1;
+    // Set result
+    Result := TRange.Create(MinIndex,MaxIndex);
   end else raise Exception.Create('Invalid rank');
 end;
 
