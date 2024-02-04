@@ -22,6 +22,7 @@ Type
     Constructor Create(const Min,Max: Integer);
     Function Count: Integer;
     Function Contains(const Value: Integer): Boolean;
+    Function Values: TArray<Integer>;
     Function Split(NRanges: Integer): TArray<TRange>;
   public
     Property Min: Integer read FMin;
@@ -39,6 +40,7 @@ Type
     Constructor Create(const Ranges: string);
     Function Count: Integer;
     Function Contains(const Value: Integer): Boolean;
+    Function Values: TArray<Integer>;
   public
     Property Ranges[Range: Integer]: TRange read GetRanges; default;
   end;
@@ -65,6 +67,12 @@ end;
 Function TRange.Contains(const Value: Integer): Boolean;
 begin
   Result := (Value >= FMin) and (Value <= FMax);
+end;
+
+Function TRange.Values: TArray<Integer>;
+begin
+  SetLength(Result,Count);
+  for var Value := Min to Max do Result[Value-Min] := Value;
 end;
 
 Function TRange.Split(NRanges: Integer): TArray<TRange>;
@@ -137,6 +145,12 @@ end;
 Function TRanges.Count: Integer;
 begin
   Result := Length(FRanges);
+end;
+
+Function TRanges.Values: TArray<Integer>;
+begin
+  Result := [];
+  for var Range := 0 to Count-1 do Result := Result + FRanges[Range].Values;
 end;
 
 Function TRanges.Contains(const Value: Integer): Boolean;
