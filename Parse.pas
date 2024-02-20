@@ -24,6 +24,7 @@ Type
     Class Operator Implicit(Token: TToken): Int64;
     Class Operator Implicit(Token: TToken): Float32;
     Class Operator Implicit(Token: TToken): Float64;
+    Class Operator Implicit(Token: TToken): Variant;
   public
     Function ToChar: Char; inline;
     Function ToInt: Integer; inline;
@@ -143,6 +144,11 @@ end;
 Class Operator TToken.Implicit(Token: TToken): Float64;
 begin
   Result := Token.Value.ToDouble;
+end;
+
+Class Operator TToken.Implicit(Token: TToken): Variant;
+begin
+  Result := Token.Value;
 end;
 
 Function TToken.ToChar: Char;
