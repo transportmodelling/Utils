@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  Classes,SysUtils,ArrayBld;
+  Classes, SysUtils, ArrayBld, VarPtr;
 
 Type
   TToken = record
@@ -78,6 +78,10 @@ Type
     // Query Tokens
     Function Count: Integer; inline;
     Function IndexOf(const Token: String; Offset: Integer = 0): Integer;
+    Procedure AssignTo(const Tokens: array of TIntPointer; FromToken: Integer = 0); overload;
+    Procedure CopyTo(var Tokens: array of Integer; FromToken: Integer = 0); overload;
+    Procedure AssignTo(const Tokens: array of TFloat64Pointer; FromToken: Integer = 0); overload;
+    Procedure CopyTo(var Tokens: array of Float64; FromToken: Integer = 0); overload;
     Property Tokens[Token: Integer]: TToken read GetTokens; default;
     Property Char[Token: Integer]: Char read GetChar;
     Property Str[Token: Integer]: String read GetStr;
@@ -381,6 +385,42 @@ begin
   Result := -1;
   for var Index := Offset to Count-1 do
   if SameText(FTokens[Index],Token) then Exit(Index);
+end;
+
+Procedure TStringParser.AssignTo(const Tokens: array of TIntPointer; FromToken: Integer = 0);
+begin
+  for var Token := low(Tokens) to high(Tokens) do
+  begin
+    Tokens[Token].Value := Int[FromToken];
+    Inc(FromToken);
+  end;
+end;
+
+Procedure TStringParser.CopyTo(var Tokens: array of Integer; FromToken: Integer = 0);
+begin
+  for var Token := low(Tokens) to high(Tokens) do
+  begin
+    Tokens[Token] := Int[FromToken];
+    Inc(FromToken);
+  end;
+end;
+
+Procedure TStringParser.AssignTo(const Tokens: array of TFloat64Pointer; FromToken: Integer = 0);
+begin
+  for var Token := low(Tokens) to high(Tokens) do
+  begin
+    Tokens[Token].Value := Float[FromToken];
+    Inc(FromToken);
+  end;
+end;
+
+Procedure TStringParser.CopyTo(var Tokens: array of Float64; FromToken: Integer = 0);
+begin
+  for var Token := low(Tokens) to high(Tokens) do
+  begin
+    Tokens[Token] := Int[FromToken];
+    Inc(FromToken);
+  end;
 end;
 
 Function TStringParser.ToStrArray: TArray<String>;
