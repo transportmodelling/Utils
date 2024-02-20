@@ -65,12 +65,14 @@ Type
     Procedure SpaceDelimited;
     Procedure SemicolonDelimited;
     // Manage content
-    Constructor Create(Delimiter: TDelimiter; const Line: String = '');
+    Constructor Create(Delimiter: TDelimiter; const Line: String = ''); overload;
+    Constructor Create(Delimiter: TDelimiter; const Line: String; const Quote: Char); overload;
     Procedure Clear;
     Procedure Assign(const Line: String); overload;
     Procedure Assign(const Line: String; Quote: Char); overload;
     Procedure ReadLine(var TextFile: TextFile); overload;
     Procedure ReadLine(const TextReader: TTextReader); overload;
+    Procedure ReadLine(const TextReader: TTextReader; Quote: Char); overload;
     // Query Tokens
     Function Count: Integer; inline;
     Property Tokens[Token: Integer]: TToken read GetTokens; default;
@@ -308,6 +310,19 @@ begin
   Assign(Line);
 end;
 
+Constructor TStringParser.Create(Delimiter: TDelimiter; const Line: String; const Quote: Char);
+begin
+  // Initialize
+  case Delimiter of
+    Comma: CSV;
+    Tab: TabDelimited;
+    SemiColon: SemicolonDelimited;
+    Space: SpaceDelimited;
+  end;
+  // Assign content
+  Assign(Line,Quote);
+end;
+
 Procedure TStringParser.Clear;
 begin
   FTokens := nil;
@@ -334,6 +349,11 @@ end;
 Procedure TStringParser.ReadLine(const TextReader: TTextReader);
 begin
   Assign(TextReader.ReadLine);
+end;
+
+Procedure TStringParser.ReadLine(const TextReader: TTextReader; Quote: Char);
+begin
+  Assign(TextReader.ReadLine,Quote);
 end;
 
 Function TStringParser.Count: Integer;
