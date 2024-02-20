@@ -67,6 +67,8 @@ Type
     // Manage content
     Constructor Create(Delimiter: TDelimiter; const Line: String = ''); overload;
     Constructor Create(Delimiter: TDelimiter; const Line: String; const Quote: Char); overload;
+    Procedure RemoveTrailingEmpties;
+    Procedure TrimTokens;
     Procedure Clear;
     Procedure Assign(const Line: String); overload;
     Procedure Assign(const Line: String; Quote: Char); overload;
@@ -321,6 +323,18 @@ begin
   end;
   // Assign content
   Assign(Line,Quote);
+end;
+
+Procedure TStringParser.RemoveTrailingEmpties;
+begin
+  var Index := Count-1;
+  while (Index >= 0) and (FTokens[Index] = '') do Dec(Index);
+  SetLength(FTokens,Index+1);
+end;
+
+Procedure TStringParser.TrimTokens;
+begin
+  for var Token := 0 to Count-1 do FTokens[Token] := Trim(FTokens[Token]);
 end;
 
 Procedure TStringParser.Clear;
