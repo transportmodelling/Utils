@@ -19,11 +19,13 @@ Type
 
   TCtlFileHelper = record helper for TControlFile
   public
-    Constructor Create(ControlFilename: String);
+    Constructor Create(ControlFileName: String);
     Function Read(ControlFilename: String): Boolean;
-    Function InpFileName(const Name: string; Optional: Boolean = false): String;
+    Function InpFileName(const Name: string; out FileName: String): Boolean; overload;
+    Function InpFileName(const Name: string; Optional: Boolean = false): String; overload;
     Function InpProperties(const Name: string; Optional: Boolean = false): TPropertySet;
-    Function OutpFileName(const Name: string; Optional: Boolean = false): String;
+    Function OutpFileName(const Name: string; out FileName: String): Boolean; overload;
+    Function OutpFileName(const Name: string; Optional: Boolean = false): String; overload;
     Function OutpProperties(const Name: string; Optional: Boolean = false): TPropertySet;
   end;
 
@@ -55,6 +57,20 @@ begin
     Result := false;
     writeln('Control file does not exist');
   end;
+end;
+
+Function TCtlFileHelper.InpFileName(const Name: string; out FileName: String): Boolean;
+begin
+  FileName := ToFileName(Name);
+  if FileName <> '' then
+    if FileExists(FileName) then
+    begin
+      Result := true;
+      if LogFile <> nil then LogFile.InputFile(Name,FileName);
+    end else
+      raise Exception.Create('File does not exist (' + Name + ')')
+  else
+    Result := false;
 end;
 
 Function TCtlFileHelper.InpFileName(const Name: string; Optional: Boolean = false): String;
@@ -94,6 +110,17 @@ begin
     if not Optional then
       raise Exception.Create('Missing properties (' + Name + ')')
   end;
+end;
+
+Function TCtlFileHelper.OutpFileName(const Name: string; out FileName: String): Boolean;
+begin
+  FileName := ToFileName(Name);
+  if FileName <> '' then
+  begin
+    Result := true;
+    if LogFile <> nil then LogFile.OutputFile(Name,FileName);
+  end else
+    Result := false;
 end;
 
 Function TCtlFileHelper.OutpFileName(const Name: string; Optional: Boolean = false): String;
