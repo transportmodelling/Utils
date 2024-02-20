@@ -77,6 +77,7 @@ Type
     Procedure ReadLine(const TextReader: TTextReader; Quote: Char); overload;
     // Query Tokens
     Function Count: Integer; inline;
+    Function IndexOf(const Token: String; Offset: Integer = 0): Integer;
     Property Tokens[Token: Integer]: TToken read GetTokens; default;
     Property Char[Token: Integer]: Char read GetChar;
     Property Str[Token: Integer]: String read GetStr;
@@ -373,6 +374,13 @@ end;
 Function TStringParser.Count: Integer;
 begin
   Result := Length(FTokens);
+end;
+
+Function TStringParser.IndexOf(const Token: String; Offset: Integer = 0): Integer;
+begin
+  Result := -1;
+  for var Index := Offset to Count-1 do
+  if SameText(FTokens[Index],Token) then Exit(Index);
 end;
 
 Function TStringParser.ToStrArray: TArray<String>;
