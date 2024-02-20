@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  Classes,SysUtils,Generics.Collections,ArrayBld;
+  Classes, SysUtils, Variants, Generics.Collections, ArrayBld;
 
 Type
   TDBFField = record
@@ -75,7 +75,8 @@ Type
     Version: Byte;
   public
     Constructor Create(const FileName: String);
-    Function NextRecord: Boolean;
+    Function NextRecord: Boolean; overload;
+    Function NextRecord(var Values: array of Variant): Boolean; overload;
     Destructor Destroy; override;
   public
     Property RecordIndex: Integer read FRecordIndex;
@@ -330,43 +331,76 @@ begin
           else
             begin
               var FieldValue := '';
-              for var FieldChar := 1 to FFields[Field].FFieldLength do FieldValue := FieldValue + FileReader.ReadChar;
-              case FFields[Field].FFieldType of
-                'C': FFields[Field].FieldValue := Trim(FieldValue);
-                'D': begin
-                       var Year := Copy(FieldValue,1,4).ToInteger;
-                       var Month := Copy(FieldValue,5,2).ToInteger;
-                       var Day := Copy(FieldValue,7,2).ToInteger;
-                       FFields[Field].FieldValue := EncodeDate(Year,Month,Day);
-                     end;
-                'L': if (FieldValue='T') or (FieldValue='t') or (FieldValue='Y') or (FieldValue='y') then
-                     begin
-                       FFields[Field].FieldValue := true;
-                     end else
-                     if (FieldValue='F') or (FieldValue='f') or (FieldValue='N') or (FieldValue='n') then
-                     begin
-                       FFields[Field].FieldValue := false;
-                     end else
-                     if FieldValue = '?' then VarClear(FFields[Field].FieldValue) else
-                       raise Exception.Create('Invalid field value (' + FFields[Field].FFieldName +')');
-                'F','N':
-                     begin
-                       FieldValue := Trim(FieldValue);
-                       if FieldValue = '' then
-                         VarClear(FFields[Field].FieldValue)
-                       else
-                         if FFields[Field].FDecimalCount = 0 then
-                           FFields[Field].FieldValue := StrToInt(FieldValue)
-                         else
-                           FFields[Field].FieldValue := StrToFloat(FieldValue,FormatSettings);
-                     end;
-                else VarClear(FFields[Field].FieldValue);
+              var Asterisks := true;
+              var Nullify := true;
+              for var FieldChar := 1 to FFields[Field].FFieldLength do
+              begin
+                var Chr := FileReader.ReadChar;
+                FieldValue := FieldValue + Chr;
+                Asterisks := Asterisks and (Chr = '*');
+                Nullify := Nullify and (Chr = #0);
               end;
+              if Asterisks then
+                if FFields[Field].FFieldType = 'C' then
+                  FFields[Field].FieldValue := FieldValue
+                else
+                  FFields[Field].FieldValue := Null
+              else
+                if Nullify then
+                  FFields[Field].FieldValue := Null
+                else
+                  case FFields[Field].FFieldType of
+                    'C': FFields[Field].FieldValue := Trim(FieldValue);
+                    'D': begin
+                           var Year := Copy(FieldValue,1,4).ToInteger;
+                           var Month := Copy(FieldValue,5,2).ToInteger;
+                           var Day := Copy(FieldValue,7,2).ToInteger;
+                           FFields[Field].FieldValue := EncodeDate(Year,Month,Day);
+                         end;
+                    'L': if (FieldValue='T') or (FieldValue='t') or (FieldValue='Y') or (FieldValue='y') then
+                         begin
+                           FFields[Field].FieldValue := true;
+                         end else
+                         if (FieldValue='F') or (FieldValue='f') or (FieldValue='N') or (FieldValue='n') then
+                         begin
+                           FFields[Field].FieldValue := false;
+                         end else
+                         if FieldValue = '?' then
+                            FFields[Field].FieldValue := Null
+                         else
+                           raise Exception.Create('Invalid field value (' + FFields[Field].FFieldName +')');
+                    'F','N':
+                         begin
+                           FieldValue := Trim(FieldValue);
+                           if FieldValue = '' then
+                             FFields[Field].FieldValue := Null
+                           else
+                             if FFields[Field].FDecimalCount = 0 then
+                               FFields[Field].FieldValue := StrToInt(FieldValue)
+                             else
+                               FFields[Field].FieldValue := StrToFloat(FieldValue,FormatSettings);
+                         end;
+                    else
+                      FFields[Field].FieldValue := Null;
+                  end;
             end;
         end;
       end;
     until not DeletedRecord;
   end else Result := false;
+end;
+
+Function TDBFReader.NextRecord(var Values: array of Variant): Boolean;
+begin
+  if Length(Values) = FFieldCount then
+    if NextRecord then
+    begin
+      Result := true;
+      for var Field := 0 to FFieldCount-1 do Values[Field] := GetFieldValues(Field);
+    end else
+      Result := false
+  else
+    raise Exception.Create('Invalid number of fields');
 end;
 
 Destructor TDBFReader.Destroy;
@@ -446,52 +480,55 @@ begin
   FileWriter.Write(' '); // Undeleted record
   for var Field := 0 to FFieldCount-1 do
   begin
-    case FFields[Field].FFieldType of
-      'C': begin
-             var Value: String := FFields[Field].FieldValue;
-             while Length(Value) < FFields[Field].FieldLength do Value := Value + #0;
-             FileWriter.Write(Value.ToCharArray);
-           end;
-      'D': begin
-             var Value: TDateTime := FFields[Field].FieldValue;
-             DecodeDate(Value,Year,Month,Day);
-             FileWriter.Write(IntToStr(Year).ToCharArray);
-             if Month < 10 then
-               FileWriter.Write(('0'+IntToStr(Month)).ToCharArray)
-             else
-               FileWriter.Write(IntToStr(Month).ToCharArray);
-             if Day < 10 then
-               FileWriter.Write(('0'+IntToStr(Day)).ToCharArray)
-             else
-               FileWriter.Write(IntToStr(Day).ToCharArray);
-           end;
-      'L': begin
-             var Value: Boolean := FFields[Field].FieldValue;
-             if Value then FileWriter.Write('T') else FileWriter.Write('F');
-           end;
-      'F','N':
-           begin
-             var Value: Float64 := FFields[Field].FieldValue;
-             var Text := FormatFloat(FFields[Field].FieldFormat,Value,FormatSettings);
-             while Length(Text) < FFields[Field].FieldLength do Text := ' ' + Text;
-             if Length(Text) = FFields[Field].FieldLength then
-               FileWriter.Write(Text.ToCharArray)
-             else
-               raise Exception.Create('Numeric value out of range (field=' +
-                                      FFields[Field].FFieldName + '; value=' +
-                                      Value.ToString + ')');
-           end;
-      'I': begin
-             var Value: Integer := FFields[Field].FieldValue;
-             FileWriter.Write(Value);
-           end;
-      'O': begin
-             var Value: Float64 := FFields[Field].FieldValue;
-             FileWriter.Write(Value);
-           end;
-      else raise Exception.Create('Unsupported field type');
-    end;
-    VarClear(FFields[Field].FieldValue);
+    if VarIsNull(FFields[Field].FieldValue) then
+      for var Chr := 1 to FFields[Field].FieldLength do FileWriter.Write(#0)
+    else
+      case FFields[Field].FFieldType of
+        'C': begin
+               var Value: String := FFields[Field].FieldValue;
+               while Length(Value) < FFields[Field].FieldLength do Value := Value + #0;
+               FileWriter.Write(Value.ToCharArray);
+             end;
+        'D': begin
+               var Value: TDateTime := FFields[Field].FieldValue;
+               DecodeDate(Value,Year,Month,Day);
+               FileWriter.Write(IntToStr(Year).ToCharArray);
+               if Month < 10 then
+                 FileWriter.Write(('0'+IntToStr(Month)).ToCharArray)
+               else
+                 FileWriter.Write(IntToStr(Month).ToCharArray);
+               if Day < 10 then
+                 FileWriter.Write(('0'+IntToStr(Day)).ToCharArray)
+               else
+                 FileWriter.Write(IntToStr(Day).ToCharArray);
+             end;
+        'L': begin
+               var Value: Boolean := FFields[Field].FieldValue;
+               if Value then FileWriter.Write('T') else FileWriter.Write('F');
+             end;
+        'F','N':
+             begin
+               var Value: Float64 := FFields[Field].FieldValue;
+               var Text := FormatFloat(FFields[Field].FieldFormat,Value,FormatSettings);
+               while Length(Text) < FFields[Field].FieldLength do Text := ' ' + Text;
+               if Length(Text) = FFields[Field].FieldLength then
+                 FileWriter.Write(Text.ToCharArray)
+               else
+                 raise Exception.Create('Numeric value out of range (field=' +
+                                        FFields[Field].FFieldName + '; value=' +
+                                        Value.ToString + ')');
+             end;
+        'I': begin
+               var Value: Integer := FFields[Field].FieldValue;
+               FileWriter.Write(Value);
+             end;
+        'O': begin
+               var Value: Float64 := FFields[Field].FieldValue;
+               FileWriter.Write(Value);
+             end;
+        else raise Exception.Create('Unsupported field type');
+      end;
+    FFields[Field].FieldValue := Null;
   end;
   Inc(FRecordCount);
 end;
