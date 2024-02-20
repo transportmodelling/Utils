@@ -28,7 +28,7 @@ Type
   end;
 
   TArrayValues<T> = record
-  // Record that provides access to the array values, but prevents the array from being resized.
+  // Record that provides access to the array values, but prevents the array from being re-allocated.
   private
     FValues: TArray<T>;
     Function GetValues(Index: Integer): T; inline;
