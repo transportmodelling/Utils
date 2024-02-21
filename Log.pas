@@ -37,8 +37,9 @@ Type
     Function FileInfo(const FileName: string; NameOnly: Boolean): string;
     Function VarRecToStr(VarRec: TVarRec; Decimals: Integer): String;
   public
+    Constructor Create(const OnLog: TLogEvent = nil); overload;
     Constructor Create(const LogFileName: String; const Echo: Boolean = true;
-                       const Append: Boolean = false; const OnLog: TLogEvent = nil);
+                       const Append: Boolean = false; const OnLog: TLogEvent = nil); overload;
     Procedure Log(const Line: String = ''); overload;
     Procedure Log(const Columns: array of String; const ColumnWidths: Integer); overload;
     Procedure Log(const Columns: array of Const; const ColumnWidths, Decimals: Integer); overload;
@@ -59,6 +60,16 @@ Var
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
+
+Constructor TLogFile.Create(const OnLog: TLogEvent = nil);
+begin
+  LogEvent := OnLog;
+  ConsoleMessages := IsConsole;
+  StartTime := Now;
+  Log('START ' + DateTimeToStr(StartTime));
+  Log('Executable: ' + FileInfo(ParamStr(0),true));
+  Log('Computer: ' + GetEnvironmentVariable('COMPUTERNAME'));
+end;
 
 Constructor TLogFile.Create(const LogFileName: String; const Echo: Boolean = true;
                             const Append: Boolean = false; const OnLog: TLogEvent = nil);
