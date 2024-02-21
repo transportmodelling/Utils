@@ -37,7 +37,8 @@ Type
     Class Operator Implicit(Ranges: String): TRanges;
     Class Operator Implicit(Ranges: TRanges): String;
   public
-    Constructor Create(const Ranges: string);
+    Constructor Create(const Ranges: array of TRange); overload;
+    Constructor Create(const Ranges: string); overload;
     Function Count: Integer;
     Function Contains(const Value: Integer): Boolean;
     Function Values: TArray<Integer>;
@@ -130,6 +131,12 @@ begin
       Result := Result + Separator + Ranges[Range].FMin.ToString + '-' + Ranges[Range].FMax.ToString;
     Separator := ',';
   end;
+end;
+
+Constructor TRanges.Create(const Ranges: array of TRange);
+begin
+  SetLength(FRanges,Length(Ranges));
+  for var Range := low(Ranges) to high(Ranges) do FRanges[Range] := Ranges[Range];
 end;
 
 Constructor TRanges.Create(const Ranges: string);
