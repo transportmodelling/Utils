@@ -4,7 +4,7 @@ A general utilities library for Delphi projects
 ## DBF.pas
 Provides DBFReader and DBFWriter classes to read/write dBase files. Memo fields are not supported and will have an UnUssigned-value.
 
-## DBF.pas
+## MemDBF.pas
 Provides a class to manipulate a dbf file. Data are read into a FireDac memory table to be manipulated. The manipulated table can be saved to file again.
 
 ## ArrayBld.pas
