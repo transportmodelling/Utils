@@ -42,6 +42,7 @@ Type
     Function Count: Integer;
     Function Contains(const Value: Integer): Boolean;
     Function Values: TArray<Integer>;
+    Function AsString: String;
   public
     Property Ranges[Range: Integer]: TRange read GetRanges; default;
   end;
@@ -121,16 +122,7 @@ end;
 
 Class Operator TRanges.Implicit(Ranges: TRanges): String;
 begin
-  Result := '';
-  var Separator := '';
-  for var Range := 0 to Ranges.Count-1 do
-  begin
-    if Ranges[Range].Count = 1 then
-      Result := Result + Separator + Ranges[Range].FMin.ToString
-    else
-      Result := Result + Separator + Ranges[Range].FMin.ToString + '-' + Ranges[Range].FMax.ToString;
-    Separator := ',';
-  end;
+  Result := Ranges.AsString;
 end;
 
 Constructor TRanges.Create(const Ranges: array of TRange);
@@ -154,17 +146,31 @@ begin
   Result := Length(FRanges);
 end;
 
+Function TRanges.Contains(const Value: Integer): Boolean;
+begin
+  Result := false;
+  for var Range := 0 to Count-1 do
+  if FRanges[Range].Contains(Value) then Exit(true);
+end;
+
 Function TRanges.Values: TArray<Integer>;
 begin
   Result := [];
   for var Range := 0 to Count-1 do Result := Result + FRanges[Range].Values;
 end;
 
-Function TRanges.Contains(const Value: Integer): Boolean;
+Function TRanges.AsString: string;
 begin
-  Result := false;
+  Result := '';
+  var Separator := '';
   for var Range := 0 to Count-1 do
-  if FRanges[Range].Contains(Value) then Exit(true);
+  begin
+    if FRanges[Range].Count = 1 then
+      Result := Result + Separator + FRanges[Range].FMin.ToString
+    else
+      Result := Result + Separator + FRanges[Range].FMin.ToString + '-' + FRanges[Range].FMax.ToString;
+    Separator := ',';
+  end;
 end;
 
 end.
