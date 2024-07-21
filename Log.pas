@@ -39,8 +39,11 @@ Type
     Function VarRecToStr(VarRec: TVarRec; Decimals: Integer): String;
   public
     Constructor Create(const OnLog: TLogEvent = nil); overload;
-    Constructor Create(const LogFileName: String; const Echo: Boolean = true;
-                       const Append: Boolean = false; const OnLog: TLogEvent = nil); overload;
+    Constructor Create(const LogFileName: String;
+                       const Echo: Boolean = false;
+                       const Append: Boolean = false;
+                       const OnAppend: TNotifyEvent = nil;
+                       const OnLog: TLogEvent = nil); overload;
     Procedure Log(const Line: String = ''); overload;
     Procedure Log(const Columns: array of String; const ColumnWidths: Integer); overload;
     Procedure Log(const Columns: array of Const; const ColumnWidths, Decimals: Integer); overload;
@@ -79,8 +82,11 @@ begin
   Log('Computer: ' + GetEnvironmentVariable('COMPUTERNAME'));
 end;
 
-Constructor TLogFile.Create(const LogFileName: String; const Echo: Boolean = true;
-                            const Append: Boolean = false; const OnLog: TLogEvent = nil);
+Constructor TLogFile.Create(const LogFileName: String;
+                            const Echo: Boolean = false;
+                            const Append: Boolean = false;
+                            const OnAppend: TNotifyEvent = nil;
+                            const OnLog: TLogEvent = nil);
 var
   CBI: TConsoleScreenBufferInfo;
 begin
@@ -92,14 +98,17 @@ begin
     GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE),CBI);
     ConsoleWidth := CBI.dwSize.X;
   end;
-  if Append then
+  if FileExists(LogFileName) and Append then
   begin
     LogStream := TFileStream.Create(LogFileName,fmOpenWrite or fmShareDenyWrite);
     LogStream.Seek(0,soEnd);
+    LogWriter := TStreamWriter.Create(LogStream,TEncoding.ASCII,4096);
+    if Assigned(OnAppend) then OnAppend(Self);
   end else
+  begin
     LogStream := TFileStream.Create(LogFileName,fmCreate or fmShareDenyWrite);
-  LogWriter := TStreamWriter.Create(LogStream,TEncoding.ASCII,4096);
-  if Append and (LogStream.Size > 0) then LOGWriter.WriteLine;
+    LogWriter := TStreamWriter.Create(LogStream,TEncoding.ASCII,4096);
+  end;
   StartTime := Now;
   Log('START ' + DateTimeToStr(StartTime));
   Log('Executable: ' + FileInfo(ParamStr(0),true));
