@@ -36,7 +36,7 @@ Type
     Function ShortenPath(const Path: string): string;
     Function FileProperties(const FileName: string): string;
     Function FileInfo(const FileName: string; NameOnly: Boolean): string;
-    Function VarRecToStr(VarRec: TVarRec; Decimals: Integer): String;
+    Function VarRecToStr(VarRec: TVarRec; NDecimals: Integer): String;
   public
     Constructor Create(const OnLog: TLogEvent = nil); overload;
     Constructor Create(const LogFileName: String;
@@ -46,9 +46,10 @@ Type
                        const OnLog: TLogEvent = nil); overload;
     Procedure Log(const Line: String = ''); overload;
     Procedure Log(const Columns: array of String; const ColumnWidths: Integer); overload;
-    Procedure Log(const Columns: array of Const; const ColumnWidths, Decimals: Integer); overload;
     Procedure Log(const Columns: array of String; const ColumnWidths: array of Integer); overload;
-    Procedure Log(const Columns: array of Const; const ColumnWidths: array of Integer; Decimals: Integer); overload;
+    Procedure Log(const Columns: array of const; const ColumnWidths, NDecimals: Integer); overload;
+    Procedure Log(const Columns: array of const; const ColumnWidths: array of Integer; const NDecimals: Integer); overload;
+    Procedure Log(const Columns: array of const; const ColumnWidths,NDecimals: array of Integer); overload;
     Procedure Log(const Error: Exception); overload;
     Procedure Log(const FileLabel,FileName: String); overload;
     Procedure LogFileContent(const FileName: String);
@@ -148,13 +149,13 @@ begin
   Result := Result + '; ' +  FileProperties(FileName);
 end;
 
-Function TLogFile.VarRecToStr(VarRec: TVarRec; Decimals: Integer): String;
+Function TLogFile.VarRecToStr(VarRec: TVarRec; NDecimals: Integer): String;
 begin
   case VarRec.VType of
     vtInteger:       Result := VarRec.VInteger.ToString;
     vtInt64:         Result := VarRec.VInt64^.ToString;
     vtChar:          Result := VarRec.VChar;
-    vtExtended:      Result := FloatToStrF(VarRec.vExtended^,ffFixed,15,Decimals);
+    vtExtended:      Result := FloatToStrF(VarRec.vExtended^,ffFixed,15,NDecimals);
     vtString:        Result := VarRec.VString^;
     vtUnicodeString: Result := String(VarRec.VUnicodeString);
     vtPChar:         Result := VarRec.VPChar;
@@ -191,15 +192,6 @@ begin
   Log(Line);
 end;
 
-Procedure TLogFile.Log(const Columns: array of Const; const ColumnWidths, Decimals: Integer);
-Var
-  StringColumns: array of String;
-begin
-  SetLength(StringColumns,Length(Columns));
-  for var Column := low(Columns) to high(Columns) do StringColumns[Column] := VarRecToStr(Columns[Column],Decimals);
-  Log(StringColumns,ColumnWidths);
-end;
-
 Procedure TLogFile.Log(const Columns: array of String; const ColumnWidths: array of Integer);
 begin
   if Length(Columns) = Length(ColumnWidths) then
@@ -217,12 +209,29 @@ begin
     raise Exception.Create('Inconsistent method arguments');
 end;
 
-Procedure TLogFile.Log(const Columns: array of Const; const ColumnWidths: array of Integer; Decimals: Integer);
+Procedure TLogFile.Log(const Columns: array of Const; const ColumnWidths, NDecimals: Integer);
 Var
   StringColumns: array of String;
 begin
   SetLength(StringColumns,Length(Columns));
-  for var Column := low(Columns) to high(Columns) do StringColumns[Column] := VarRecToStr(Columns[Column],Decimals);
+  for var Column := low(Columns) to high(Columns) do StringColumns[Column] := VarRecToStr(Columns[Column],NDecimals);
+  Log(StringColumns,ColumnWidths);
+end;
+
+Procedure TLogFile.Log(const Columns: array of Const; const ColumnWidths: array of Integer; const NDecimals: Integer);
+Var
+  StringColumns: array of String;
+begin
+  SetLength(StringColumns,Length(Columns));
+  for var Column := low(Columns) to high(Columns) do StringColumns[Column] := VarRecToStr(Columns[Column],NDecimals);
+  Log(StringColumns,ColumnWidths);
+end;
+Procedure TLogFile.Log(const Columns: array of Const; const ColumnWidths,NDecimals: array of Integer);
+Var
+  StringColumns: array of String;
+begin
+  SetLength(StringColumns,Length(Columns));
+  for var Column := low(Columns) to high(Columns) do StringColumns[Column] := VarRecToStr(Columns[Column],NDecimals[column]);
   Log(StringColumns,ColumnWidths);
 end;
 
