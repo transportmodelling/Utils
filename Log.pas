@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils,IOUtils,DateUtils,Classes,Parse;
+  SysUtils, Classes, Windows, Math, IOUtils, DateUtils, Parse;
 
 Type
   TLogEvent = Procedure(Sender: TObject; const Line: String) of Object;
@@ -28,7 +28,8 @@ Type
     Var
       LogEvent: TLogEvent;
       StartTime: TDateTime;
-      ConsoleMessages: Boolean;
+      Console: Boolean;
+      ConsoleWidth: Integer;
       LogStream: TFileStream;
       LogWriter: TStreamWriter;
       InputFiles,OutputFiles: array of TFileInfo;
@@ -62,9 +63,16 @@ implementation
 ////////////////////////////////////////////////////////////////////////////////
 
 Constructor TLogFile.Create(const OnLog: TLogEvent = nil);
+var
+  CBI: TConsoleScreenBufferInfo;
 begin
   LogEvent := OnLog;
-  ConsoleMessages := IsConsole;
+  Console := IsConsole;
+  if Console then
+  begin
+    GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE),CBI);
+    ConsoleWidth := CBI.dwSize.X;
+  end;
   StartTime := Now;
   Log('START ' + DateTimeToStr(StartTime));
   Log('Executable: ' + FileInfo(ParamStr(0),true));
@@ -73,10 +81,17 @@ end;
 
 Constructor TLogFile.Create(const LogFileName: String; const Echo: Boolean = true;
                             const Append: Boolean = false; const OnLog: TLogEvent = nil);
+var
+  CBI: TConsoleScreenBufferInfo;
 begin
   inherited Create;
   LogEvent := OnLog;
-  ConsoleMessages := IsConsole and Echo;
+  Console := IsConsole and Echo;
+  if Console then
+  begin
+    GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE),CBI);
+    ConsoleWidth := CBI.dwSize.X;
+  end;
   if Append then
   begin
     LogStream := TFileStream.Create(LogFileName,fmOpenWrite or fmShareDenyWrite);
@@ -143,7 +158,11 @@ end;
 
 Procedure TLogFile.Log(const Line: String = '');
 begin
-  if ConsoleMessages then writeln(Line);
+  if Console then
+  if Line.Length <= ConsoleWidth then
+    writeln(Line)
+  else
+    write(Copy(Line,1,ConsoleWidth));
   if LogWriter <> nil then LogWriter.WriteLine(Line);
   if Assigned(LogEvent) then TThread.Synchronize(nil,Procedure
                                                      begin
