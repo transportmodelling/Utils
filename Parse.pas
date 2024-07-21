@@ -78,10 +78,9 @@ Type
     // Query Tokens
     Function Count: Integer; inline;
     Function IndexOf(const Token: String; Offset: Integer = 0): Integer;
-    Procedure AssignTo(const Tokens: array of TIntPointer; FromToken: Integer = 0); overload;
-    Procedure CopyTo(var Tokens: array of Integer; FromToken: Integer = 0); overload;
-    Procedure AssignTo(const Tokens: array of TFloat64Pointer; FromToken: Integer = 0); overload;
-    Procedure CopyTo(var Tokens: array of Float64; FromToken: Integer = 0); overload;
+    Procedure AssignTo(var Tokens: array of Integer; FromToken: Integer = 0); overload;
+    Procedure AssignTo(var Tokens: array of Float64; FromToken: Integer = 0); overload;
+    Procedure AssignToVar(const Tokens: array of TVarPointer; FromToken: Integer = 0);
     Property Tokens[Token: Integer]: TToken read GetTokens; default;
     Property Char[Token: Integer]: Char read GetChar;
     Property Str[Token: Integer]: String read GetStr;
@@ -387,16 +386,7 @@ begin
   if SameText(FTokens[Index],Token) then Exit(Index);
 end;
 
-Procedure TStringParser.AssignTo(const Tokens: array of TIntPointer; FromToken: Integer = 0);
-begin
-  for var Token := low(Tokens) to high(Tokens) do
-  begin
-    Tokens[Token].Value := Int[FromToken];
-    Inc(FromToken);
-  end;
-end;
-
-Procedure TStringParser.CopyTo(var Tokens: array of Integer; FromToken: Integer = 0);
+Procedure TStringParser.AssignTo(var Tokens: array of Integer; FromToken: Integer = 0);
 begin
   for var Token := low(Tokens) to high(Tokens) do
   begin
@@ -405,20 +395,28 @@ begin
   end;
 end;
 
-Procedure TStringParser.AssignTo(const Tokens: array of TFloat64Pointer; FromToken: Integer = 0);
+Procedure TStringParser.AssignTo(var Tokens: array of Float64; FromToken: Integer = 0);
 begin
   for var Token := low(Tokens) to high(Tokens) do
   begin
-    Tokens[Token].Value := Float[FromToken];
+    Tokens[Token] := Float[FromToken];
     Inc(FromToken);
   end;
 end;
 
-Procedure TStringParser.CopyTo(var Tokens: array of Float64; FromToken: Integer = 0);
+Procedure TStringParser.AssignToVar(const Tokens: array of TVarPointer; FromToken: Integer = 0);
 begin
   for var Token := low(Tokens) to high(Tokens) do
   begin
-    Tokens[Token] := Int[FromToken];
+    case Tokens[Token].VarType of
+      vtByte: Tokens[Token].AsByte := Int[FromToken];
+      vtInt16: Tokens[Token].AsInt16 := Int[FromToken];
+      vtInt32: Tokens[Token].AsInt32 := Int[FromToken];
+      vtInt64: Tokens[Token].AsInt64 := Int64[FromToken];
+      vtFloat32: Tokens[Token].AsFloat32 := Float[FromToken];
+      vtFloat64: Tokens[Token].AsFloat64 := Float[FromToken];
+      else raise Exception.Create('Unsupported var-tyep');
+    end;
     Inc(FromToken);
   end;
 end;
