@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils, Parse;
+  SysUtils, Parse, ArrayHlp;
 
 Type
   TRange = record
@@ -34,9 +34,11 @@ Type
     FRanges: array of TRange;
     Function GetRanges(Range: Integer): TRange; inline;
   public
+    Class Operator Implicit(const Values: array of Integer): TRanges;
     Class Operator Implicit(Ranges: String): TRanges;
     Class Operator Implicit(Ranges: TRanges): String;
   public
+    Constructor Create(const Values: array of Integer); overload;
     Constructor Create(const Ranges: array of TRange); overload;
     Constructor Create(const Ranges: string); overload;
     Function Count: Integer;
@@ -100,6 +102,33 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
+Class Operator TRanges.Implicit(const Values: array of Integer): TRanges;
+begin
+  if Length(Values) > 0 then
+  begin
+    var Arr := TArray<Integer>.Create(Values);
+    // Sort values
+    Arr.Sort;
+    // Initialize first range
+    var Value := Arr[0];
+    var Range := TRange.Create(Value,Value);
+    // Iterate values
+    for var Index := 1 to Arr.Length-1 do
+    if Arr[Index] = Value+1 then Inc(Value) else
+    begin
+      // Finalize range
+      Range.FMax := Arr[Index-1];
+      Result.FRanges := Result.FRanges + [Range];
+      // Initialize next range
+      Value := Arr[Index];
+      Range.FMin := Value;
+    end;
+    // Finalize last range
+    Range.FMax := Arr[Arr.Length-1];
+    Result.FRanges := Result.FRanges + [Range];
+  end;
+end;
+
 Class Operator TRanges.Implicit(Ranges: String): TRanges;
 begin
   var Parser := TStringParser.Create(Comma,Ranges);
@@ -123,6 +152,11 @@ end;
 Class Operator TRanges.Implicit(Ranges: TRanges): String;
 begin
   Result := Ranges.AsString;
+end;
+
+Constructor TRanges.Create(const Values: array of Integer);
+begin
+  Self := Values;
 end;
 
 Constructor TRanges.Create(const Ranges: array of TRange);
