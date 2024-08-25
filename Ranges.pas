@@ -202,7 +202,10 @@ begin
     if FRanges[Range].Count = 1 then
       Result := Result + Separator + FRanges[Range].FMin.ToString
     else
-      Result := Result + Separator + FRanges[Range].FMin.ToString + '-' + FRanges[Range].FMax.ToString;
+      if FRanges[Range].FMax = FRanges[Range].FMin+1 then
+        Result := Result + Separator + FRanges[Range].FMin.ToString + ',' + FRanges[Range].FMax.ToString
+      else
+        Result := Result + Separator + FRanges[Range].FMin.ToString + '-' + FRanges[Range].FMax.ToString;
     Separator := ',';
   end;
 end;
