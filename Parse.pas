@@ -81,13 +81,6 @@ Type
     Procedure AssignTo(var Tokens: array of Integer; FromToken: Integer = 0); overload;
     Procedure AssignTo(var Tokens: array of Float64; FromToken: Integer = 0); overload;
     Procedure AssignToVar(const Tokens: array of TVarPointer; FromToken: Integer = 0);
-    Property Tokens[Token: Integer]: TToken read GetTokens; default;
-    Property Char[Token: Integer]: Char read GetChar;
-    Property Str[Token: Integer]: String read GetStr;
-    Property Byte[Token: Integer]: Byte read GetByte;
-    Property Int[Token: Integer]: Integer read GetInt;
-    Property Int64[Token: Integer]: Int64 read GetInt64;
-    Property Float[Token: Integer]: Float64 read GetFloat;
     Function ToStrArray: TArray<String>; overload;
     Function ToStrArray(Offset,Count: Integer): TArray<String>; overload;
     Function ToIntArray: TArray<Int32>; overload;
@@ -96,12 +89,22 @@ Type
     Function ToFloatArray(Offset,Count: Integer): TArray<Float64>; overload;
     Function ToFloatArray(const FormatSettings: TFormatSettings): TArray<Float64>; overload;
     Function ToFloatArray(const FormatSettings: TFormatSettings; Offset,Count: Integer): TArray<Float64>; overload;
+    Function TryToInt(Token: Integer; out Value: Integer): Boolean;
+    Function TryToFloat(Token: Integer; out Value: Float64): Boolean;
     Function TryToIntArray(out Values: TArray<Int32>): Boolean; overload;
     Function TryToIntArray(Offset,Count: Integer; out Values: TArray<Int32>): Boolean; overload;
     Function TryToFloatArray(out Values: TArray<Float64>): Boolean; overload;
     Function TryToFloatArray(Offset,Count: Integer; out Values: TArray<Float64>): Boolean; overload;
     Function TryToFloatArray(const FormatSettings: TFormatSettings; out Values: TArray<Float64>): Boolean; overload;
     Function TryToFloatArray(const FormatSettings: TFormatSettings; Offset,Count: Integer; out Values: TArray<Float64>): Boolean; overload;
+  public
+    Property Tokens[Token: Integer]: TToken read GetTokens; default;
+    Property Char[Token: Integer]: Char read GetChar;
+    Property Str[Token: Integer]: String read GetStr;
+    Property Byte[Token: Integer]: Byte read GetByte;
+    Property Int[Token: Integer]: Integer read GetInt;
+    Property Int64[Token: Integer]: Int64 read GetInt64;
+    Property Float[Token: Integer]: Float64 read GetFloat;
   end;
 
   TFixedWidthParser = record
@@ -462,6 +465,16 @@ Function TStringParser.ToFloatArray(const FormatSettings: TFormatSettings; Offse
 begin
   SetLength(Result,Count);
   for var Token := 0 to Count-1 do Result[Token] := StrToFloat(FTokens[Token+Offset],FormatSettings);
+end;
+
+Function TStringParser.TryToInt(Token: Integer; out Value: Integer): Boolean;
+begin
+  Result := TryStrToInt(FTokens[Token],Value);
+end;
+
+Function TStringParser.TryToFloat(Token: Integer; out Value: Float64): Boolean;
+begin
+  Result := TryStrToFloat(FTokens[Token],Value);
 end;
 
 Function TStringParser.TryToIntArray(out Values: TArray<Int32>): Boolean;
