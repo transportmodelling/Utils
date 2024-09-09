@@ -97,6 +97,9 @@ Type
     Function TryToFloatArray(Offset,Count: Integer; out Values: TArray<Float64>): Boolean; overload;
     Function TryToFloatArray(const FormatSettings: TFormatSettings; out Values: TArray<Float64>): Boolean; overload;
     Function TryToFloatArray(const FormatSettings: TFormatSettings; Offset,Count: Integer; out Values: TArray<Float64>): Boolean; overload;
+    Function TrySum(out Sum: Float64): Boolean; overload;
+    Function TrySum(Offset,Count: Integer; out Sum: Float64): Boolean; overload;
+    Function TrySum(const FormatSettings: TFormatSettings; Offset,Count: Integer; out Sum: Float64): Boolean; overload;
   public
     Property Tokens[Token: Integer]: TToken read GetTokens; default;
     Property Char[Token: Integer]: Char read GetChar;
@@ -511,6 +514,29 @@ begin
   SetLength(Values,Count);
   for var Token := 0 to Count-1 do
   if not TryStrToFloat(FTokens[Token+Offset],Values[Token],FormatSettings) then Exit(false);
+end;
+
+Function TStringParser.TrySum(out Sum: Float64): Boolean;
+begin
+  Result := TrySum(0,Count,Sum);
+end;
+
+Function TStringParser.TrySum(Offset,Count: Integer; out Sum: Float64): Boolean;
+begin
+  Result := TrySum(FormatSettings,Offset,Count,Sum);
+end;
+
+Function TStringParser.TrySum(const FormatSettings: TFormatSettings; Offset,Count: Integer; out Sum: Float64): Boolean;
+Var
+  Value: Float64;
+begin
+  Sum := 0;
+  Result := true;
+  for var Token := 0 to Count-1 do
+  if TryStrToFloat(FTokens[Token+Offset],Value,FormatSettings) then
+    Sum := Sum + Value
+  else
+    Exit(false);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
