@@ -324,7 +324,7 @@ begin
     repeat
       DeletedRecord := (FileReader.ReadChar = '*');
       for var Field := 0 to FFieldCount-1 do
-      begin
+      try
         case FFields[Field].FFieldType of
           'I': FFields[Field].FieldValue := FileReader.ReadInt32;
           'O': FFields[Field].FieldValue := FileReader.ReadDouble;
@@ -385,6 +385,8 @@ begin
                   end;
             end;
         end;
+      except
+        raise Exception.Create('Error reading dbf-field ' + FFields[Field].FieldName);
       end;
     until not DeletedRecord;
   end else Result := false;

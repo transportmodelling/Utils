@@ -76,13 +76,18 @@ begin
       end;
       FTable.CreateDataSet;
       // Read data
-      for var Rec := 0 to DBFReader.RecordCount-1 do
-      if DBFReader.NextRecord then
-      begin
-        FTable.Append;
-        for var Field := 0 to DBFReader.FieldCount-1 do FTable.Fields[Field].Value := DBFReader[Field];
-      end else
-        raise exception.Create('Error reading DBF-file');
+      for var Rec := 1 to DBFReader.RecordCount do
+      try
+        if DBFReader.NextRecord then
+        begin
+          FTable.Append;
+          for var Field := 0 to DBFReader.FieldCount-1 do
+          FTable.Fields[Field].Value := DBFReader[Field];
+        end else
+          raise exception.Create('Error reading DBF-file');
+      except
+        on E: Exception do raise Exception.Create(E.Message + ' record ' + Rec.ToString);
+      end;
       FTable.First;
     finally
       DBFReader.Free;
