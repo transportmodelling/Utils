@@ -26,6 +26,7 @@ Type
     Const
       MaxPathLevels = 4;
     Var
+      Buffer: String;
       LogEvent: TLogEvent;
       StartTime: TDateTime;
       Console: Boolean;
@@ -44,7 +45,8 @@ Type
                        const Append: Boolean = false;
                        const OnAppend: TNotifyEvent = nil;
                        const OnLog: TLogEvent = nil); overload;
-    Procedure Log(const Line: String = ''); overload;
+    Procedure Log(const Line: String = ''; const LineFeed: Boolean = true); overload;
+    Procedure Log(const Line: String; const Width: Integer; const LineFeed: Boolean = true); overload;
     Procedure Log(const Columns: array of String; const ColumnWidths: Integer); overload;
     Procedure Log(const Columns: array of String; const ColumnWidths: array of Integer); overload;
     Procedure Log(const Columns: array of const; const ColumnWidths, NDecimals: Integer); overload;
@@ -166,45 +168,47 @@ begin
   end;
 end;
 
-Procedure TLogFile.Log(const Line: String = '');
+Procedure TLogFile.Log(const Line: String = ''; const LineFeed: Boolean = true);
 begin
-  if Console then
-  if Line.Length <= ConsoleWidth then
-    writeln(Line)
-  else
-    write(Copy(Line,1,ConsoleWidth));
-  if LogWriter <> nil then LogWriter.WriteLine(Line);
-  if Assigned(LogEvent) then TThread.Synchronize(nil,Procedure
-                                                     begin
-                                                       LogEvent(Self,Line)
-                                                     end);
+  Buffer := Buffer + Line;
+  if LineFeed then
+  begin
+    // Write to consol
+    if Console then
+    if Buffer.Length <= ConsoleWidth then
+      writeln(Buffer)
+    else
+      write(Copy(Buffer,1,ConsoleWidth));
+    // Write to file
+    if LogWriter <> nil then LogWriter.WriteLine(Buffer);
+    // Fire log event
+    if Assigned(LogEvent) then TThread.Synchronize(nil,Procedure
+                                                       begin
+                                                         LogEvent(Self,Buffer)
+                                                       end);
+    // Reset buffer
+    Buffer := '';
+  end;
+end;
+
+Procedure TLogFile.Log(const Line: String; const Width: Integer; const LineFeed: Boolean = true);
+begin
+  for var Space := Line.Length+1 to Width do Buffer := Buffer + ' ';
+  Log(Line,LineFeed);
 end;
 
 Procedure TLogFile.Log(const Columns: array of String; const ColumnWidths:Integer);
 begin
-  var Line := '';
-  for var Column := low(Columns) to high(Columns) do
-  begin
-    var Text := Columns[Column];
-    while Length(Text) < ColumnWidths do Text := ' ' + Text;
-    Line := Line + Text;
-  end;
-  Log(Line);
+  for var Column := low(Columns) to high(Columns) do Log(Columns[Column],ColumnWidths,false);
+  Log;
 end;
 
 Procedure TLogFile.Log(const Columns: array of String; const ColumnWidths: array of Integer);
 begin
   if Length(Columns) = Length(ColumnWidths) then
   begin
-    var Line := '';
-    for var Column := low(Columns) to high(Columns) do
-    begin
-      var Text := Columns[Column];
-      var Width := ColumnWidths[Column];
-      while Length(Text) < Width do Text := ' ' + Text;
-      Line := Line + Text;
-    end;
-    Log(Line);
+    for var Column := low(Columns) to high(Columns) do Log(Columns[Column],ColumnWidths[Column],false);
+    Log;
   end else
     raise Exception.Create('Inconsistent method arguments');
 end;
@@ -226,6 +230,7 @@ begin
   for var Column := low(Columns) to high(Columns) do StringColumns[Column] := VarRecToStr(Columns[Column],NDecimals);
   Log(StringColumns,ColumnWidths);
 end;
+
 Procedure TLogFile.Log(const Columns: array of Const; const ColumnWidths,NDecimals: array of Integer);
 Var
   StringColumns: array of String;
@@ -280,6 +285,8 @@ end;
 
 Destructor TLogFile.Destroy;
 begin
+  // Log buffered content
+  if Buffer <> '' then Log;
   // Log input files
   if Length(InputFiles) > 0 then
   begin
