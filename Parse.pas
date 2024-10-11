@@ -38,19 +38,21 @@ Type
 
   TStringParser = record
   private
+    FToken: Integer;
     FTokens: TArray<String>;
     FSeparators: TArray<Char>;
     SplitOptions: TStringSplitOptions;
     ParseMethod: Integer;
+    Procedure SetToken(Token: Integer);
     Function GetExcludeEmpty: Boolean;
     Procedure SetExcludeEmpty(ExcludeEmpty: Boolean);
     Function GetTokens(Token: Integer): TToken; inline;
-    Function GetChar(Token: Integer): Char; inline;
-    Function GetStr(Token: Integer): String; inline;
-    Function GetByte(Token: Integer): Byte; inline;
-    Function GetInt(Token: Integer): Integer; inline;
-    Function GetInt64(Token: Integer): Int64; inline;
-    Function GetFloat(Token: Integer): Float64; inline;
+    Function GetChar(Token: Integer): Char; overload; inline;
+    Function GetStr(Token: Integer): String; overload; inline;
+    Function GetByte(Token: Integer): Byte; overload; inline;
+    Function GetInt(Token: Integer): Integer; overload; inline;
+    Function GetInt64(Token: Integer): Int64; overload; inline;
+    Function GetFloat(Token: Integer): Float64; overload; inline;
   public
     Class Operator Initialize(out Tokenizer: TStringParser);
   public
@@ -77,6 +79,12 @@ Type
     Procedure ReadLine(const TextReader: TTextReader; Quote: Char); overload;
     // Query Tokens
     Function Count: Integer; inline;
+    Function GetChar: Char; overload;
+    Function GetStr: String; overload;
+    Function GetByte: Byte; overload;
+    Function GetInt: Integer; overload;
+    Function GetInt64: Int64; overload;
+    Function GetFloat: Float64; overload;
     Function IndexOf(const Token: String; Offset: Integer = 0): Integer;
     Procedure AssignTo(var Tokens: array of Integer; FromToken: Integer = 0); overload;
     Procedure AssignTo(var Tokens: array of Float64; FromToken: Integer = 0); overload;
@@ -101,6 +109,7 @@ Type
     Function TrySum(Offset,Count: Integer; out Sum: Float64): Boolean; overload;
     Function TrySum(const FormatSettings: TFormatSettings; Offset,Count: Integer; out Sum: Float64): Boolean; overload;
   public
+    Property Token: Integer read FToken write SetToken;
     Property Tokens[Token: Integer]: TToken read GetTokens; default;
     Property Char[Token: Integer]: Char read GetChar;
     Property Str[Token: Integer]: String read GetStr;
@@ -194,6 +203,14 @@ Class Operator TStringParser.Initialize(out Tokenizer: TStringParser);
 begin
   Tokenizer.ParseMethod := -1;
   Tokenizer.SpaceDelimited;
+end;
+
+Procedure TStringParser.SetToken(Token: Integer);
+begin
+  if (Token >= 0) and (Token < Count) then
+    FToken := Token
+  else
+    raise Exception.Create('Token out of range');
 end;
 
 Function TStringParser.GetExcludeEmpty: Boolean;
@@ -355,11 +372,13 @@ end;
 Procedure TStringParser.Assign(const Line: String);
 begin
   FTokens := Line.Split(FSeparators,SplitOptions);
+  if Count > 0 then FToken := 0 else FToken := -1;
 end;
 
 Procedure TStringParser.Assign(const Line: String; Quote: Char);
 begin
   FTokens := Line.Split(FSeparators,Quote,Quote,SplitOptions);
+  if Count > 0 then FToken := 0 else FToken := -1;
 end;
 
 Procedure TStringParser.ReadLine(var TextFile: TextFile);
@@ -383,6 +402,66 @@ end;
 Function TStringParser.Count: Integer;
 begin
   Result := Length(FTokens);
+end;
+
+Function TStringParser.GetChar: Char;
+begin
+  if FToken < Count then
+  begin
+    Result := GetChar(FToken);
+    Inc(FToken);
+  end else
+    raise Exception.Create('Token out of range');
+end;
+
+Function TStringParser.GetStr: String;
+begin
+  if FToken < Count then
+  begin
+    Result := GetStr(FToken);
+    Inc(FToken);
+  end else
+    raise Exception.Create('Token out of range');
+end;
+
+Function TStringParser.GetByte: Byte;
+begin
+  if FToken < Count then
+  begin
+    Result := GetByte(FToken);
+    Inc(FToken);
+  end else
+    raise Exception.Create('Token out of range');
+end;
+
+Function TStringParser.GetInt: Integer;
+begin
+  if FToken < Count then
+  begin
+    Result := GetInt(FToken);
+    Inc(FToken);
+  end else
+    raise Exception.Create('Token out of range');
+end;
+
+Function TStringParser.GetInt64: Int64;
+begin
+  if FToken < Count then
+  begin
+    Result := GetInt64(FToken);
+    Inc(FToken);
+  end else
+    raise Exception.Create('Token out of range');
+end;
+
+Function TStringParser.GetFloat: Float64;
+begin
+  if FToken < Count then
+  begin
+    Result := GetFloat(FToken);
+    Inc(FToken);
+  end else
+    raise Exception.Create('Token out of range');
 end;
 
 Function TStringParser.IndexOf(const Token: String; Offset: Integer = 0): Integer;
