@@ -301,6 +301,7 @@ begin
     Log;
     Log('Output files:');
     for var OutpFile := low(OutputFiles) to high(OutputFiles) do
+    if FileExists(OutputFiles[OutpFile].FileInfo) then
     Log(OutputFiles[OutpFile].FileLabel + ': ' + FileInfo(OutputFiles[OutpFile].FileInfo,false));
   end;
   // Log stop time
