@@ -13,13 +13,14 @@ Type
   TJsonObjectArrayParser = Class
   // Reads the successive JSON object literals from a JSON object array literal
   private
-    FEndOfArray,OwnsStream: Boolean;
+    FEndOfArray,OwnsReader: Boolean;
     Stream: TStream;
     Reader: TStreamReader;
   public
-    Constructor Create(const Stream: TStream); overload;
     Constructor Create(const FileName: TFileName); overload;
     Constructor Create(const Json: String); overload;
+    Constructor Create(const Stream: TStream); overload;
+    Constructor Create(const StreamReader: TStreamReader); overload;
     Function Next(NameCase: TCaseType = ctAsIs): String;
     Destructor Destroy; override;
   public
@@ -30,10 +31,29 @@ Type
 implementation
 ////////////////////////////////////////////////////////////////////////////////
 
+Constructor TJsonObjectArrayParser.Create(const FileName: TFileName);
+begin
+  Stream := TBufferedFileStream.Create(FileName,fmOpenRead or fmShareDenyWrite);
+  Create(Stream);
+end;
+
+Constructor TJsonObjectArrayParser.Create(const Json: String);
+begin
+  Stream := TStringStream.Create(Json);
+  Create(Stream);
+end;
+
 Constructor TJsonObjectArrayParser.Create(const Stream: TStream);
 begin
-  inherited Create;
+  OwnsReader := true;
   Reader := TStreamReader.Create(Stream,TEncoding.Ansi);
+  Create(Reader);
+end;
+
+Constructor TJsonObjectArrayParser.Create(const StreamReader: TStreamReader);
+begin
+  inherited Create;
+  Reader := StreamReader;
   // Read array start
   while (not Reader.EndOfStream) and (Char(Reader.Peek) in [#10,#13,#32]) do Reader.Read;
   if Reader.EndOfStream or (Char(Reader.Read) <> '[') then raise Exception.Create('Invalid Json-array');
@@ -50,20 +70,6 @@ begin
     raise Exception.Create('Invalid Json-array');
 end;
 
-Constructor TJsonObjectArrayParser.Create(const FileName: TFileName);
-begin
-  OwnsStream := true;
-  Stream := TBufferedFileStream.Create(FileName,fmOpenRead or fmShareDenyWrite);
-  Create(Stream);
-end;
-
-Constructor TJsonObjectArrayParser.Create(const Json: String);
-begin
-  OwnsStream := true;
-  Stream := TStringStream.Create(Json);
-  Create(Stream);
-end;
-
 Function TJsonObjectArrayParser.Next(NameCase: TCaseType = ctAsIs): String;
 // Returns the next JSON object literal
 begin
@@ -73,6 +79,7 @@ begin
     while (not Reader.EndOfStream) and (Char(Reader.Peek) in [#10,#13,#32]) do Reader.Read;
     if (not Reader.EndOfStream) and (Char(Reader.Peek) = '{') then
     begin
+      var Name := true;
       var BracesCount := 0;
       var BracketsCount := 0;
       if not Reader.EndOfStream then
@@ -83,12 +90,19 @@ begin
           if Ch = '{' then Inc(BracesCount) else if Ch = '}' then Dec(BracesCount);
           if Ch = '[' then Inc(BracketsCount) else if Ch = ']' then Dec(BracketsCount);
           if (BracesCount=1) and (BracketsCount=0) then
-            case NameCase of
-              ctAsIs: Result := Result + Ch;
-              ctLowercase: Result := Result + Lowercase(Ch);
-              ctUppercase: Result := Result + Uppercase(Ch);
-            end
-          else
+          begin
+            if Ch = ':' then Name := false else
+            if Ch = ',' then Name := true;
+            // Set name case
+            if Name then
+              case NameCase of
+                ctAsIs: Result := Result + Ch;
+                ctLowercase: Result := Result + Lowercase(Ch);
+                ctUppercase: Result := Result + Uppercase(Ch);
+              end
+            else
+              Result := Result + Ch
+          end else
             Result := Result + Ch
         end;
       until Reader.EndOfStream or (BracesCount = 0);
@@ -110,8 +124,8 @@ end;
 
 Destructor TJsonObjectArrayParser.Destroy;
 begin
-  Reader.Free;
-  if OwnsStream then Stream.Free;
+  if OwnsReader then Reader.Free;
+  Stream.Free;
   inherited Destroy;
 end;
 
