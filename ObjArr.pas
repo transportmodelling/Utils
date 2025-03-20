@@ -80,15 +80,19 @@ begin
     if (not Reader.EndOfStream) and (Char(Reader.Peek) = '{') then
     begin
       var Name := true;
+      var Escape := false;
+      var WithinString := false;
       var BracesCount := 0;
       var BracketsCount := 0;
       if not Reader.EndOfStream then
       repeat
         var Ch := Char(Reader.Read);
-        if not (Ch in [#10,#13,#32]) then
+        if not (Ch in [#10,#13]) and (WithinString or (Ch <> #32)) then
         begin
           if Ch = '{' then Inc(BracesCount) else if Ch = '}' then Dec(BracesCount);
           if Ch = '[' then Inc(BracketsCount) else if Ch = ']' then Dec(BracketsCount);
+          if (Ch = '"') and not Escape then WithinString := not WithinString;
+          if (Ch = '\') then Escape := true else Escape := false;
           if (BracesCount=1) and (BracketsCount=0) then
           begin
             if Ch = ':' then Name := false else
