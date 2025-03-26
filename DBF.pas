@@ -56,6 +56,7 @@ Type
     Function IndexOf(const FieldName: String; const MustExist: Boolean = false): Integer;
     Function GetFields: TArray<TDBFField>; overload;
     Function GetFields(const FieldNames: array of String): TArray<TDBFField>; overload;
+    Function GetValues: TArray<Variant>;
     Function GetPairs: TArray<TPair<String,Variant>>; overload;
   public
     Property FileName: String read FFileName;
@@ -271,6 +272,12 @@ begin
   SetLength(Result,Length(FieldNames));
   for var Field := low(Result) to high(Result) do
   Result[Field] := FFields[IndexOf(FieldNames[Field],true)];
+end;
+
+Function TDBFFile.GetValues: TArray<Variant>;
+begin
+  SetLength(Result,FFieldCount);
+  for var Field := 0 to FFieldCount-1 do Result[Field] := FFields[Field].FieldValue;
 end;
 
 Function TDBFFile.GetPairs: TArray<TPair<String,Variant>>;
