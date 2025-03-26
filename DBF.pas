@@ -54,7 +54,8 @@ Type
   public
     Constructor Create;
     Function IndexOf(const FieldName: String; const MustExist: Boolean = false): Integer;
-    Function GetFields: TArray<TDBFField>;
+    Function GetFields: TArray<TDBFField>; overload;
+    Function GetFields(const FieldNames: array of String): TArray<TDBFField>; overload;
     Function GetPairs: TArray<TPair<String,Variant>>; overload;
   public
     Property FileName: String read FFileName;
@@ -263,6 +264,13 @@ end;
 Function TDBFFile.GetFields: TArray<TDBFField>;
 begin
   Result := Copy(FFields);
+end;
+
+Function TDBFFile.GetFields(const FieldNames: array of String): TArray<TDBFField>;
+begin
+  SetLength(Result,Length(FieldNames));
+  for var Field := low(Result) to high(Result) do
+  Result[Field] := FFields[IndexOf(FieldNames[Field],true)];
 end;
 
 Function TDBFFile.GetPairs: TArray<TPair<String,Variant>>;
