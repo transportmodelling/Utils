@@ -22,12 +22,10 @@ Type
     FFieldLength,FDecimalCount: Byte;
     FTruncate: Boolean;
     FieldValue: Variant;
-    FieldFormat: String;
     Procedure SetFieldName(Value: string);
     Procedure SetFieldType(Value: Char);
     Procedure SetFieldLength(Value: Byte);
     Procedure SetDecimalCount(Value: Byte);
-    Procedure SetFieldFormat;
     Procedure Validate;
   public
     Constructor Create(const FieldName: String; const FieldType: Char;
@@ -180,7 +178,6 @@ begin
              begin
                if Value > 20 then raise Exception.Create('Invalid Field Length') else
                if (FDecimalCount > 0) and (Value < FDecimalCount+2) then raise Exception.Create('Invalid Field Length');
-               SetFieldFormat;
              end;
         'I': if Value <> 4 then raise Exception.Create('Invalid Field Length');
         'O': if Value <> 8 then raise Exception.Create('Invalid Field Length');
@@ -197,21 +194,11 @@ begin
     FDecimalCount := Value;
     if FFieldType in ['F','N'] then
     begin
-      SetFieldFormat;
       if Value > FFieldlength-2 then raise Exception.Create('Field Length too small');
     end else
     begin
       if Value <> 0 then raise Exception.Create('Invalid Decimal Count');
     end;
-  end;
-end;
-
-Procedure TDBFField.SetFieldFormat;
-begin
-  if FDecimalCount = 0 then FieldFormat := '0' else
-  begin
-    FieldFormat := '0.';
-    for var Decimal := 1 to FDecimalCount do FieldFormat := FieldFormat + '#';
   end;
 end;
 
@@ -497,6 +484,7 @@ end;
 
 Procedure TDBFWriter.AppendRecord;
 Var
+  Text: string;
   Year,Month,Day: Word;
 begin
   FileWriter.Write(' '); // Undeleted record
@@ -538,21 +526,24 @@ begin
           'F','N':
                begin
                  var Value: Float64 := FFields[Field].FieldValue;
-                 var Text := FormatFloat(FFields[Field].FieldFormat,Value,FormatSettings);
-                 if Text.Length > FFields[Field].FieldLength then
-                   // Only truncate decimals
-                   if FFields[Field].FTruncate and (FFields[Field].FDecimalCount > 0) then
-                     if Text.Length-FFields[Field].FDecimalCount-1 <= FFields[Field].FieldLength then
+                 var NDecimals: Integer := FFields[Field].FDecimalCount;
+                 repeat
+                   Text := Format('%.*f',[NDecimals,Value]);
+                   if Text.Length > FFields[Field].FFieldLength then
+                   if FFields[Field].FTruncate then
+                     // Only truncate decimals
+                     if NDecimals > 0 then
                      begin
-                       Text := Copy(Text,1,FFields[Field].FieldLength);
-                       if Text[Text.Length] = '.' then
-                       Text := ' ' + Copy(Text,1,FFields[Field].FieldLength-1);
+                       NDecimals := NDecimals-(Text.Length-FFields[Field].FFieldLength);
+                       // If NDecimals < 0 the decimal separator has been deleted
+                       if NDecimals = -1 then NDecimals := 0 else
+                       if NDecimals < 0 then raise Exception.Create('Field value exceeds field length');
                      end else
                        raise Exception.Create('Field value exceeds field length')
                    else
                      raise Exception.Create('Field value exceeds field length')
-                 else
-                   while Length(Text) < FFields[Field].FieldLength do Text := ' ' + Text;
+                 until Text.Length <= FFields[Field].FFieldLength;
+                 while Text.Length < FFields[Field].FFieldLength do Text := ' ' + Text;
                  FileWriter.Write(Text.ToCharArray);
                end;
           'I': begin
