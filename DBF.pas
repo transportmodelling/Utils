@@ -20,6 +20,7 @@ Type
     FFieldName: String;
     FFieldType: Char;
     FFieldLength,FDecimalCount: Byte;
+    FTruncate: Boolean;
     FieldValue: Variant;
     FieldFormat: String;
     Procedure SetFieldName(Value: string);
@@ -30,12 +31,14 @@ Type
     Procedure Validate;
   public
     Constructor Create(const FieldName: String; const FieldType: Char;
-                       const FieldLength,DecimalCount: Byte);
+                       const FieldLength,DecimalCount: Byte;
+                       const Truncate: Boolean = false);
   public
     Property FieldName: String read FFieldName write SetFieldName;
     Property FieldType: Char read FFieldType write SetFieldType;
     Property FieldLength: Byte read FFieldLength write SetFieldLength;
     Property DecimalCount: Byte read FDecimalCount write SetDecimalCount;
+    Property Truncate: Boolean read FTruncate;
   end;
 
   TDBFFile = Class
@@ -103,12 +106,14 @@ implementation
 ////////////////////////////////////////////////////////////////////////////////
 
 Constructor TDBFField.Create(const FieldName: String; const FieldType: Char;
-                             const FieldLength,DecimalCount: Byte);
+                             const FieldLength,DecimalCount: Byte;
+                             const Truncate: Boolean = false);
 begin
   SetFieldName(FieldName);
   SetFieldType(FieldType);
   SetFieldLength(FieldLength);
   SetDecimalCount(DecimalCount);
+  FTruncate := Truncate;
 end;
 
 Procedure TDBFField.SetFieldName(Value: string);
@@ -500,50 +505,70 @@ begin
     if VarIsNull(FFields[Field].FieldValue) then
       for var Chr := 1 to FFields[Field].FieldLength do FileWriter.Write(#0)
     else
-      case FFields[Field].FFieldType of
-        'C': begin
-               var Value: String := FFields[Field].FieldValue;
-               while Length(Value) < FFields[Field].FieldLength do Value := Value + #0;
-               FileWriter.Write(Value.ToCharArray);
-             end;
-        'D': begin
-               var Value: TDateTime := FFields[Field].FieldValue;
-               DecodeDate(Value,Year,Month,Day);
-               FileWriter.Write(IntToStr(Year).ToCharArray);
-               if Month < 10 then
-                 FileWriter.Write(('0'+IntToStr(Month)).ToCharArray)
-               else
-                 FileWriter.Write(IntToStr(Month).ToCharArray);
-               if Day < 10 then
-                 FileWriter.Write(('0'+IntToStr(Day)).ToCharArray)
-               else
-                 FileWriter.Write(IntToStr(Day).ToCharArray);
-             end;
-        'L': begin
-               var Value: Boolean := FFields[Field].FieldValue;
-               if Value then FileWriter.Write('T') else FileWriter.Write('F');
-             end;
-        'F','N':
-             begin
-               var Value: Float64 := FFields[Field].FieldValue;
-               var Text := FormatFloat(FFields[Field].FieldFormat,Value,FormatSettings);
-               while Length(Text) < FFields[Field].FieldLength do Text := ' ' + Text;
-               if Length(Text) = FFields[Field].FieldLength then
-                 FileWriter.Write(Text.ToCharArray)
-               else
-                 raise Exception.Create('Numeric value out of range (field=' +
-                                        FFields[Field].FFieldName + '; value=' +
-                                        Value.ToString + ')');
-             end;
-        'I': begin
-               var Value: Integer := FFields[Field].FieldValue;
-               FileWriter.Write(Value);
-             end;
-        'O': begin
-               var Value: Float64 := FFields[Field].FieldValue;
-               FileWriter.Write(Value);
-             end;
-        else raise Exception.Create('Unsupported field type');
+      try
+        case FFields[Field].FFieldType of
+          'C': begin
+                 var Value: String := FFields[Field].FieldValue;
+                 if Value.Length > FFields[Field].FieldLength then
+                   if FFields[Field].FTruncate then
+                     Value := Copy(Value,1,FFields[Field].FieldLength)
+                   else
+                     raise Exception.Create('Field value exceeds field length')
+                 else
+                   while Length(Value) < FFields[Field].FieldLength do Value := Value + #0;
+                 FileWriter.Write(Value.ToCharArray);
+               end;
+          'D': begin
+                 var Value: TDateTime := FFields[Field].FieldValue;
+                 DecodeDate(Value,Year,Month,Day);
+                 FileWriter.Write(IntToStr(Year).ToCharArray);
+                 if Month < 10 then
+                   FileWriter.Write(('0'+IntToStr(Month)).ToCharArray)
+                 else
+                   FileWriter.Write(IntToStr(Month).ToCharArray);
+                 if Day < 10 then
+                   FileWriter.Write(('0'+IntToStr(Day)).ToCharArray)
+                 else
+                   FileWriter.Write(IntToStr(Day).ToCharArray);
+               end;
+          'L': begin
+                 var Value: Boolean := FFields[Field].FieldValue;
+                 if Value then FileWriter.Write('T') else FileWriter.Write('F');
+               end;
+          'F','N':
+               begin
+                 var Value: Float64 := FFields[Field].FieldValue;
+                 var Text := FormatFloat(FFields[Field].FieldFormat,Value,FormatSettings);
+                 if Text.Length > FFields[Field].FieldLength then
+                   // Only truncate decimals
+                   if FFields[Field].FTruncate and (FFields[Field].FDecimalCount > 0) then
+                     if Text.Length-FFields[Field].FDecimalCount-1 <= FFields[Field].FieldLength then
+                     begin
+                       Text := Copy(Text,1,FFields[Field].FieldLength);
+                       if Text[Text.Length] = '.' then
+                       Text := ' ' + Copy(Text,1,FFields[Field].FieldLength-1);
+                     end else
+                       raise Exception.Create('Field value exceeds field length')
+                   else
+                     raise Exception.Create('Field value exceeds field length')
+                 else
+                   while Length(Text) < FFields[Field].FieldLength do Text := ' ' + Text;
+                 FileWriter.Write(Text.ToCharArray);
+               end;
+          'I': begin
+                 var Value: Integer := FFields[Field].FieldValue;
+                 FileWriter.Write(Value);
+               end;
+          'O': begin
+                 var Value: Float64 := FFields[Field].FieldValue;
+                 FileWriter.Write(Value);
+               end;
+          else raise Exception.Create('Unsupported field type');
+        end;
+      except
+        on E: Exception do raise Exception.Create(E.Message + ' (field=' +
+                                                  FFields[Field].FFieldName + '; value=' +
+                                                  VarToStr(FFields[Field].FieldValue) + ')');
       end;
     FFields[Field].FieldValue := Null;
   end;
