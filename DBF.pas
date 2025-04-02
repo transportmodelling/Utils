@@ -288,11 +288,11 @@ begin
   FileStream := TBufferedFileStream.Create(FileName,fmOpenRead or fmShareDenyWrite,4096);
   FileReader := TBinaryReader.Create(FileStream,TEncoding.ANSI);
   // Read table file header
-  Version := FileReader.ReadByte and 7;
+  Version := FileReader.ReadByte;
   if Version = 4 then raise Exception.Create('dBase level 7 files not supported');
   for var Skip := 1 to 3 do FileReader.ReadByte; // Last update date
   FRecordCount := FileReader.ReadInteger;
-  FFieldCount := (FileReader.ReadInt16 div 32)-1;
+  for var Skip := 1 to 2 do FileReader.ReadByte; // Position of first data record
   for var Skip := 1 to 2 do FileReader.ReadByte; // Nr record bytes
   for var Skip := 1 to 2 do FileReader.ReadByte; // Reserved
   FileReader.ReadByte; // Incomplete dBase IV transaction
@@ -302,22 +302,27 @@ begin
   FileReader.ReadByte; // Language driver
   for var Skip := 1 to 2 do FileReader.ReadByte; // Reserved
   // Read field descriptor records
-  SetLength(FFields,FFieldCount);
-  for var Field := 0 to FFieldCount-1 do
+  while FileReader.PeekChar <> 13 do
   begin
+    if Length(FFields) <= FFieldCount then SetLength(FFields,FFieldCount+16);
     for var NameChar := 1 to 11 do
     begin
       var Chr := FileReader.ReadChar;
-      if Chr <> #0 then FFields[Field].FFieldName := FFields[Field].FFieldName + Chr;
+      if Chr <> #0 then FFields[FFieldCount].FFieldName := FFields[FFieldCount].FFieldName + Chr;
     end;
-    FFields[Field].FFieldType := FileReader.ReadChar;
+    FFields[FFieldCount].FFieldType := FileReader.ReadChar;
     for var Skip := 1 to 4 do FileReader.ReadByte; // Reserved
-    FFields[Field].FFieldLength := FileReader.ReadByte;
-    FFields[Field].FDecimalCount := FileReader.ReadByte;
+    FFields[FFieldCount].FFieldLength := FileReader.ReadByte;
+    FFields[FFieldCount].FDecimalCount := FileReader.ReadByte;
     for var Skip := 1 to 14 do FileReader.ReadByte;
+    Inc(FFieldCount);
   end;
+  SetLength(FFields,FFieldCount);
   // Read header terminator
   FileReader.ReadByte;
+  // Read additional Visual FoxPro header bytes
+  if Version in [48,49,50] then
+  for var Skip := 1 to 263 do FileReader.ReadByte;
 end;
 
 Function TDBFReader.NextRecord: Boolean;
@@ -358,12 +363,14 @@ begin
                 else
                   case FFields[Field].FFieldType of
                     'C': FFields[Field].FieldValue := Trim(FieldValue);
-                    'D': begin
+                    'D': if Trim(FieldValue) <> '' then
+                         begin
                            var Year := Copy(FieldValue,1,4).ToInteger;
                            var Month := Copy(FieldValue,5,2).ToInteger;
                            var Day := Copy(FieldValue,7,2).ToInteger;
                            FFields[Field].FieldValue := EncodeDate(Year,Month,Day);
-                         end;
+                         end else
+                           FFields[Field].FieldValue := Unassigned;
                     'L': if (FieldValue='T') or (FieldValue='t') or (FieldValue='Y') or (FieldValue='y') then
                          begin
                            FFields[Field].FieldValue := true;
