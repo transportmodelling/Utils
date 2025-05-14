@@ -95,12 +95,14 @@ var
 begin
   inherited Create;
   LogEvent := OnLog;
+  // Get console witdth
   Console := IsConsole and Echo;
   if Console then
   begin
     GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE),CBI);
     ConsoleWidth := CBI.dwSize.X;
   end;
+  // Open file
   if FileExists(LogFileName) and Append then
   begin
     LogStream := TFileStream.Create(LogFileName,fmOpenWrite or fmShareDenyWrite);
@@ -112,6 +114,8 @@ begin
     LogStream := TFileStream.Create(LogFileName,fmCreate or fmShareDenyWrite);
     LogWriter := TStreamWriter.Create(LogStream,TEncoding.ASCII,4096);
   end;
+  LogWriter.AutoFlush := false;
+  // Log start info
   StartTime := Now;
   Log('START ' + DateTimeToStr(StartTime));
   Log('Executable: ' + FileInfo(ParamStr(0),true));
