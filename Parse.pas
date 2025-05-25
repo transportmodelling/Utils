@@ -71,6 +71,8 @@ Type
     Constructor Create(Delimiter: TDelimiter; const Line: String; const Quote: Char); overload;
     Procedure RemoveTrailingEmpties;
     Procedure TrimTokens;
+    Function Extract(const Token: String): Integer; overload;
+    Function Extract(Token: Integer): String; overload;
     Procedure Clear;
     Procedure Assign(const Line: String); overload;
     Procedure Assign(const Line: String; Quote: Char); overload;
@@ -362,6 +364,24 @@ end;
 Procedure TStringParser.TrimTokens;
 begin
   for var Token := 0 to Count-1 do FTokens[Token] := Trim(FTokens[Token]);
+end;
+
+Function TStringParser.Extract(const Token: String): Integer;
+begin
+  Result := IndexOf(Token);
+  Extract(Result);
+end;
+
+Function TStringParser.Extract(Token: Integer): String;
+begin
+  Result := '';
+  if Token >= 0 then
+  begin
+    Result := FTokens[Token];
+    if Token < FToken then Dec(FToken);
+    for var Index := Token to Count-2 do FTokens[Index] := FTokens[Index+1];
+    SetLength(FTokens,Count-1);
+  end;
 end;
 
 Procedure TStringParser.Clear;
