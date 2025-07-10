@@ -40,6 +40,7 @@ Type
   public
     Constructor Create(const Delimiter: string);
     Function Delimiter: Char;
+    Function ToString: String;
   end;
 
   TStringParser = record
@@ -209,10 +210,12 @@ end;
 
 Constructor TDelimiterHelper.Create(const Delimiter: String);
 begin
-  if SameText(Delimiter,'comma') then Self := Comma else
-  if SameText(Delimiter,'tab') then Self := Tab else
-  if SameText(Delimiter,'semicolon') then Self := Semicolon else
-  if SameText(Delimiter,'space') then Self := Space else
+  for var Delim := low(TDelimiter) to high(TDelimiter) do
+  if SameText(Delimiter,Delim.ToString) then
+  begin
+    Self := Delim;
+    Exit;
+  end;
   raise Exception.Create('Invalid delimiter ' + delimiter);
 end;
 
@@ -223,6 +226,17 @@ begin
     Tab: Result := #9;
     Semicolon: Result := ';';
     Space: Result := ' ';
+    else raise Exception.Create('Delimiter out of range');
+  end;
+end;
+
+Function TDelimiterHelper.ToString: String;
+begin
+  case Self of
+    Comma: Result := 'comma';
+    Tab: Result := 'tab';
+    Semicolon: Result := 'semicolon';
+    Space: Result := 'space';
     else raise Exception.Create('Delimiter out of range');
   end;
 end;
