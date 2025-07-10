@@ -36,6 +36,12 @@ Type
 
   TDelimiter = (Comma,Tab,Semicolon,Space);
 
+  TDelimiterHelper = record helper for TDelimiter
+  public
+    Constructor Create(const Delimiter: string);
+    Function Delimiter: Char;
+  end;
+
   TStringParser = record
   private
     FToken: Integer;
@@ -201,6 +207,28 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
+Constructor TDelimiterHelper.Create(const Delimiter: String);
+begin
+  if SameText(Delimiter,'comma') then Self := Comma else
+  if SameText(Delimiter,'tab') then Self := Tab else
+  if SameText(Delimiter,'semicolon') then Self := Semicolon else
+  if SameText(Delimiter,'space') then Self := Space else
+  raise Exception.Create('Invalid delimiter ' + delimiter);
+end;
+
+Function TDelimiterHelper.Delimiter: Char;
+begin
+  case Self of
+    Comma: Result := ',';
+    Tab: Result := #9;
+    Semicolon: Result := ';';
+    Space: Result := ' ';
+    else raise Exception.Create('Delimiter out of range');
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
 Class Operator TStringParser.Initialize(out Tokenizer: TStringParser);
 begin
   Tokenizer.ParseMethod := -1;
@@ -292,7 +320,7 @@ Procedure TStringParser.CSV;
 begin
   if ParseMethod <> Ord(Comma) then
   begin
-    SetSeparators([#44]);
+    SetSeparators([Comma.Delimiter]);
     ExcludeEmpty := false;
     ParseMethod := Ord(Comma);
   end;
@@ -302,7 +330,7 @@ Procedure TStringParser.TabDelimited;
 begin
   if ParseMethod <> Ord(Tab) then
   begin
-    SetSeparators([#9]);
+    SetSeparators([Tab.Delimiter]);
     ExcludeEmpty := false;
     ParseMethod := Ord(Tab);
   end;
@@ -312,7 +340,7 @@ Procedure TStringParser.SpaceDelimited;
 begin
   if ParseMethod <> Ord(Space) then
   begin
-    SetSeparators([#9,#32]);
+    SetSeparators([Tab.Delimiter,Space.Delimiter]);
     ExcludeEmpty := true;
     ParseMethod := Ord(Space);
   end;
@@ -322,7 +350,7 @@ Procedure TStringParser.SemicolonDelimited;
 begin
   if ParseMethod <> Ord(Semicolon) then
   begin
-    SetSeparators([#59]);
+    SetSeparators([Semicolon.Delimiter]);
     ExcludeEmpty := false;
     ParseMethod := Ord(Semicolon);
   end;
