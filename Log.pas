@@ -15,6 +15,15 @@ Uses
   SysUtils, Classes, Windows, Math, IOUtils, DateUtils, Parse;
 
 Type
+  TRunTime = Type UInt64; // Run time in milliseconds
+
+  TRunTimeHelper = record helper for TRunTime
+  public
+    Constructor Create(const StartTime,StopTime: TDateTime);
+    Procedure SetValue(const StartTime,StopTime: TDateTime);
+    Function ToString: String;
+  end;
+
   TLogEvent = Procedure(Sender: TObject; const Line: String) of Object;
 
   TLogFile = Class
@@ -66,6 +75,57 @@ Var
 
 ////////////////////////////////////////////////////////////////////////////////
 implementation
+////////////////////////////////////////////////////////////////////////////////
+
+Constructor TRunTimeHelper.Create(const StartTime,StopTime: TDateTime);
+begin
+  SetValue(StartTime,StopTime);
+end;
+
+Procedure TRunTimeHelper.SetValue(const StartTime,StopTime: TDateTime);
+begin
+  Self := MilliSecondsBetween(StartTime,StopTime);
+end;
+
+Function TRunTimeHelper.ToString: String;
+const
+  MillisPerDay = Int64(MSecsPerSec*SecsPerMin*MinsPerHour*HoursPerDay);
+  MillisPerHour = Int64(MSecsPerSec*SecsPerMin*MinsPerHour);
+  MillisPerminute = Int64(MSecsPerSec*SecsPerMin);
+begin
+  var RunTime := Self;
+  // Days
+  var Days := RunTime div MillisPerDay;
+  if Days > 0 then
+    if Days >= 10 then
+      Result := Days.ToString + ':'
+    else
+      Result := '0' + Days.ToString + ':'
+  else
+    Result := '';
+  RunTime := RunTime mod MillisPerDay;
+  // Hours
+  var Hours := RunTime div MillisPerHour;
+  if Hours >= 10 then
+    Result := Result + Hours.ToString + ':'
+  else
+    Result := Result + '0' + Hours.ToString + ':';
+  RunTime := RunTime mod MillisPerHour;
+  // Minutes
+  var Minutes := RunTime div MillisPerminute;
+  if Minutes >= 10 then
+    Result := Result + Minutes.ToString + ':'
+  else
+    Result := Result + '0' + Minutes.ToString + ':';
+  RunTime := RunTime mod MillisPerminute;
+  // Seconds
+  var Seconds := RunTime div MSecsPerSec;
+  if Seconds >= 10 then
+    Result := Result + Seconds.ToString
+  else
+    Result := Result + '0' + Seconds.ToString;
+end;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 Constructor TLogFile.Create(const OnLog: TLogEvent = nil);
@@ -310,11 +370,10 @@ begin
   end;
   // Log stop time
   var StopTime := Now;
+  var RunTime := TRunTime.Create(StartTime,StopTime);
   Log;
-  if DaysBetween(StartTime,StopTime) = 0 then
-    Log('STOP ' + DateTimeToStr(StopTime) + ' (Run time: ' + FormatDateTime('hh:nn:ss',StopTime-StartTime)+ ')')
-  else
-    Log('STOP ' + DateTimeToStr(StopTime) + ' (Run time: ' + FormatDateTime('dd:hh:nn:ss',StopTime-StartTime)+ ')');
+  Log('STOP ' + DateTimeToStr(StopTime) + ' (Run time: ' + RunTime.ToString+ ')');
+  // Destroy objects
   LogWriter.Free;
   LogStream.Free;
   inherited Destroy;
