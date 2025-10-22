@@ -35,7 +35,7 @@ Type
     Const
       MaxPathLevels = 4;
     Var
-      Buffer: String;
+      Buffer,SeparatorLine: String;
       LogEvent: TLogEvent;
       StartTime: TDateTime;
       Console: Boolean;
@@ -43,12 +43,18 @@ Type
       LogStream: TFileStream;
       LogWriter: TStreamWriter;
       InputFiles,OutputFiles: array of TFileInfo;
-    Function ShortenPath(const Path: string): string;
-    Function FileProperties(const FileName: string): string;
-    Function FileInfo(const FileName: string; NameOnly: Boolean): string;
-    Function VarRecToStr(VarRec: TVarRec; NDecimals: Integer): String;
+    Procedure OnAppend(Sender: TObject);
+    Function  ShortenPath(const Path: string): string;
+    Function  FileProperties(const FileName: string): string;
+    Function  FileInfo(const FileName: string; NameOnly: Boolean): string;
+    Function  VarRecToStr(VarRec: TVarRec; NDecimals: Integer): String;
   public
     Constructor Create(const OnLog: TLogEvent = nil); overload;
+    Constructor Create(const LogFileName: String;
+                       const Separator: Char;
+                       const SeparatorCount: Integer;
+                       const Echo: Boolean = false;
+                       const OnLog: TLogEvent = nil); overload;
     Constructor Create(const LogFileName: String;
                        const Echo: Boolean = false;
                        const Append: Boolean = false;
@@ -146,6 +152,17 @@ begin
 end;
 
 Constructor TLogFile.Create(const LogFileName: String;
+                            const Separator: Char;
+                            const SeparatorCount: Integer;
+                            const Echo: Boolean = false;
+                            const OnLog: TLogEvent = nil);
+// On appending a separator line is written to the log file
+begin
+  SeparatorLine := StringOfChar(Separator,SeparatorCount);
+  Create(LogFileName,Echo,true,OnAppend,OnLog);
+end;
+
+Constructor TLogFile.Create(const LogFileName: String;
                             const Echo: Boolean = false;
                             const Append: Boolean = false;
                             const OnAppend: TNotifyEvent = nil;
@@ -181,6 +198,13 @@ begin
   Log('Executable: ' + FileInfo(ParamStr(0),true));
   Log('Computer: ' + GetEnvironmentVariable('COMPUTERNAME'));
  end;
+
+Procedure TLogFile.OnAppend(Sender: TObject);
+begin
+  Log;
+  Log(SeparatorLine);
+  Log;
+end;
 
 Function TLogFile.ShortenPath(const Path: string): string;
 Var
