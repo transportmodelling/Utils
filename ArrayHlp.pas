@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils, Math, Generics.Collections, VarPtr;
+  SysUtils, Math, Generics.Collections, VarPtr, Parse;
 
 Type
   TIntArrayHelper = record helper for TArray<Integer>
@@ -23,8 +23,11 @@ Type
     Constructor Create(const Values: array of Integer); overload;
     Constructor Create(const Length: Integer; Value: Integer = 0); overload;
     Function ToString(const Separator: Char = ','): String;
+    Function ToStrings: TArray<String>;
     Procedure Initialize(Value: Integer);
-    Procedure Assign(const Values: array of Integer);
+    Procedure Assign(const Values: array of Integer); overload;
+    Procedure Assign(const Values: array of String); overload;
+    Procedure Assign(const Values: String; const Separator: Char = ','); overload;
     Procedure AssignTo(var Values: array of Integer; FromIndex: Integer = 0);
     Procedure AssignToVar(const Values: array of TVarPointer; FromIndex: Integer = 0);
     Procedure Append(const Values: array of Integer);
@@ -44,9 +47,14 @@ Type
   public
     Constructor Create(const Values: array of Float64); overload;
     Constructor Create(const Length: Integer; Value: Float64 = 0.0); overload;
-    Function ToString(const Format: String; const Separator: Char = ','): String;
+    Function ToString(const Separator: Char = ','): String; overload;
+    Function ToString(const Format: String; const Separator: Char = ','): String; overload;
+    Function ToStrings: TArray<String>; overload;
+    Function ToStrings(const Format: String): TArray<String>; overload;
     Procedure Initialize(Value: Float64);
-    Procedure Assign(const Values: array of Float64);
+    Procedure Assign(const Values: array of Float64); overload;
+    Procedure Assign(const Values: array of String); overload;
+    Procedure Assign(const Values: String; const Separator: Char = ','); overload;
     Procedure AssignTo(var Values: array of Float64; FromIndex: Integer = 0);
     Procedure AssignToVar(const Values: array of TVarPointer; FromIndex: Integer = 0);
     Procedure Append(const Values: array of Float64);
@@ -64,7 +72,8 @@ Type
   public
     Constructor Create(const Values: array of String);
     Function ToString(const Separator: Char = ','): String;
-    Procedure Assign(const Values: array of String);
+    Procedure Assign(const Values: array of String); overload;
+    Procedure Assign(const Values: String; const Separator: Char = ','); overload;
     Procedure Append(const Values: array of String);
   public
     Property Length: Integer read GetLength write SetLength;
@@ -95,6 +104,12 @@ begin
     Result := '';
 end;
 
+Function TIntArrayHelper.ToStrings: TArray<String>;
+begin
+  System.SetLength(Result,Self.Length);
+  for var Index := 0 to Length-1 do Result[Index] := Self[Index].ToString;
+end;
+
 Function TIntArrayHelper.GetLength: Integer;
 begin
   Result := System.Length(Self);
@@ -114,6 +129,21 @@ Procedure TIntArrayHelper.Assign(const Values: array of Integer);
 begin
   Length := System.Length(Values);
   for var Index := 0 to Length-1 do Self[Index] := Values[Index];
+end;
+
+Procedure TIntArrayHelper.Assign(const Values: array of String);
+begin
+  Length := System.Length(Values);
+  for var Index := 0 to Length-1 do Self[Index] := Values[Index].ToInteger;
+end;
+
+Procedure TIntArrayHelper.Assign(const Values: String; const Separator: Char = ',');
+Var
+  Parser: TStringParser;
+begin
+  Parser.SetSeparators([Separator]);
+  Parser.Assign(Values);
+  Self := Parser.ToIntArray;
 end;
 
 Procedure TIntArrayHelper.AssignTo(var Values: array of Integer; FromIndex: Integer = 0);
@@ -182,6 +212,16 @@ begin
   for var Index := 0 to Length-1 do Self[Index] := Value;
 end;
 
+Function TFloat64ArrayHelper.ToString(const Separator: Char = ','): String;
+begin
+  if Self.Length > 0 then
+  begin
+    Result := Self[0].ToString;
+    for var Index := 1 to Length-1 do Result := Result + Separator + Self[Index].ToString;
+  end else
+    Result := '';
+end;
+
 Function TFloat64ArrayHelper.ToString(const Format: String; const Separator: Char = ','): String;
 begin
   if Self.Length > 0 then
@@ -190,6 +230,18 @@ begin
     for var Index := 1 to Length-1 do Result := Result + Separator + FormatFloat(Format,Self[Index]);
   end else
     Result := '';
+end;
+
+Function TFloat64ArrayHelper.ToStrings: TArray<String>;
+begin
+  System.SetLength(Result,Self.Length);
+  for var Index := 0 to Length-1 do Result[Index] := Self[Index].ToString;
+end;
+
+Function TFloat64ArrayHelper.ToStrings(const Format: String): TArray<String>;
+begin
+  System.SetLength(Result,Self.Length);
+  for var Index := 0 to Length-1 do Result[Index] := FormatFloat(Format,Self[Index]);
 end;
 
 Function TFloat64ArrayHelper.GetLength: Integer;
@@ -211,6 +263,21 @@ Procedure TFloat64ArrayHelper.Assign(const Values: array of Float64);
 begin
   Length := System.Length(Values);
   for var Index := 0 to Length-1 do Self[Index] := Values[Index];
+end;
+
+Procedure TFloat64ArrayHelper.Assign(const Values: array of String);
+begin
+  Length := System.Length(Values);
+  for var Index := 0 to Length-1 do Self[Index] := Values[Index].ToDouble;
+end;
+
+Procedure TFloat64ArrayHelper.Assign(const Values: String; const Separator: Char = ',');
+Var
+  Parser: TStringParser;
+begin
+  Parser.SetSeparators([Separator]);
+  Parser.Assign(Values);
+  Self := Parser.ToFloatArray;
 end;
 
 Procedure TFloat64ArrayHelper.AssignTo(var Values: array of Float64; FromIndex: Integer = 0);
@@ -285,6 +352,15 @@ Procedure TStringArrayHelper.Assign(const Values: array of String);
 begin
   Length := System.Length(Values);
   for var Index := 0 to Length-1 do Self[Index] := Values[Index];
+end;
+
+Procedure TStringArrayHelper.Assign(const Values: String; const Separator: Char = ',');
+Var
+  Parser: TStringParser;
+begin
+  Parser.SetSeparators([Separator]);
+  Parser.Assign(Values);
+  Self := Parser.ToStrArray;
 end;
 
 Procedure TStringArrayHelper.Append(const Values: array of String);
