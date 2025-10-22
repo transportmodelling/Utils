@@ -25,10 +25,12 @@ Type
     Class Operator Implicit(BaseDirectory: String): TBaseDirectory;
   public
     Constructor Create(const BaseDirectory: String);
-    Function Contains(const Path: String): Boolean; overload;
-    Function Contains(const Path: String; out RelativePath: String): Boolean; overload;
-    Function RelativePath(const AbsolutePath: string): String;
-    Function AbsolutePath(const RelativePath: String): String;
+    Procedure SetExeDir;
+    Procedure SetCurrentDir;
+    Function  Contains(const Path: String): Boolean; overload;
+    Function  Contains(const Path: String; out RelativePath: String): Boolean; overload;
+    Function  RelativePath(const AbsolutePath: string): String;
+    Function  AbsolutePath(const RelativePath: String): String;
   public
     Property BaseDirectory: string read FBaseDirectory write SetBaseDirectory;
   end;
@@ -39,7 +41,7 @@ implementation
 
 Class Operator TBaseDirectory.Initialize(out BaseDirectory: TBaseDirectory);
 begin
-  BaseDirectory.BaseDirectory := GetCurrentDir;
+  BaseDirectory.SetCurrentDir;
 end;
 
 Class Operator TBaseDirectory.Implicit(BaseDirectory: TBaseDirectory): String;
@@ -60,6 +62,16 @@ end;
 Procedure TBaseDirectory.SetBaseDirectory(BaseDirectory: String);
 begin
   FBaseDirectory := IncludeTrailingPathDelimiter(ExpandFileName(BaseDirectory));
+end;
+
+Procedure TBaseDirectory.SetExeDir;
+begin
+  SetBaseDirectory(ExtractFileDir(ParamStr(0)));
+end;
+
+Procedure TBaseDirectory.SetCurrentDir;
+begin
+  SetBaseDirectory(GetCurrentDir);
 end;
 
 Function TBaseDirectory.Contains(const Path: String): Boolean;
