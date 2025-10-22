@@ -141,15 +141,18 @@ Constructor TParallelFor.Create(ThreadCount: Integer);
 begin
   inherited Create;
   FMaxThreads := ThreadCount;
-  SetLength(ThreadPool,ThreadCount);
-  LoopCompleted := TEvent.Create(nil,false,true,'');
-  for var Thread := 0 to ThreadCount-1 do
+  if ThreadCount > 1 then
   begin
-    ThreadPool[Thread] := TIterationThread.Create;
-    ThreadPool[Thread].Loop := Self;
-    ThreadPool[Thread].Thread := Thread;
-    ThreadPool[Thread].FreeOnTerminate := true;
-    ThreadPool[Thread].Start;
+    SetLength(ThreadPool,ThreadCount);
+    LoopCompleted := TEvent.Create(nil,false,true,'');
+    for var Thread := 0 to ThreadCount-1 do
+    begin
+      ThreadPool[Thread] := TIterationThread.Create;
+      ThreadPool[Thread].Loop := Self;
+      ThreadPool[Thread].Thread := Thread;
+      ThreadPool[Thread].FreeOnTerminate := true;
+      ThreadPool[Thread].Start;
+    end;
   end;
 end;
 
@@ -167,27 +170,40 @@ begin
   if ToIteration >= FromIteration then
   begin
     var ThreadCount := Min(NThreads,FMaxThreads);
-    FirstException := nil;
-    TMonitor.Enter(Self);
-    try
-      LoopCompleted.ResetEvent;
-      Next := FromIteration;
-      IterationCount := ToIteration-FromIteration+1;
-      while (IterationCount > 0) and (ActiveThreads < ThreadCount) do
+    if ThreadCount = 1 then
+    begin
+      // Single threaded, avoid synchronization overhead
+      var Iter := FromIteration;
+      while Iter <= ToIteration do
       begin
-        ThreadPool[ActiveThreads].Stride := Stride;
-        ThreadPool[ActiveThreads].Iteration := Next;
-        ThreadPool[ActiveThreads].LoopIteration := Iteration;
-        ThreadPool[ActiveThreads].Active.SetEvent;
-        Inc(ActiveThreads);
-        Inc(Next,Stride);
-        Dec(IterationCount,Stride);
+        Iteration(Iter,0);
+        Inc(Iter,Stride);
       end;
-    finally
-      TMonitor.Exit(Self);
+    end else
+    begin
+      // Multi threaded
+      FirstException := nil;
+      TMonitor.Enter(Self);
+      try
+        LoopCompleted.ResetEvent;
+        Next := FromIteration;
+        IterationCount := ToIteration-FromIteration+1;
+        while (IterationCount > 0) and (ActiveThreads < ThreadCount) do
+        begin
+          ThreadPool[ActiveThreads].Stride := Stride;
+          ThreadPool[ActiveThreads].Iteration := Next;
+          ThreadPool[ActiveThreads].LoopIteration := Iteration;
+          ThreadPool[ActiveThreads].Active.SetEvent;
+          Inc(ActiveThreads);
+          Inc(Next,Stride);
+          Dec(IterationCount,Stride);
+        end;
+      finally
+        TMonitor.Exit(Self);
+      end;
+      LoopCompleted.WaitFor(Infinite);
+      if FirstException <> nil then raise FirstException;
     end;
-    LoopCompleted.WaitFor(Infinite);
-    if FirstException <> nil then raise FirstException;
   end;
 end;
 
