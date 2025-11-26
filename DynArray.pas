@@ -34,13 +34,15 @@ Type
     Class Operator Initialize(out CompositeIndex: TCompositeIndex);
   public
     Constructor Create(const Shape: array of Integer);
-    Property Count: Integer read FCount;
     Procedure Reset; overload;
     Function Rank: Integer; inline;
     Function Shape: TArray<Integer>;
+    Procedure GetIndices(CompositeIndex: Integer; var Indices: array of Integer);
     Function Indices(CompositeIndex: Integer): TArray<Integer>;
     Function CompositeIndex(const Indices: array of Integer): Integer;
     Function CompositeIndexRange(const Indices: array of Integer): TRange;
+  public
+    Property Count: Integer read FCount;
   end;
 
   TDynamicArray<T> = record
@@ -116,16 +118,25 @@ begin
   Result[high(Result)] := Cnt;
 end;
 
+Procedure TCompositeIndex.GetIndices(CompositeIndex: Integer; var Indices: array of Integer);
+begin
+  if Length(Indices) = Rank then
+  begin
+    for var Dim := low(Indices) to pred(high(Indices)) do
+    if CompositeIndex >= Multipliers[Dim] then
+    begin
+      Indices[Dim] := CompositeIndex div Multipliers[Dim];
+      CompositeIndex := CompositeIndex - Indices[Dim]*Multipliers[Dim];
+    end else Indices[Dim] := 0;
+    Indices[high(Indices)] := CompositeIndex;
+  end else
+    raise Exception.Create('Invalid number of indices');
+end;
+
 Function TCompositeIndex.Indices(CompositeIndex: Integer): TArray<Integer>;
 begin
   SetLength(Result,Rank);
-  for var Dim := low(Result) to pred(high(Result)) do
-  if CompositeIndex >= Multipliers[Dim] then
-  begin
-    Result[Dim] := CompositeIndex div Multipliers[Dim];
-    CompositeIndex := CompositeIndex - Result[Dim]*Multipliers[Dim];
-  end else Result[Dim] := 0;
-  Result[high(Result)] := CompositeIndex;
+  GetIndices(CompositeIndex,Result);
 end;
 
 Function TCompositeIndex.CompositeIndex(Const Indices: array of Integer): Integer;
