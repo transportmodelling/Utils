@@ -15,6 +15,12 @@ Uses
   SysUtils, Math, Generics.Collections, VarPtr, Parse;
 
 Type
+  TArrayInfo = record
+  public
+    Class Function RefCount(const Arr: Pointer): Integer; static;
+    Class Function Length(const Arr: Pointer): Integer; static;
+  end;
+
   TIntArrayHelper = record helper for TArray<Integer>
   private
     Function GetLength: Integer; inline;
@@ -81,6 +87,24 @@ Type
 
 ////////////////////////////////////////////////////////////////////////////////
 implementation
+////////////////////////////////////////////////////////////////////////////////
+
+Class Function TArrayInfo.RefCount(const Arr: Pointer): Integer;
+begin
+  if Arr = nil then
+    Result := 0
+  else
+    Result := PInteger(NativeUInt(Arr) - SizeOf(NativeInt) - SizeOf(Integer))^;
+end;
+
+Class Function TArrayInfo.Length(const Arr: Pointer): Integer;
+begin
+  if Arr = nil then
+    Result := 0
+  else
+    Result := PInteger(NativeUInt(Arr) - SizeOf(NativeInt))^;
+end;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 Constructor TIntArrayHelper.Create(const Values: array of Integer);
