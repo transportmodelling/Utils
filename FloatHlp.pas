@@ -18,12 +18,12 @@ Type
   TFloat64Helper = record helper for Float64
   public
     Function Round: Int64;
-    Procedure Add(const Value: Float64);
-    Procedure Subtract(const Value: Float64);
-    Procedure MultiplyBy(const Value: Float64);
-    Function MultipliedBy(const Value: Float64): Float64;
-    Procedure DivideBy(const Value: Float64);
-    Function DividedBy(const Value: Float64): Float64;
+    Procedure Add(const Value: Float64); inline;
+    Procedure Subtract(const Value: Float64); inline;
+    Procedure MultiplyBy(const Value: Float64); inline;
+    Function MultipliedBy(const Value: Float64): Float64; inline;
+    Procedure DivideBy(const Value: Float64); inline;
+    Function DividedBy(const Value: Float64): Float64; inline;
     Function ToString: String; overload;
     Function ToString(const Format: String): String; overload;
     Function ToString(Decimals: Byte; SkipTrailingZeroDecimals: Boolean): string; overload;
