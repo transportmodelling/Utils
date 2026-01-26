@@ -35,6 +35,7 @@ Type
     Const
       MaxPathLevels = 4;
     Var
+      LogFileInfo: Boolean;
       Buffer,SeparatorLine: String;
       LogEvent: TLogEvent;
       StartTime: TDateTime;
@@ -70,10 +71,13 @@ Type
     Procedure Log(const Error: Exception); overload;
     Procedure Log(const FileLabel,FileName: String); overload;
     Procedure LogFileContent(const FileName: String);
+    Procedure SetLogFileInfo(LogInfo: Boolean);
     Procedure InputFile(const FileLabel,FileName: String);
     Procedure OutputFile(const FileLabel,FileName: String);
     Procedure Flush;
     Destructor Destroy; override;
+  public
+
   end;
 
 Var
@@ -138,6 +142,7 @@ Constructor TLogFile.Create(const OnLog: TLogEvent = nil);
 var
   CBI: TConsoleScreenBufferInfo;
 begin
+  SetLogFileInfo(true);
   LogEvent := OnLog;
   Console := IsConsole;
   if Console then
@@ -171,6 +176,7 @@ var
   CBI: TConsoleScreenBufferInfo;
 begin
   inherited Create;
+  SetLogFileInfo(true);
   LogEvent := OnLog;
   // Get console witdth
   Console := IsConsole and Echo;
@@ -348,22 +354,33 @@ begin
   end;
 end;
 
+Procedure TLogFile.SetLogFileInfo(LogInfo: Boolean);
+begin
+  LogFileInfo := LogInfo;
+end;
+
 Procedure TLogFile.InputFile(const FileLabel,FileName: String);
 Var
   InputFile: TFileInfo;
 begin
-  InputFile.FileLabel := FileLabel;
-  InputFile.FileInfo := FileInfo(FileName,false);
-  InputFiles := InputFiles + [InputFile];
+  if LogFileInfo then
+  begin
+    InputFile.FileLabel := FileLabel;
+    InputFile.FileInfo := FileInfo(FileName,false);
+    InputFiles := InputFiles + [InputFile];
+  end;
 end;
 
 Procedure TLogFile.OutputFile(const FileLabel,FileName: String);
 Var
   OutputFile: TFileInfo;
 begin
-  OutputFile.FileLabel := FileLabel;
-  OutputFile.FileInfo := FileName;
-  OutputFiles := OutputFiles + [OutputFile];
+  if LogFileInfo then
+  begin
+    OutputFile.FileLabel := FileLabel;
+    OutputFile.FileInfo := FileName;
+    OutputFiles := OutputFiles + [OutputFile];
+  end;
 end;
 
 Procedure TLogFile.Flush;
