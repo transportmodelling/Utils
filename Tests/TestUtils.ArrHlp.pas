@@ -1,15 +1,15 @@
-unit TestUtils.ArrayHlp;
+unit TestUtils.ArrHlp;
 
 ////////////////////////////////////////////////////////////////////////////////
 interface
 ////////////////////////////////////////////////////////////////////////////////
 
 uses
-  SysUtils, Classes, Windows, DUnitX.TestFramework, ArrayHlp;
+  SysUtils, Classes, Windows, DUnitX.TestFramework, ArrHlp;
 
 Type
   [TestFixture]
-  TRefCountTest = class
+  TArrayHelperTests = class
   public
     [Test]
     Procedure TestRefCount;
@@ -19,7 +19,7 @@ Type
 implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-Procedure TRefCountTest.TestRefCount;
+Procedure TArrayHelperTests.TestRefCount;
 Const
   ArrLength = 42;
 Var
@@ -36,5 +36,5 @@ begin
 end;
 
 initialization
-  TDUnitX.RegisterTestFixture(TRefCountTest);
+  TDUnitX.RegisterTestFixture(TArrayHelperTests);
 end.
