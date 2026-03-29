@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  Classes, SysUtils, ArrayBld, VarPtr;
+  Classes, SysUtils, ArrBld, VarPtr;
 
 Type
   TToken = record

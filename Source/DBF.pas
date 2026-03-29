@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  Classes, SysUtils, Variants, Generics.Collections, ArrayBld;
+  Classes, SysUtils, Variants, Generics.Collections, ArrBld;
 
 Type
   TDBFField = record

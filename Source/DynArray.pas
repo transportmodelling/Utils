@@ -14,7 +14,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils, Ranges, ArrayBld;
+  SysUtils, Ranges, ArrBld;
 
 Type
   TCompositeIndex = record

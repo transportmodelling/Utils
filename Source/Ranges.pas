@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils, Parse, ArrayHlp;
+  SysUtils, Parse, ArrHlp;
 
 Type
   TRange = record
