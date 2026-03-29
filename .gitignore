@@ -68,3 +68,8 @@ __recovery/
 
 # Test results
 *.xml
+
+# OpenCode
+Agents.md
+OpenCode.json
+.ignore
