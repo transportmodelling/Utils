@@ -8,6 +8,7 @@ uses
   DUnitX.Loggers.Console,
   DUnitX.Loggers.Xml.JUnit,
   DUnitX.TestFramework,
+  TestUtils.ArrBld in 'TestUtils.ArrBld.pas',
   TestUtils.ArrHlp in 'TestUtils.ArrHlp.pas';
 
 begin

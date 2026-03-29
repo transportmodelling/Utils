@@ -7,7 +7,22 @@ Provides DBFReader and DBFWriter classes to read/write dBase files. Memo fields 
 ## MemDBF.pas
 Provides a class to manipulate a dbf file. Data are read into a FireDac memory table to be manipulated. The manipulated table can be saved to file again.
 
-## ArrayBld.pas
+## ArrHlp.pas
+Provides record helpers for `TArray<Integer>`, `TArray<Float64>` and `TArray<String>` that add a `Length` property, constructors, and common operations such as `Initialize`, `Assign`, `Append`, `Contains`, `MinValue`, `MaxValue`, `Total`, `Sort`, `ToString` and `ToStrings`. Also provides `TArrayInfo` for inspecting the reference count and length of a dynamic array by pointer.
+
+```
+  var Ints: TArray<Integer> := TArray<Integer>.Create([3,1,4,1,5]);
+  Ints.Sort;
+  writeln(Ints.ToString(','));   // 1,1,3,4,5
+  writeln(Ints.MinValue);       // 1
+  writeln(Ints.Total);          // 14
+
+  var Floats: TArray<Float64> := TArray<Float64>.Create(3, 0.0);
+  Floats.Assign('1.1,2.2,3.3');
+  writeln(Floats.ToString('0.0', ','));  // 1.1,2.2,3.3
+```
+
+## ArrBld.pas
 Provides an array builder to easily convert an open array to a dynamic array.
 
 ```
