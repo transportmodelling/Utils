@@ -36,7 +36,7 @@ Var
 implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-Constructor TCtlFileHelper.Create(ControlFilename: String);
+Constructor TCtlFileHelper.Create(ControlFileName: String);
 begin
   Read(ControlFilename);
 end;

@@ -73,6 +73,7 @@ end;
 Function TJsonObjectArrayParser.Next(NameCase: TCaseType = ctAsIs): String;
 // Returns the next JSON object literal
 begin
+  Result := '';
   if not FEndOfArray then
   begin
     // Read object string
