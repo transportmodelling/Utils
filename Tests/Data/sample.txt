@@ -1,0 +1,4 @@
+Name	Age	Score
+Alice	30	8.5
+Bob	25	7.0
+Carol	42	9.1

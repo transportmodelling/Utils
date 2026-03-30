@@ -120,8 +120,9 @@ Provides `TJsonObjectArrayParser` — a lightweight streaming parser that iterat
   end;
 
   // Parse from a file
-  var Stream := TFileStream.Create('data.json', fmOpenRead or fmShareDenyWrite);
-  var P2 := TJsonObjectArrayParser.Create(Stream);
+  var Base: TBaseDirectory;
+  Base.SetExeDir;
+  var P2 := TJsonObjectArrayParser.Create(Base.AbsolutePath('data.json'));
   try
     while not P2.EndOfArray do
       writeln(P2.Next(ctAsIs));
@@ -192,3 +193,27 @@ Provides `TRange` and `TRanges` for working with inclusive integer ranges.
 
 ## Spline.pas
 Provides a structure for the manipulation of splines. 
+
+## TxtTab.pas
+Provides `TTextTableReader` — a forward-only reader for tab-delimited (or custom-delimited) text files with a header row. The first row is read automatically as field names; each subsequent call to `ReadLine` advances to the next data row and returns `False` when the file is exhausted.
+
+```
+  var Reader := TTextTableReader.Create('data.txt');
+  try
+    writeln(Reader.FieldCount);                    // number of columns
+    writeln(Reader.Names[0]);                      // first column name
+
+    // Look up a column index (case-insensitive by default)
+    var AgeIdx := Reader.IndexOf('age', {MustExist=}True);
+
+    while Reader.ReadLine do
+    begin
+      writeln(Reader[0].Value);                    // string value of first column
+      writeln(Reader[AgeIdx].AsInteger);           // integer value of 'age' column
+    end;
+
+    writeln(Reader.LineCount);                     // number of data rows read
+  finally
+    Reader.Free;
+  end;
+```

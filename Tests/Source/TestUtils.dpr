@@ -17,7 +17,8 @@ uses
   TestUtils.FloatHlp in 'TestUtils.FloatHlp.pas',
   TestUtils.Json.ObjArr in 'TestUtils.Json.ObjArr.pas',
   TestUtils.ObjRef in 'TestUtils.ObjRef.pas',
-  TestUtils.Ranges in 'TestUtils.Ranges.pas';
+  TestUtils.Ranges in 'TestUtils.Ranges.pas',
+  TestUtils.TxtTab in 'TestUtils.TxtTab.pas';
 
 begin
   try
