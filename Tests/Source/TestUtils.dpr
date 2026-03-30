@@ -20,7 +20,8 @@ uses
   TestUtils.Ranges in 'TestUtils.Ranges.pas',
   TestUtils.TxtTab in 'TestUtils.TxtTab.pas',
   TestUtils.Polynom in 'TestUtils.Polynom.pas',
-  TestUtils.Spline in 'TestUtils.Spline.pas';
+  TestUtils.Spline in 'TestUtils.Spline.pas',
+  TestUtils.Parse in 'TestUtils.Parse.pas';
 
 begin
   try

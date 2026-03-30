@@ -115,6 +115,7 @@
         <DCCReference Include="TestUtils.TxtTab.pas"/>
         <DCCReference Include="TestUtils.Polynom.pas"/>
         <DCCReference Include="TestUtils.Spline.pas"/>
+        <DCCReference Include="TestUtils.Parse.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
