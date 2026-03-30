@@ -54,7 +54,7 @@ Convenience type aliases are provided for common element types: `TIntArrayView`,
   writeln(Data[0]);       // 9.9  (change is reflected in the original array)
 ```
 
-## DynArray.pas
+## DynArr.pas
 Provides an array with dynamic rank.
 
 ```

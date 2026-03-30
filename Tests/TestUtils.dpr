@@ -10,7 +10,8 @@ uses
   DUnitX.TestFramework,
   TestUtils.ArrBld in 'TestUtils.ArrBld.pas',
   TestUtils.ArrHlp in 'TestUtils.ArrHlp.pas',
-  TestUtils.ArrVal in 'TestUtils.ArrVal.pas';
+  TestUtils.ArrVal in 'TestUtils.ArrVal.pas',
+  TestUtils.DynArr in 'TestUtils.DynArr.pas';
 
 begin
   try

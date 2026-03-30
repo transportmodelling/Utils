@@ -105,6 +105,7 @@
         <DCCReference Include="TestUtils.ArrBld.pas"/>
         <DCCReference Include="TestUtils.ArrHlp.pas"/>
         <DCCReference Include="TestUtils.ArrVal.pas"/>
+        <DCCReference Include="TestUtils.DynArr.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
