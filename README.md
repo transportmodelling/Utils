@@ -32,6 +32,28 @@ Provides an array builder to easily convert an open array to a dynamic array.
   end;
 ```
 
+## ArrVal.pas
+Provides `TArrayView<T>` and `TArrayValues<T>` records that wrap a `TArray<T>` to restrict what callers can do with it.
+
+- `TArrayView<T>` — read-only view: exposes indexed read and `Length`, but prevents any modification of the values or reallocation of the array.
+- `TArrayValues<T>` — read/write values view: allows indexed read and write, but prevents reallocation of the array.
+
+Convenience type aliases are provided for common element types: `TIntArrayView`, `TFloat64ArrayView`, `TFloat32ArrayView`, `TStringArrayView` and their `TArrayValues` counterparts.
+
+```
+  var Data: TArray<Float64> := TArray<Float64>.Create(1.0, 2.0, 3.0);
+
+  // Pass a read-only view to a consumer
+  var View: TFloat64ArrayView := TFloat64ArrayView.Create(Data);
+  writeln(View.Length);   // 3
+  writeln(View[0]);       // 1
+
+  // Pass a writable-values view to a consumer (values can change, array cannot grow)
+  var Vals: TFloat64ArrayValues := TFloat64ArrayValues.Create(Data);
+  Vals[0] := 9.9;
+  writeln(Data[0]);       // 9.9  (change is reflected in the original array)
+```
+
 ## DynArray.pas
 Provides an array with dynamic rank.
 
