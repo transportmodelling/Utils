@@ -70,6 +70,16 @@ Provides an array with dynamic rank.
   writeln(X.Rank);
 ```
 
+## ObjRef.pas
+Provides `TReference<T>` — a smart-pointer helper that wraps any class instance in a reference-counted `TFunc<T>`. The wrapped object is automatically freed when the last reference goes out of scope, eliminating the need for a manual `Free` call.
+
+```
+  var Obj: TFunc<TStringList> := TReference<TStringList>.Create(TStringList.Create);
+  Obj().Add('hello');        // access the object via Obj()
+  writeln(Obj().Count);      // 1
+  // Obj goes out of scope here -> TStringList is freed automatically
+```
+
 ## PropSet.pas
 Provides a property set, implemented as a set of name-value pairs.
 
