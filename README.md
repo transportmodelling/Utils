@@ -1,11 +1,15 @@
 # Utils
 A general utilities library for Delphi projects
 
-## DBF.pas
-Provides DBFReader and DBFWriter classes to read/write dBase files. Memo fields are not supported and will have an UnUssigned-value.
+## ArrBld.pas
+Provides an array builder to easily convert an open array to a dynamic array.
 
-## MemDBF.pas
-Provides a class to manipulate a dbf file. Data are read into a FireDac memory table to be manipulated. The manipulated table can be saved to file again.
+```
+  Procedure Test(const Values: array of Float64);
+  begin
+    var Tst: TArray<Float64> := TArrayBuilder<Float64>.Create(Values);
+  end;
+```
 
 ## ArrHlp.pas
 Provides record helpers for `TArray<Integer>`, `TArray<Float64>` and `TArray<String>` that add a `Length` property, constructors, and common operations such as `Initialize`, `Assign`, `Append`, `Contains`, `MinValue`, `MaxValue`, `Total`, `Sort`, `ToString` and `ToStrings`. Also provides `TArrayInfo` for inspecting the reference count and length of a dynamic array by pointer.
@@ -20,16 +24,6 @@ Provides record helpers for `TArray<Integer>`, `TArray<Float64>` and `TArray<Str
   var Floats: TArray<Float64> := TArray<Float64>.Create(3, 0.0);
   Floats.Assign('1.1,2.2,3.3');
   writeln(Floats.ToString('0.0', ','));  // 1.1,2.2,3.3
-```
-
-## ArrBld.pas
-Provides an array builder to easily convert an open array to a dynamic array.
-
-```
-  Procedure Test(const Values: array of Float64);
-  begin
-    var Tst: TArray<Float64> := TArrayBuilder<Float64>.Create(Values);
-  end;
 ```
 
 ## ArrVal.pas
@@ -53,6 +47,25 @@ Convenience type aliases are provided for common element types: `TIntArrayView`,
   Vals[0] := 9.9;
   writeln(Data[0]);       // 9.9  (change is reflected in the original array)
 ```
+
+## BaseDir.pas
+Provides `TBaseDirectory` — a record that wraps a base directory path and offers path containment checks and relative/absolute path conversion. The path is always stored normalised (fully expanded, with a trailing path delimiter). The record auto-initialises to the current working directory.
+
+```
+  var Base := TBaseDirectory.Create('C:\Projects\MyApp');
+
+  // Test whether a path belongs to the base directory
+  writeln(Base.Contains('C:\Projects\MyApp\data\file.txt'));  // True
+
+  // Convert an absolute path to a relative one
+  writeln(Base.RelativePath('C:\Projects\MyApp\data\file.txt'));  // data\file.txt
+
+  // Convert a relative path to an absolute one
+  writeln(Base.AbsolutePath('data\file.txt'));  // C:\Projects\MyApp\data\file.txt
+```
+
+## DBF.pas
+Provides DBFReader and DBFWriter classes to read/write dBase files. Memo fields are not supported and will have an UnUssigned-value.
 
 ## DynArr.pas
 Provides an array with dynamic rank.
@@ -93,6 +106,9 @@ Provides `TFloat64Helper` — a record helper for `Float64` that adds rounding, 
   writeln(V.ToString(3, False, False));       // '2469.3' (1 fewer decimal for 4-digit integer)
 ```
 
+## MemDBF.pas
+Provides a class to manipulate a dbf file. Data are read into a FireDac memory table to be manipulated. The manipulated table can be saved to file again.
+
 ## ObjRef.pas
 Provides `TReference<T>` — a smart-pointer helper that wraps any class instance in a reference-counted `TFunc<T>`. The wrapped object is automatically freed when the last reference goes out of scope, eliminating the need for a manual `Free` call.
 
@@ -101,16 +117,6 @@ Provides `TReference<T>` — a smart-pointer helper that wraps any class instanc
   Obj().Add('hello');        // access the object via Obj()
   writeln(Obj().Count);      // 1
   // Obj goes out of scope here -> TStringList is freed automatically
-```
-
-## PropSet.pas
-Provides a property set, implemented as a set of name-value pairs.
-
-```
-  var Properties := TPropertySet.Create('Property1=Value1; Property2=Value2');
-  writeln(Properties['Property1']);
-  Properties := 'Property3=Value3; Property4=Value4';
-  writeln(Properties['Property3']);
 ```
 
 ## Parse.pas
@@ -127,6 +133,16 @@ Provides a TStringParser that splits strings into multiple tokens.
 
 ## Polynom.pas
 Provides a structure for the manipulation of polynomials. 
+
+## PropSet.pas
+Provides a property set, implemented as a set of name-value pairs.
+
+```
+  var Properties := TPropertySet.Create('Property1=Value1; Property2=Value2');
+  writeln(Properties['Property1']);
+  Properties := 'Property3=Value3; Property4=Value4';
+  writeln(Properties['Property3']);
+```
 
 ## Spline.pas
 Provides a structure for the manipulation of splines. 

@@ -9,6 +9,7 @@ uses
   DUnitX.Loggers.Xml.JUnit,
   DUnitX.TestFramework,
   TestUtils.ArrBld in 'TestUtils.ArrBld.pas',
+  TestUtils.BaseDir in 'TestUtils.BaseDir.pas',
   TestUtils.ArrHlp in 'TestUtils.ArrHlp.pas',
   TestUtils.ArrVal in 'TestUtils.ArrVal.pas',
   TestUtils.DBF in 'TestUtils.DBF.pas',
