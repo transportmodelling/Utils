@@ -18,7 +18,8 @@ uses
   TestUtils.Json.ObjArr in 'TestUtils.Json.ObjArr.pas',
   TestUtils.ObjRef in 'TestUtils.ObjRef.pas',
   TestUtils.Ranges in 'TestUtils.Ranges.pas',
-  TestUtils.TxtTab in 'TestUtils.TxtTab.pas';
+  TestUtils.TxtTab in 'TestUtils.TxtTab.pas',
+  TestUtils.Polynom in 'TestUtils.Polynom.pas';
 
 begin
   try

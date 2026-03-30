@@ -113,6 +113,7 @@
         <DCCReference Include="TestUtils.ObjRef.pas"/>
         <DCCReference Include="TestUtils.Ranges.pas"/>
         <DCCReference Include="TestUtils.TxtTab.pas"/>
+        <DCCReference Include="TestUtils.Polynom.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
