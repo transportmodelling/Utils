@@ -13,6 +13,7 @@ uses
   TestUtils.ArrVal in 'TestUtils.ArrVal.pas',
   TestUtils.DBF in 'TestUtils.DBF.pas',
   TestUtils.DynArr in 'TestUtils.DynArr.pas',
+  TestUtils.FloatHlp in 'TestUtils.FloatHlp.pas',
   TestUtils.ObjRef in 'TestUtils.ObjRef.pas';
 
 begin

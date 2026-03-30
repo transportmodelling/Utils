@@ -70,6 +70,29 @@ Provides an array with dynamic rank.
   writeln(X.Rank);
 ```
 
+## FloatHlp.pas
+Provides `TFloat64Helper` — a record helper for `Float64` that adds rounding, in-place and functional arithmetic, and flexible string formatting.
+
+```
+  var V: Float64 := 1234.5678;
+
+  // Banker's rounding
+  writeln(V.Round);                           // 1235
+
+  // In-place arithmetic
+  V.Add(0.1);
+  V.MultiplyBy(2.0);
+
+  // Functional arithmetic (original unchanged)
+  var W := V.MultipliedBy(3.0);
+
+  // Format with a fixed number of decimals
+  writeln(V.ToString(2, False));              // e.g. '2469.34'
+
+  // Adaptive decimals: fewer decimals for larger integer parts
+  writeln(V.ToString(3, False, False));       // '2469.3' (1 fewer decimal for 4-digit integer)
+```
+
 ## ObjRef.pas
 Provides `TReference<T>` — a smart-pointer helper that wraps any class instance in a reference-counted `TFunc<T>`. The wrapped object is automatically freed when the last reference goes out of scope, eliminating the need for a manual `Free` call.
 
