@@ -93,11 +93,14 @@ begin
           if Ch = '{' then Inc(BracesCount) else if Ch = '}' then Dec(BracesCount);
           if Ch = '[' then Inc(BracketsCount) else if Ch = ']' then Dec(BracketsCount);
           if (Ch = '"') and not Escape then WithinString := not WithinString;
-          if (Ch = '\') then Escape := true else Escape := false;
+          Escape := (Ch = '\') and not Escape;
           if (BracesCount=1) and (BracketsCount=0) then
           begin
-            if Ch = ':' then Name := false else
-            if Ch = ',' then Name := true;
+            if not WithinString then
+            begin
+              if Ch = ':' then Name := false else
+              if Ch = ',' then Name := true;
+            end;
             // Set name case
             if Name then
               case NameCase of
