@@ -1,4 +1,4 @@
-unit TestUtils.Parse;
+﻿unit TestUtils.Parse;
 
 ////////////////////////////////////////////////////////////////////////////////
 interface
@@ -616,8 +616,7 @@ end;
 
 procedure TStringParserTests.TestReadLine_SkipHeaderReadRow;
 begin
-  var BaseDir: TBaseDirectory;
-  BaseDir.SetExeDir;
+  var BaseDir := TBaseDirectory.Create(true);
   var Reader := TStreamReader.Create(BaseDir.AbsolutePath('..\Data\sample.txt'), TEncoding.ASCII);
   try
     var P := TStringParser.Create(Tab);
@@ -633,8 +632,7 @@ end;
 
 procedure TStringParserTests.TestReadLine_AllDataRows;
 begin
-  var BaseDir: TBaseDirectory;
-  BaseDir.SetExeDir;
+  var BaseDir := TBaseDirectory.Create(true);
   var Reader := TStreamReader.Create(BaseDir.AbsolutePath('..\Data\sample.txt'), TEncoding.ASCII);
   try
     var P := TStringParser.Create(Tab);

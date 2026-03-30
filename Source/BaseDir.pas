@@ -24,7 +24,8 @@ Type
     Class Operator Implicit(BaseDirectory: TBaseDirectory): String;
     Class Operator Implicit(BaseDirectory: String): TBaseDirectory;
   public
-    Constructor Create(const BaseDirectory: String);
+    Constructor Create(const BaseDirectory: String); overload;
+    Constructor Create(const SetExeDirectory: Boolean); overload;
     Procedure SetExeDir;
     Procedure SetCurrentDir;
     Function  Contains(const Path: String): Boolean; overload;
@@ -57,6 +58,11 @@ end;
 Constructor TBaseDirectory.Create(const BaseDirectory: String);
 begin
   SetBaseDirectory(BaseDirectory);
+end;
+
+Constructor TBaseDirectory.Create(const SetExeDirectory: Boolean);
+begin
+  if SetExeDirectory then SetExeDir else SetCurrentDir;
 end;
 
 Procedure TBaseDirectory.SetBaseDirectory(BaseDirectory: String);

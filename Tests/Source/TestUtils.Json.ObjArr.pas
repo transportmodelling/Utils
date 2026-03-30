@@ -238,8 +238,7 @@ end;
 procedure TJsonObjectArrayParserTests.TestFromFile;
   // Reads sample.json from Tests\Data\ via the TFileName overload.
 begin
-  var BaseDirectory: TBaseDirectory;
-  BaseDirectory.SetExeDir;
+  var BaseDirectory := TBaseDirectory.Create(true);
   // AbsolutePath returns TFileName, so the compiler resolves to
   // Create(const FileName: TFileName) rather than Create(const Json: String).
   var FileName := BaseDirectory.AbsolutePath('..\Data\sample.json');
@@ -260,8 +259,7 @@ end;
 procedure TJsonObjectArrayParserTests.TestFromFileStream;
 begin
   // Same fixture, but exercises the TStream overload explicitly.
-  var BaseDirectory: TBaseDirectory;
-  BaseDirectory.SetExeDir;
+  var BaseDirectory := TBaseDirectory.Create(true);
   var FileName := BaseDirectory.AbsolutePath('..\Data\sample.json');
   var Stream := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
   var P := TJsonObjectArrayParser.Create(Stream);

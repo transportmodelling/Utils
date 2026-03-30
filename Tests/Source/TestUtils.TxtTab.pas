@@ -41,8 +41,7 @@ implementation
 
 function TTextTableReaderTests.DataFile: TFileName;
 begin
-  var BaseDirectory: TBaseDirectory;
-  BaseDirectory.SetExeDir;
+  var BaseDirectory := TBaseDirectory.Create(true);
   Result := BaseDirectory.AbsolutePath('..\Data\sample.txt');
 end;
 
