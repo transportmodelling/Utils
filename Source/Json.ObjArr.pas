@@ -46,7 +46,7 @@ end;
 Constructor TJsonObjectArrayParser.Create(const Stream: TStream);
 begin
   OwnsReader := true;
-  Reader := TStreamReader.Create(Stream,TEncoding.Ansi);
+  Reader := TStreamReader.Create(Stream,TEncoding.UTF8);
   Create(Reader);
 end;
 
