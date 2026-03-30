@@ -19,7 +19,8 @@ uses
   TestUtils.ObjRef in 'TestUtils.ObjRef.pas',
   TestUtils.Ranges in 'TestUtils.Ranges.pas',
   TestUtils.TxtTab in 'TestUtils.TxtTab.pas',
-  TestUtils.Polynom in 'TestUtils.Polynom.pas';
+  TestUtils.Polynom in 'TestUtils.Polynom.pas',
+  TestUtils.Spline in 'TestUtils.Spline.pas';
 
 begin
   try
