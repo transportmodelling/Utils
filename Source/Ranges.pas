@@ -112,8 +112,9 @@ begin
     // Initialize first range
     var Value := Arr[0];
     var Range := TRange.Create(Value,Value);
-    // Iterate values
+    // Iterate values (skip duplicates)
     for var Index := 1 to Arr.Length-1 do
+    if Arr[Index] <> Arr[Index-1] then
     if Arr[Index] = Value+1 then Inc(Value) else
     begin
       // Finalize range
