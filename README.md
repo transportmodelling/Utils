@@ -144,5 +144,27 @@ Provides a property set, implemented as a set of name-value pairs.
   writeln(Properties['Property3']);
 ```
 
+## Ranges.pas
+Provides `TRange` and `TRanges` for working with inclusive integer ranges.
+
+- `TRange` — a single inclusive range `[Min..Max]` with `Count`, `Contains`, `Values` and `Split`.
+- `TRanges` — a collection of ranges with parsing from/to string, `Contains`, and `Values`.
+
+```
+  // Single range
+  var R := TRange.Create(2, 5);
+  writeln(R.Count);           // 4
+  writeln(R.Contains(3));     // True
+
+  // Split into sub-ranges
+  for var Part in R.Split(2) do writeln(Part.Min, '-', Part.Max);  // 2-3, 4-5
+
+  // Collection of ranges, parsed from string
+  var RS := TRanges.Create('1,3-5,7');
+  writeln(RS.Count);          // 3
+  writeln(RS.Contains(4));    // True
+  writeln(String(RS));        // '1,3-5,7'
+```
+
 ## Spline.pas
 Provides a structure for the manipulation of splines. 

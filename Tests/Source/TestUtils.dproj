@@ -110,6 +110,7 @@
         <DCCReference Include="TestUtils.DynArr.pas"/>
         <DCCReference Include="TestUtils.FloatHlp.pas"/>
         <DCCReference Include="TestUtils.ObjRef.pas"/>
+        <DCCReference Include="TestUtils.Ranges.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
