@@ -11,6 +11,7 @@ uses
   TestUtils.ArrBld in 'TestUtils.ArrBld.pas',
   TestUtils.ArrHlp in 'TestUtils.ArrHlp.pas',
   TestUtils.ArrVal in 'TestUtils.ArrVal.pas',
+  TestUtils.DBF in 'TestUtils.DBF.pas',
   TestUtils.DynArr in 'TestUtils.DynArr.pas',
   TestUtils.ObjRef in 'TestUtils.ObjRef.pas';
 
