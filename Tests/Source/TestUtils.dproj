@@ -116,6 +116,7 @@
         <DCCReference Include="TestUtils.Polynom.pas"/>
         <DCCReference Include="TestUtils.Spline.pas"/>
         <DCCReference Include="TestUtils.Parse.pas"/>
+        <DCCReference Include="TestUtils.MemDBF.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
