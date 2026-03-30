@@ -29,8 +29,8 @@ Type
     Procedure SetCurrentDir;
     Function  Contains(const Path: String): Boolean; overload;
     Function  Contains(const Path: String; out RelativePath: String): Boolean; overload;
-    Function  RelativePath(const AbsolutePath: string): String;
-    Function  AbsolutePath(const RelativePath: String): String;
+    Function  RelativePath(const AbsolutePath: string): TFileName;
+    Function  AbsolutePath(const RelativePath: String): TFileName;
   public
     Property BaseDirectory: string read FBaseDirectory write SetBaseDirectory;
   end;
@@ -102,12 +102,12 @@ begin
   end;
 end;
 
-Function TBaseDirectory.RelativePath(const AbsolutePath: string): String;
+Function TBaseDirectory.RelativePath(const AbsolutePath: string): TFileName;
 begin
   Result := ExtractRelativePath(FBaseDirectory,AbsolutePath);
 end;
 
-Function TBaseDirectory.AbsolutePath(const RelativePath: String): String;
+Function TBaseDirectory.AbsolutePath(const RelativePath: String): TFileName;
 begin
   if TPath.IsRelativePath(RelativePath) then
     Result := ExpandFileName(FBaseDirectory+RelativePath)
