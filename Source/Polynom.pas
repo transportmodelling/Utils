@@ -116,7 +116,11 @@ end;
 Class Operator TPolynomial.Multiply(a: Float64; b: TPolynomial): TPolynomial;
 begin
   if a = 0 then Result := 0 else
-  for var Coef := 0 to b.FDegree do Result.FCoefs[Coef] := a*b.FCoefs[Coef];
+  begin
+    Result.FDegree := b.FDegree;
+    Result.Allocate;
+    for var Coef := 0 to b.FDegree do Result.FCoefs[Coef] := a*b.FCoefs[Coef];
+  end;
 end;
 
 Class Operator TPolynomial.Multiply(a: TPolynomial; b: TPolynomial): TPolynomial;
