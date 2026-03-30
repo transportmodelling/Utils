@@ -106,6 +106,30 @@ Provides `TFloat64Helper` — a record helper for `Float64` that adds rounding, 
   writeln(V.ToString(3, False, False));       // '2469.3' (1 fewer decimal for 4-digit integer)
 ```
 
+## Json.ObjArr.pas
+Provides `TJsonObjectArrayParser` — a lightweight streaming parser that iterates over the top-level objects of a JSON array without loading the entire document into memory. Each call to `Next` returns the raw JSON text of the next object; `EndOfArray` signals when no more objects remain. Key names can be normalised to lowercase or uppercase on the fly.
+
+```
+  // Parse from a string
+  var P := TJsonObjectArrayParser.Create('[{"Name":"Alice","Age":30},{"Name":"Bob","Age":25}]');
+  try
+    while not P.EndOfArray do
+      writeln(P.Next(ctLowercase));   // prints each object with lower-cased keys
+  finally
+    P.Free;
+  end;
+
+  // Parse from a file
+  var Stream := TFileStream.Create('data.json', fmOpenRead or fmShareDenyWrite);
+  var P2 := TJsonObjectArrayParser.Create(Stream);
+  try
+    while not P2.EndOfArray do
+      writeln(P2.Next(ctAsIs));
+  finally
+    P2.Free;
+  end;
+```
+
 ## MemDBF.pas
 Provides a class to manipulate a dbf file. Data are read into a FireDac memory table to be manipulated. The manipulated table can be saved to file again.
 
