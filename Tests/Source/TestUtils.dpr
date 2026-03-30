@@ -22,7 +22,8 @@ uses
   TestUtils.Polynom in 'TestUtils.Polynom.pas',
   TestUtils.Spline in 'TestUtils.Spline.pas',
   TestUtils.Parse in 'TestUtils.Parse.pas',
-  TestUtils.MemDBF in 'TestUtils.MemDBF.pas';
+  TestUtils.MemDBF in 'TestUtils.MemDBF.pas',
+  TestUtils.Float16 in 'TestUtils.Float16.pas';
 
 begin
   try

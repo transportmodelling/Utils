@@ -138,6 +138,23 @@ Provides `TFloat64Helper` — a record helper for `Float64` that adds rounding, 
   writeln(V.ToString(3, False, False));       // '2469.3' (1 fewer decimal for 4-digit integer)
 ```
 
+## FP16.pas
+Provides `Float16` — a record representing an IEEE 754 half-precision (16-bit) floating-point number. Supports implicit conversion to and from `Float32`, correctly handling normal values, denormalized values, signed zero, infinity, and NaN.
+
+```
+  // Convert Float32 to Float16 and back
+  var H: Float16 := Float32(1.0);
+  var F: Float32 := H;
+  writeln(F);                  // 1.0
+
+  // Inspect the raw 16-bit pattern
+  writeln(H.Bytes);            // 15360 ($3C00)
+
+  // Overflow to infinity
+  var Big: Float16 := Float32(1.0e10);
+  writeln(IsInfinite(Float32(Big)));   // True
+```
+
 ## Json.ObjArr.pas
 Provides `TJsonObjectArrayParser` — a lightweight streaming parser that iterates over the top-level objects of a JSON array without loading the entire document into memory. Each call to `Next` returns the raw JSON text of the next object; `EndOfArray` signals when no more objects remain. Key names can be normalised to lowercase or uppercase on the fly.
 
