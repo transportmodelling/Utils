@@ -1,4 +1,4 @@
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
         <ProjectGuid>{A37EA5D5-0FDE-4599-BF2F-67C080767438}</ProjectGuid>
         <ProjectVersion>20.4</ProjectVersion>
@@ -117,7 +117,7 @@
         <DCCReference Include="TestUtils.Spline.pas"/>
         <DCCReference Include="TestUtils.Parse.pas"/>
         <DCCReference Include="TestUtils.MemDBF.pas"/>
-        <DCCReference Include="TestUtils.Float16.pas"/>
+        <DCCReference Include="TestUtils.FP16.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
