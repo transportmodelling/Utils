@@ -103,23 +103,24 @@
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
         <DCCReference Include="TestUtils.ArrBld.pas"/>
-        <DCCReference Include="TestUtils.BaseDir.pas"/>
         <DCCReference Include="TestUtils.ArrHlp.pas"/>
         <DCCReference Include="TestUtils.ArrVal.pas"/>
+        <DCCReference Include="TestUtils.BaseDir.pas"/>
         <DCCReference Include="TestUtils.DBF.pas"/>
         <DCCReference Include="TestUtils.DynArr.pas"/>
         <DCCReference Include="TestUtils.FloatHlp.pas"/>
-        <DCCReference Include="TestUtils.KeyVal.pas"/>
+        <DCCReference Include="TestUtils.FP16.pas"/>
         <DCCReference Include="TestUtils.Json.Eval.pas"/>
         <DCCReference Include="TestUtils.Json.ObjArr.pas"/>
-        <DCCReference Include="TestUtils.ObjRef.pas"/>
-        <DCCReference Include="TestUtils.Ranges.pas"/>
-        <DCCReference Include="TestUtils.TxtTab.pas"/>
-        <DCCReference Include="TestUtils.Polynom.pas"/>
-        <DCCReference Include="TestUtils.Spline.pas"/>
-        <DCCReference Include="TestUtils.Parse.pas"/>
+        <DCCReference Include="TestUtils.KeyVal.pas"/>
         <DCCReference Include="TestUtils.MemDBF.pas"/>
-        <DCCReference Include="TestUtils.FP16.pas"/>
+        <DCCReference Include="TestUtils.ObjRef.pas"/>
+        <DCCReference Include="TestUtils.Parse.pas"/>
+        <DCCReference Include="TestUtils.Polynom.pas"/>
+        <DCCReference Include="TestUtils.Ranges.pas"/>
+        <DCCReference Include="TestUtils.Spline.pas"/>
+        <DCCReference Include="TestUtils.TxtTab.pas"/>
+        <DCCReference Include="TestUtils.Yaml.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

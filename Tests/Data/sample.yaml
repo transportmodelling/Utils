@@ -1,0 +1,16 @@
+# sample.yaml
+Name: Alice
+Age: 30
+Score: 9.5
+Active: true
+Notes: null
+Address:
+  City: Amsterdam
+  Country: Netherlands
+Tags:
+  - alpha
+  - beta
+  - gamma
+---
+Name: Bob
+Age: 25

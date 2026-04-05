@@ -347,3 +347,28 @@ Provides `TTextTableReader` — a forward-only reader for tab-delimited (or cust
     Reader.Free;
   end;
 ```
+
+## Yaml.pas
+Provides `TYaml` — a record with class methods that parse a YAML document into a `TJSONValue` tree. The root is typically a mapping (`TJsonObject`), but `StringToValue` / `ReadValueFromFile` also accept bare sequences and scalars. Multi-document streams are supported via the `Document` parameter (0-based). Anchors/aliases and multi-line flow collections are not supported.
+
+- `StringToObject` / `StringsToObject` / `ReadFromFile` — parse a mapping root and return a `TJsonObject`; raise `EYamlParseException` if the root is not a mapping.
+- `StringToValue` / `StringsToValue` / `ReadValueFromFile` — parse any root and return a `TJSONValue`.
+
+```
+  // Read a YAML file into a JSON object
+  var Config := TYaml.ReadFromFile('config.yaml');
+  try
+    writeln(Config.GetValue('host').Value);          // e.g. 'localhost'
+    writeln((Config.GetValue('port') as TJSONNumber).AsInt);  // e.g. 5432
+  finally
+    Config.Free;
+  end;
+
+  // Parse a multi-document stream — select the second document
+  var Doc := TYaml.ReadFromFile('data.yaml', 1);
+  try
+    writeln(Doc.GetValue('Name').Value);
+  finally
+    Doc.Free;
+  end;
+```
