@@ -14,73 +14,73 @@ Type
     FPairs: TKeyValuePairs;
   public
     [Setup]
-    procedure Setup;
+    Procedure Setup;
 
     // Create
-    [Test] procedure Create_FromArray_SetsExpectedPairs;
-    [Test] procedure Create_FromDictionary_SetsExpectedPairs;
-    [Test] procedure Create_FromString_SetsExpectedPairs;
-    [Test] procedure Create_FromString_SkipsTokensWithoutSeparator;
+    [Test] Procedure Create_FromArray_SetsExpectedPairs;
+    [Test] Procedure Create_FromDictionary_SetsExpectedPairs;
+    [Test] Procedure Create_FromString_SetsExpectedPairs;
+    [Test] Procedure Create_FromString_SkipsTokensWithoutSeparator;
 
     // Clear
-    [Test] procedure Clear_EmptiesArray;
+    [Test] Procedure Clear_EmptiesArray;
 
     // Append
-    [Test] procedure Append_KeyValue_IncreasesCount;
-    [Test] procedure Append_Pair_IncreasesCount;
-    [Test] procedure Append_PairsArray_AppendsAll;
-    [Test] procedure Append_Dictionary_AppendsAllPairs;
-    [Test] procedure Append_Dictionary_PreservesExistingPairs;
-    [Test] procedure Append_Dictionary_EmptyDictionary_CountUnchanged;
-    [Test] procedure Append_Dictionary_KeyCasingPreserved;
+    [Test] Procedure Append_KeyValue_IncreasesCount;
+    [Test] Procedure Append_Pair_IncreasesCount;
+    [Test] Procedure Append_PairsArray_AppendsAll;
+    [Test] Procedure Append_Dictionary_AppendsAllPairs;
+    [Test] Procedure Append_Dictionary_PreservesExistingPairs;
+    [Test] Procedure Append_Dictionary_EmptyDictionary_CountUnchanged;
+    [Test] Procedure Append_Dictionary_KeyCasingPreserved;
 
     // Delete
-    [Test] procedure Delete_ByIndex_RemovesPair;
-    [Test] procedure Delete_ByIndex_FirstElement_RemovesPair;
-    [Test] procedure Delete_ByIndex_LastElement_RemovesPair;
-    [Test] procedure Delete_ByIndex_OutOfRange_RaisesException;
-    [Test] procedure Delete_ByKey_RemovesFirstOccurrence;
-    [Test] procedure Delete_ByKey_IsCaseInsensitive;
-    [Test] procedure Delete_ByKey_MissingKey_RaisesException;
+    [Test] Procedure Delete_ByIndex_RemovesPair;
+    [Test] Procedure Delete_ByIndex_FirstElement_RemovesPair;
+    [Test] Procedure Delete_ByIndex_LastElement_RemovesPair;
+    [Test] Procedure Delete_ByIndex_OutOfRange_RaisesException;
+    [Test] Procedure Delete_ByKey_RemovesFirstOccurrence;
+    [Test] Procedure Delete_ByKey_IsCaseInsensitive;
+    [Test] Procedure Delete_ByKey_MissingKey_RaisesException;
 
     // Count
-    [Test] procedure Count_ReturnsCorrectValue;
+    [Test] Procedure Count_ReturnsCorrectValue;
 
     // Contains
-    [Test] procedure Contains_ExistingKey_ReturnsTrue;
-    [Test] procedure Contains_MissingKey_ReturnsFalse;
-    [Test] procedure Contains_KeyIsCaseInsensitive;
-    [Test] procedure Contains_WithValue_ReturnsValue;
+    [Test] Procedure Contains_ExistingKey_ReturnsTrue;
+    [Test] Procedure Contains_MissingKey_ReturnsFalse;
+    [Test] Procedure Contains_KeyIsCaseInsensitive;
+    [Test] Procedure Contains_WithValue_ReturnsValue;
 
     // Str
-    [Test] procedure Str_ExistingKey_ReturnsValue;
-    [Test] procedure Str_KeyIsCaseInsensitive;
-    [Test] procedure Str_MissingKey_RaisesException;
-    [Test] procedure Str_DuplicateKey_FirstOccurrence;
-    [Test] procedure Str_DuplicateKey_SecondOccurrence;
-    [Test] procedure Str_OccurrenceOutOfRange_RaisesException;
+    [Test] Procedure Str_ExistingKey_ReturnsValue;
+    [Test] Procedure Str_KeyIsCaseInsensitive;
+    [Test] Procedure Str_MissingKey_RaisesException;
+    [Test] Procedure Str_DuplicateKey_FirstOccurrence;
+    [Test] Procedure Str_DuplicateKey_SecondOccurrence;
+    [Test] Procedure Str_OccurrenceOutOfRange_RaisesException;
 
     // Int
-    [Test] procedure Int_ValidInteger_ReturnsValue;
-    [Test] procedure Int_InvalidInteger_RaisesException;
-    [Test] procedure Int_MissingKey_RaisesException;
+    [Test] Procedure Int_ValidInteger_ReturnsValue;
+    [Test] Procedure Int_InvalidInteger_RaisesException;
+    [Test] Procedure Int_MissingKey_RaisesException;
 
     // Int64
-    [Test] procedure Int64_ValidInt64_ReturnsValue;
-    [Test] procedure Int64_InvalidInt64_RaisesException;
+    [Test] Procedure Int64_ValidInt64_ReturnsValue;
+    [Test] Procedure Int64_InvalidInt64_RaisesException;
 
     // Float
-    [Test] procedure Float_ValidFloat_ReturnsValue;
-    [Test] procedure Float_InvalidFloat_RaisesException;
+    [Test] Procedure Float_ValidFloat_ReturnsValue;
+    [Test] Procedure Float_InvalidFloat_RaisesException;
 
     // AsString
-    [Test] procedure AsString_DefaultSeparators_ReturnsExpected;
-    [Test] procedure AsString_CustomSeparators_ReturnsExpected;
-    [Test] procedure AsString_EmptyPairs_ReturnsEmptyString;
+    [Test] Procedure AsString_DefaultSeparators_ReturnsExpected;
+    [Test] Procedure AsString_CustomSeparators_ReturnsExpected;
+    [Test] Procedure AsString_EmptyPairs_ReturnsEmptyString;
 
     // AddToDictionary
-    [Test] procedure AddToDictionary_PopulatesDictionary;
-    [Test] procedure AddToDictionary_DuplicateKey_RaisesException;
+    [Test] Procedure AddToDictionary_PopulatesDictionary;
+    [Test] Procedure AddToDictionary_DuplicateKey_RaisesException;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -94,7 +94,7 @@ implementation
 //   Count = '7'
 //   Score = '9.5'
 
-procedure TKeyValTests.Setup;
+Procedure TKeyValTests.Setup;
 begin
   FPairs.Clear;
   FPairs.Append('Name','Alice');
@@ -105,7 +105,7 @@ end;
 
 // Create
 
-procedure TKeyValTests.Create_FromArray_SetsExpectedPairs;
+Procedure TKeyValTests.Create_FromArray_SetsExpectedPairs;
 begin
   var KeyValuePairs := TKeyValuePairs.Create([TKeyValuePair.Create('A','1'),
                                               TKeyValuePair.Create('B','2') ]);
@@ -114,7 +114,7 @@ begin
   Assert.AreEqual('2',KeyValuePairs.Str('B'));
 end;
 
-procedure TKeyValTests.Create_FromDictionary_SetsExpectedPairs;
+Procedure TKeyValTests.Create_FromDictionary_SetsExpectedPairs;
 begin
   var Dict := TDictionary<String,String>.Create;
   try
@@ -132,7 +132,7 @@ begin
   end;
 end;
 
-procedure TKeyValTests.Create_FromString_SetsExpectedPairs;
+Procedure TKeyValTests.Create_FromString_SetsExpectedPairs;
 begin
   var KeyValuePairs := TKeyValuePairs.Create('Name=Alice;City=Amsterdam', '=', ';');
   Assert.AreEqual(2,KeyValuePairs.Count);
@@ -140,7 +140,7 @@ begin
   Assert.AreEqual('Amsterdam',KeyValuePairs.Str('City'));
 end;
 
-procedure TKeyValTests.Create_FromString_SkipsTokensWithoutSeparator;
+Procedure TKeyValTests.Create_FromString_SkipsTokensWithoutSeparator;
 begin
   var KeyValuePairs := TKeyValuePairs.Create('Name=Alice;NoSeparatorToken;City=Amsterdam','=',';');
   Assert.AreEqual(2,KeyValuePairs.Count);
@@ -150,7 +150,7 @@ end;
 
 // Clear
 
-procedure TKeyValTests.Clear_EmptiesArray;
+Procedure TKeyValTests.Clear_EmptiesArray;
 begin
   FPairs.Clear;
   Assert.AreEqual(0,FPairs.Count);
@@ -158,19 +158,19 @@ end;
 
 // Append
 
-procedure TKeyValTests.Append_KeyValue_IncreasesCount;
+Procedure TKeyValTests.Append_KeyValue_IncreasesCount;
 begin
   FPairs.Append('Version','1.0.0');
   Assert.AreEqual(5,FPairs.Count);
 end;
 
-procedure TKeyValTests.Append_Pair_IncreasesCount;
+Procedure TKeyValTests.Append_Pair_IncreasesCount;
 begin
   FPairs.Append(TKeyValuePair.Create('Version','1.0.0'));
   Assert.AreEqual(5,FPairs.Count);
 end;
 
-procedure TKeyValTests.Append_PairsArray_AppendsAll;
+Procedure TKeyValTests.Append_PairsArray_AppendsAll;
 begin
   FPairs.Append([TKeyValuePair.Create('Street', 'Main Street'),
                  TKeyValuePair.Create('Number', '10')]);
@@ -179,7 +179,7 @@ begin
   Assert.AreEqual('10',FPairs.Str('Number'));
 end;
 
-procedure TKeyValTests.Append_Dictionary_AppendsAllPairs;
+Procedure TKeyValTests.Append_Dictionary_AppendsAllPairs;
 begin
   var Dict := TDictionary<String,String>.Create;
   try
@@ -194,7 +194,7 @@ begin
   end;
 end;
 
-procedure TKeyValTests.Append_Dictionary_PreservesExistingPairs;
+Procedure TKeyValTests.Append_Dictionary_PreservesExistingPairs;
 begin
   var Dict := TDictionary<String,String>.Create;
   try
@@ -207,7 +207,7 @@ begin
   end;
 end;
 
-procedure TKeyValTests.Append_Dictionary_EmptyDictionary_CountUnchanged;
+Procedure TKeyValTests.Append_Dictionary_EmptyDictionary_CountUnchanged;
 begin
   var Dict := TDictionary<String,String>.Create;
   try
@@ -218,7 +218,7 @@ begin
   end;
 end;
 
-procedure TKeyValTests.Append_Dictionary_KeyCasingPreserved;
+Procedure TKeyValTests.Append_Dictionary_KeyCasingPreserved;
 begin
   var Dict := TDictionary<String,String>.Create;
   try
@@ -233,7 +233,7 @@ end;
 
 // Delete
 
-procedure TKeyValTests.Delete_ByIndex_RemovesPair;
+Procedure TKeyValTests.Delete_ByIndex_RemovesPair;
 begin
   FPairs.Delete(1); // removes 'City'
   Assert.AreEqual(3,FPairs.Count);
@@ -241,7 +241,7 @@ begin
   Assert.AreEqual('Alice',FPairs.Str('Name'));
 end;
 
-procedure TKeyValTests.Delete_ByIndex_FirstElement_RemovesPair;
+Procedure TKeyValTests.Delete_ByIndex_FirstElement_RemovesPair;
 begin
   FPairs.Delete(0); // removes 'Name'
   Assert.AreEqual(3,FPairs.Count);
@@ -249,20 +249,20 @@ begin
   Assert.AreEqual('Amsterdam',FPairs.Str('City'));
 end;
 
-procedure TKeyValTests.Delete_ByIndex_LastElement_RemovesPair;
+Procedure TKeyValTests.Delete_ByIndex_LastElement_RemovesPair;
 begin
   FPairs.Delete(FPairs.Count-1); // removes 'Score'
   Assert.AreEqual(3,FPairs.Count);
   Assert.IsFalse(FPairs.Contains('Score'));
 end;
 
-procedure TKeyValTests.Delete_ByIndex_OutOfRange_RaisesException;
+Procedure TKeyValTests.Delete_ByIndex_OutOfRange_RaisesException;
 begin
-  Assert.WillRaiseAny(procedure begin FPairs.Delete(99) end);
-  Assert.WillRaiseAny(procedure begin FPairs.Delete(-1) end);
+  Assert.WillRaiseAny(Procedure begin FPairs.Delete(99) end);
+  Assert.WillRaiseAny(Procedure begin FPairs.Delete(-1) end);
 end;
 
-procedure TKeyValTests.Delete_ByKey_RemovesFirstOccurrence;
+Procedure TKeyValTests.Delete_ByKey_RemovesFirstOccurrence;
 begin
   FPairs.Append('Name','Bob'); // duplicate
   FPairs.Delete('Name');
@@ -270,44 +270,44 @@ begin
   Assert.AreEqual('Bob',FPairs.Str('Name')); // second occurrence is now first
 end;
 
-procedure TKeyValTests.Delete_ByKey_IsCaseInsensitive;
+Procedure TKeyValTests.Delete_ByKey_IsCaseInsensitive;
 begin
   FPairs.Delete('CITY');
   Assert.AreEqual(3,FPairs.Count);
   Assert.IsFalse(FPairs.Contains('City'));
 end;
 
-procedure TKeyValTests.Delete_ByKey_MissingKey_RaisesException;
+Procedure TKeyValTests.Delete_ByKey_MissingKey_RaisesException;
 begin
-  Assert.WillRaiseAny(procedure begin FPairs.Delete('MISSING') end);
+  Assert.WillRaiseAny(Procedure begin FPairs.Delete('MISSING') end);
 end;
 
 // Count
 
-procedure TKeyValTests.Count_ReturnsCorrectValue;
+Procedure TKeyValTests.Count_ReturnsCorrectValue;
 begin
   Assert.AreEqual(4,FPairs.Count);
 end;
 
 // Contains
 
-procedure TKeyValTests.Contains_ExistingKey_ReturnsTrue;
+Procedure TKeyValTests.Contains_ExistingKey_ReturnsTrue;
 begin
   Assert.IsTrue(FPairs.Contains('Name'));
 end;
 
-procedure TKeyValTests.Contains_MissingKey_ReturnsFalse;
+Procedure TKeyValTests.Contains_MissingKey_ReturnsFalse;
 begin
   Assert.IsFalse(FPairs.Contains('MISSING'));
 end;
 
-procedure TKeyValTests.Contains_KeyIsCaseInsensitive;
+Procedure TKeyValTests.Contains_KeyIsCaseInsensitive;
 begin
   Assert.IsTrue(FPairs.Contains('name'));
   Assert.IsTrue(FPairs.Contains('NAME'));
 end;
 
-procedure TKeyValTests.Contains_WithValue_ReturnsValue;
+Procedure TKeyValTests.Contains_WithValue_ReturnsValue;
 Var
   Value: String;
 begin
@@ -317,97 +317,97 @@ end;
 
 // Str
 
-procedure TKeyValTests.Str_ExistingKey_ReturnsValue;
+Procedure TKeyValTests.Str_ExistingKey_ReturnsValue;
 begin
   Assert.AreEqual('Alice',FPairs.Str('Name'));
 end;
 
-procedure TKeyValTests.Str_KeyIsCaseInsensitive;
+Procedure TKeyValTests.Str_KeyIsCaseInsensitive;
 begin
   Assert.AreEqual('Alice',FPairs.Str('name'));
   Assert.AreEqual('Alice',FPairs.Str('NAME'));
 end;
 
-procedure TKeyValTests.Str_MissingKey_RaisesException;
+Procedure TKeyValTests.Str_MissingKey_RaisesException;
 begin
-  Assert.WillRaiseAny(procedure begin FPairs.Str('MISSING') end);
+  Assert.WillRaiseAny(Procedure begin FPairs.Str('MISSING') end);
 end;
 
-procedure TKeyValTests.Str_DuplicateKey_FirstOccurrence;
+Procedure TKeyValTests.Str_DuplicateKey_FirstOccurrence;
 begin
   FPairs.Append('Name','Bob');
   Assert.AreEqual('Alice', FPairs.Str('Name',0));
 end;
 
-procedure TKeyValTests.Str_DuplicateKey_SecondOccurrence;
+Procedure TKeyValTests.Str_DuplicateKey_SecondOccurrence;
 begin
   FPairs.Append('Name','Bob');
   Assert.AreEqual('Bob',FPairs.Str('Name', 1));
 end;
 
-procedure TKeyValTests.Str_OccurrenceOutOfRange_RaisesException;
+Procedure TKeyValTests.Str_OccurrenceOutOfRange_RaisesException;
 begin
-  Assert.WillRaiseAny(procedure begin FPairs.Str('Name',1) end);
+  Assert.WillRaiseAny(Procedure begin FPairs.Str('Name',1) end);
 end;
 
 // Int
 
-procedure TKeyValTests.Int_ValidInteger_ReturnsValue;
+Procedure TKeyValTests.Int_ValidInteger_ReturnsValue;
 begin
   Assert.AreEqual(7,FPairs.Int('Count'));
 end;
 
-procedure TKeyValTests.Int_InvalidInteger_RaisesException;
+Procedure TKeyValTests.Int_InvalidInteger_RaisesException;
 begin
-  Assert.WillRaiseAny(procedure begin FPairs.Int('Name') end);
+  Assert.WillRaiseAny(Procedure begin FPairs.Int('Name') end);
 end;
 
-procedure TKeyValTests.Int_MissingKey_RaisesException;
+Procedure TKeyValTests.Int_MissingKey_RaisesException;
 begin
-  Assert.WillRaiseAny(procedure begin FPairs.Int('MISSING') end);
+  Assert.WillRaiseAny(Procedure begin FPairs.Int('MISSING') end);
 end;
 
 // Int64
 
-procedure TKeyValTests.Int64_ValidInt64_ReturnsValue;
+Procedure TKeyValTests.Int64_ValidInt64_ReturnsValue;
 begin
   Assert.AreEqual(Int64(7),FPairs.Int64('Count'));
 end;
 
-procedure TKeyValTests.Int64_InvalidInt64_RaisesException;
+Procedure TKeyValTests.Int64_InvalidInt64_RaisesException;
 begin
-  Assert.WillRaiseAny(procedure begin FPairs.Int64('Name') end);
+  Assert.WillRaiseAny(Procedure begin FPairs.Int64('Name') end);
 end;
 
 // Float
 
-procedure TKeyValTests.Float_ValidFloat_ReturnsValue;
+Procedure TKeyValTests.Float_ValidFloat_ReturnsValue;
 begin
   Assert.AreEqual(Float64(9.5),FPairs.Float('Score'),0.0001);
 end;
 
-procedure TKeyValTests.Float_InvalidFloat_RaisesException;
+Procedure TKeyValTests.Float_InvalidFloat_RaisesException;
 begin
-  Assert.WillRaiseAny(procedure begin FPairs.Float('Name') end);
+  Assert.WillRaiseAny(Procedure begin FPairs.Float('Name') end);
 end;
 
 // AsString
 
-procedure TKeyValTests.AsString_DefaultSeparators_ReturnsExpected;
+Procedure TKeyValTests.AsString_DefaultSeparators_ReturnsExpected;
 begin
   var KeyValuePairs := TKeyValuePairs.Create([TKeyValuePair.Create('Name','Alice'),
                                               TKeyValuePair.Create('City','Amsterdam')]);
   Assert.AreEqual('Name: Alice; City: Amsterdam',KeyValuePairs.AsString);
 end;
 
-procedure TKeyValTests.AsString_CustomSeparators_ReturnsExpected;
+Procedure TKeyValTests.AsString_CustomSeparators_ReturnsExpected;
 begin
   var KeyValuePairs := TKeyValuePairs.Create([TKeyValuePair.Create('Name','Alice'),
                                               TKeyValuePair.Create('City','Amsterdam')]);
   Assert.AreEqual('Name= Alice& City= Amsterdam',KeyValuePairs.AsString('=', '&'));
 end;
 
-procedure TKeyValTests.AsString_EmptyPairs_ReturnsEmptyString;
+Procedure TKeyValTests.AsString_EmptyPairs_ReturnsEmptyString;
 Var
   KeyValuePairs: TKeyValuePairs;
 begin
@@ -417,7 +417,7 @@ end;
 
 // AddToDictionary
 
-procedure TKeyValTests.AddToDictionary_PopulatesDictionary;
+Procedure TKeyValTests.AddToDictionary_PopulatesDictionary;
 begin
   var Dict := TDictionary<String,String>.Create;
   try
@@ -430,12 +430,12 @@ begin
   end;
 end;
 
-procedure TKeyValTests.AddToDictionary_DuplicateKey_RaisesException;
+Procedure TKeyValTests.AddToDictionary_DuplicateKey_RaisesException;
 begin
   var Dict := TDictionary<String,String>.Create;
   Dict.Add('Name','Existing');
   try
-    Assert.WillRaiseAny(procedure begin FPairs.AddToDictionary(Dict) end);
+    Assert.WillRaiseAny(Procedure begin FPairs.AddToDictionary(Dict) end);
   finally
     Dict.Free;
   end;

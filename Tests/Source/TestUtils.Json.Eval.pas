@@ -728,5 +728,4 @@ end;
 
 initialization
   TDUnitX.RegisterTestFixture(TJsonEvalTests);
-
 end.

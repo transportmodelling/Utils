@@ -155,6 +155,33 @@ Provides `Float16` — a record representing an IEEE 754 half-precision (16-bit)
   writeln(IsInfinite(Float32(Big)));   // True
 ```
 
+## Json.Eval.pas
+Provides `TJsonEvaluator` — a stateless record with class methods for navigating and extracting typed values from a `TJSONValue` tree using a path of `TPathStep` steps. A step is either a string key (for objects) or an integer index (for arrays); both implicit conversions are provided.
+
+- **Navigation**: `NavigateTo` applies one step; `NavigatePath` walks the full path.
+- **Extraction**: `GetStr`, `GetInt`, `GetInt64`, `GetFloat` — return `True` and set the out-parameter when the leaf is of the expected JSON type; `False` otherwise. `AsStr` accepts any leaf type and converts it to `String`.
+- **Array extraction**: `GetStrs`, `GetInts`, `GetFloats` — navigate to a `TJSONArray` and return all elements as a typed Delphi array; `False` if any element has the wrong type.
+- **Key-value pairs**: `GetKeyValuePairs` extracts all immediate fields of a `TJSONObject` into a `TKeyValuePairs`; sub-objects and arrays are serialized as JSON text.
+
+```
+  var Json := TJSONObject.ParseJSONValue('{"user":{"name":"Alice","score":9.5},"tags":["a","b"]}');
+  try
+    var Name: String;
+    if TJsonEvaluator.GetStr(Json, ['user', 'name'], Name) then
+      writeln(Name);                       // Alice
+
+    var Score: Float64;
+    TJsonEvaluator.GetFloat(Json, ['user', 'score'], Score);
+    writeln(Score);                        // 9.5
+
+    var Tags: TArray<String>;
+    TJsonEvaluator.GetStrs(Json, ['tags'], Tags);
+    writeln(Tags[0]);                      // a
+  finally
+    Json.Free;
+  end;
+```
+
 ## Json.ObjArr.pas
 Provides `TJsonObjectArrayParser` — a lightweight streaming parser that iterates over the top-level objects of a JSON array without loading the entire document into memory. Each call to `Next` returns the raw JSON text of the next object; `EndOfArray` signals when no more objects remain. Key names can be normalised to lowercase or uppercase on the fly.
 
@@ -178,6 +205,31 @@ Provides `TJsonObjectArrayParser` — a lightweight streaming parser that iterat
   finally
     P2.Free;
   end;
+```
+
+## KeyVal.pas
+Provides `TKeyValuePairsHelper` — a record helper for `TKeyValuePairs` (an alias for `TArray<TPair<String,String>>`) that adds construction, mutation, and querying operations for an ordered list of string key-value pairs. Keys are matched case-insensitively throughout.
+
+- **Construction**: from an open array of pairs, a `TDictionary<String,String>`, or a serialized string with configurable separators.
+- **Mutation**: `Append` (single pair, open array, or dictionary), `Delete` by index or key, `Clear`.
+- **Query**: `Count`, `Contains` (with optional value out-parameter), `Str`/`Int`/`Int64`/`Float` by key with optional occurrence index for duplicate keys.
+- **Serialization**: `AsString` encodes all pairs as `Key: Value; Key: Value` (separators are configurable); `AddToDictionary` copies all pairs into a `TDictionary`.
+
+```
+  var KV: TKeyValuePairs;
+  KV.Append('host', 'localhost');
+  KV.Append('port', '5432');
+  KV.Append('port', '5433');        // duplicate key allowed
+
+  writeln(KV.Str('host'));          // localhost
+  writeln(KV.Int('port'));          // 5432
+  writeln(KV.Int('port', 1));       // 5433  (second occurrence)
+  writeln(KV.AsString);             // host: localhost; port: 5432; port: 5433
+
+  // Parse from a string
+  var KV2: TKeyValuePairs;
+  KV2 := TKeyValuePairs.Create('x=1,y=2,z=3', '=', ',');
+  writeln(KV2.Float('y'));          // 2.0
 ```
 
 ## MemDBF.pas
