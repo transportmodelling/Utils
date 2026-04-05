@@ -16,6 +16,7 @@ uses
   TestUtils.DynArr in 'TestUtils.DynArr.pas',
   TestUtils.FloatHlp in 'TestUtils.FloatHlp.pas',
   TestUtils.KeyVal in 'TestUtils.KeyVal.pas',
+  TestUtils.Json.Eval in 'TestUtils.Json.Eval.pas',
   TestUtils.Json.ObjArr in 'TestUtils.Json.ObjArr.pas',
   TestUtils.ObjRef in 'TestUtils.ObjRef.pas',
   TestUtils.Ranges in 'TestUtils.Ranges.pas',

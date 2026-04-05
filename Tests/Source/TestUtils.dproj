@@ -110,6 +110,7 @@
         <DCCReference Include="TestUtils.DynArr.pas"/>
         <DCCReference Include="TestUtils.FloatHlp.pas"/>
         <DCCReference Include="TestUtils.KeyVal.pas"/>
+        <DCCReference Include="TestUtils.Json.Eval.pas"/>
         <DCCReference Include="TestUtils.Json.ObjArr.pas"/>
         <DCCReference Include="TestUtils.ObjRef.pas"/>
         <DCCReference Include="TestUtils.Ranges.pas"/>
