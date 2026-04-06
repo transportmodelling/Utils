@@ -160,7 +160,8 @@ Class Function TJsonEvaluator.GetStr(JsonValue: TJSONValue; const Path: array of
 begin
   try
     var Leaf := NavigatePath(JsonValue, Path);
-    if Leaf is TJSONString then
+    // In older Delphi-versions TJSONNumber inherits from TJSONString!
+    if (Leaf is TJSONString) and not (Leaf is TJSONNumber) then
     begin
       Value := Leaf.Value;
       Result := True;
@@ -254,7 +255,8 @@ begin
       Result := True;
       SetLength(Value,Arr.Count);
       for var Index := 0 to Arr.Count-1 do
-      if Arr.Items[Index] is TJSONString then
+      // In older Delphi-versions TJSONNumber inherits from TJSONString!
+      if (Arr.Items[Index] is TJSONString) and not (Arr.Items[Index] is TJSONNumber) then
         Value[Index] := Arr.Items[Index].Value
       else
         begin
