@@ -1,4 +1,4 @@
-unit TestUtils.Json.Eval;
+﻿unit TestUtils.Json.Eval;
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -23,6 +23,26 @@ Type
     Procedure Setup;
     [TearDown]
     Procedure TearDown;
+
+    // TryNavigateTo (single step)
+    [Test] Procedure TryNavigateTo_Step_KeyFound_ReturnsValue;
+    [Test] Procedure TryNavigateTo_Step_KeyIsCaseInsensitive;
+    [Test] Procedure TryNavigateTo_Step_MissingKey_ReturnsFalse;
+    [Test] Procedure TryNavigateTo_Step_IndexFound_ReturnsValue;
+    [Test] Procedure TryNavigateTo_Step_IndexOutOfRange_ReturnsFalse;
+    [Test] Procedure TryNavigateTo_Step_KeyStepOnArray_ReturnsFalse;
+    [Test] Procedure TryNavigateTo_Step_IndexStepOnObject_ReturnsFalse;
+
+    // TryNavigateTo (multi-step path)
+    [Test] Procedure TryNavigateTo_SingleKey_ReturnsValue;
+    [Test] Procedure TryNavigateTo_NestedKeys_ReturnsValue;
+    [Test] Procedure TryNavigateTo_KeyThenIndex_ReturnsValue;
+    [Test] Procedure TryNavigateTo_IndexStep_ReturnsValue;
+    [Test] Procedure TryNavigateTo_EmptyPath_ReturnsRoot;
+    [Test] Procedure TryNavigateTo_MissingKey_ReturnsFalse;
+    [Test] Procedure TryNavigateTo_IndexOutOfRange_ReturnsFalse;
+    [Test] Procedure TryNavigateTo_KeyStepOnArray_ReturnsFalse;
+    [Test] Procedure TryNavigateTo_IndexStepOnObject_ReturnsFalse;
 
     // GetKeyValuePairs (root)
     [Test] Procedure GetKeyValuePairs_Root_ReturnsAllPairs;
@@ -54,16 +74,6 @@ Type
     [Test] Procedure GetStr_ArrayIndex_ReturnsValue;
     [Test] Procedure GetStr_EmptyPath_ReturnsValue;
     [Test] Procedure GetStr_EmptyPath_WrongType_ReturnsFalse;
-
-    // AsStr
-    [Test] Procedure AsStr_StringLeaf_ReturnsValue;
-    [Test] Procedure AsStr_NumberLeaf_ReturnsValue;
-    [Test] Procedure AsStr_BoolLeaf_ReturnsValue;
-    [Test] Procedure AsStr_NullLeaf_ReturnsEmptyString;
-    [Test] Procedure AsStr_ObjectLeaf_ReturnsSerializedJson;
-    [Test] Procedure AsStr_ArrayLeaf_ReturnsSerializedJson;
-    [Test] Procedure AsStr_MissingKey_ReturnsFalse;
-    [Test] Procedure AsStr_EmptyPath_ReturnsValue;
 
     // GetInt
     [Test] Procedure GetInt_ValidNumber_ReturnsValue;
@@ -99,6 +109,25 @@ Type
     [Test] Procedure GetFloats_EmptyPath_ReturnsValues;
     [Test] Procedure GetFloats_NotAnArray_ReturnsFalse;
     [Test] Procedure GetFloats_ElementNotANumber_ReturnsFalse;
+
+    // AsStr
+    [Test] Procedure AsStr_StringLeaf_ReturnsValue;
+    [Test] Procedure AsStr_NumberLeaf_ReturnsValue;
+    [Test] Procedure AsStr_BoolLeaf_ReturnsValue;
+    [Test] Procedure AsStr_NullLeaf_ReturnsEmptyString;
+    [Test] Procedure AsStr_ObjectLeaf_ReturnsSerializedJson;
+    [Test] Procedure AsStr_ArrayLeaf_ReturnsSerializedJson;
+    [Test] Procedure AsStr_MissingKey_ReturnsFalse;
+    [Test] Procedure AsStr_EmptyPath_ReturnsValue;
+
+    // AsStrs
+    [Test] Procedure AsStrs_StringArray_ReturnsValues;
+    [Test] Procedure AsStrs_NumberArray_ReturnsStringValues;
+    [Test] Procedure AsStrs_MixedArray_ReturnsStringValues;
+    [Test] Procedure AsStrs_ObjectArray_ReturnsSerializedJson;
+    [Test] Procedure AsStrs_EmptyPath_ReturnsValues;
+    [Test] Procedure AsStrs_NotAnArray_ReturnsFalse;
+    [Test] Procedure AsStrs_MissingKey_ReturnsFalse;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -157,6 +186,155 @@ end;
 Procedure TJsonEvalTests.TearDown;
 begin
   FJson.Free;
+end;
+
+// TryNavigateTo (single step)
+
+Procedure TJsonEvalTests.TryNavigateTo_Step_KeyFound_ReturnsValue;
+Var
+  Value: TJSONValue;
+begin
+  Assert.IsTrue(TJsonEvaluator.TryNavigateTo(FJson, TPathStep('Name'), Value));
+  Assert.IsNotNull(Value);
+  Assert.AreEqual('Alice', Value.Value);
+end;
+
+Procedure TJsonEvalTests.TryNavigateTo_Step_KeyIsCaseInsensitive;
+Var
+  Value: TJSONValue;
+begin
+  Assert.IsTrue(TJsonEvaluator.TryNavigateTo(FJson, TPathStep('name'), Value));
+  Assert.IsNotNull(Value);
+  Assert.AreEqual('Alice', Value.Value);
+end;
+
+Procedure TJsonEvalTests.TryNavigateTo_Step_MissingKey_ReturnsFalse;
+Var
+  Value: TJSONValue;
+begin
+  Assert.IsFalse(TJsonEvaluator.TryNavigateTo(FJson, TPathStep('MISSING'), Value));
+  Assert.IsNull(Value);
+end;
+
+Procedure TJsonEvalTests.TryNavigateTo_Step_IndexFound_ReturnsValue;
+Var
+  Value: TJSONValue;
+begin
+  // Tags[1] is "beta"
+  var Arr := FJson.Values['Tags'] as TJSONArray;
+  Assert.IsTrue(TJsonEvaluator.TryNavigateTo(Arr, TPathStep(1), Value));
+  Assert.IsNotNull(Value);
+  Assert.AreEqual('beta', Value.Value);
+end;
+
+Procedure TJsonEvalTests.TryNavigateTo_Step_IndexOutOfRange_ReturnsFalse;
+Var
+  Value: TJSONValue;
+begin
+  var Arr := FJson.Values['Tags'] as TJSONArray;
+  Assert.IsFalse(TJsonEvaluator.TryNavigateTo(Arr, TPathStep(99), Value));
+  Assert.IsNull(Value);
+end;
+
+Procedure TJsonEvalTests.TryNavigateTo_Step_KeyStepOnArray_ReturnsFalse;
+Var
+  Value: TJSONValue;
+begin
+  // 'Tags' is an array — a string key step into it must return False
+  var Arr := FJson.Values['Tags'] as TJSONArray;
+  Assert.IsFalse(TJsonEvaluator.TryNavigateTo(Arr, TPathStep('x'), Value));
+  Assert.IsNull(Value);
+end;
+
+Procedure TJsonEvalTests.TryNavigateTo_Step_IndexStepOnObject_ReturnsFalse;
+Var
+  Value: TJSONValue;
+begin
+  // 'Address' is an object — an integer index step into it must return False
+  var Obj := FJson.Values['Address'] as TJSONObject;
+  Assert.IsFalse(TJsonEvaluator.TryNavigateTo(Obj, TPathStep(0), Value));
+  Assert.IsNull(Value);
+end;
+
+// TryNavigateTo (multi-step path)
+
+Procedure TJsonEvalTests.TryNavigateTo_SingleKey_ReturnsValue;
+Var
+  Value: TJSONValue;
+begin
+  Assert.IsTrue(TJsonEvaluator.TryNavigateTo(FJson, ['Name'], Value));
+  Assert.IsNotNull(Value);
+  Assert.AreEqual('Alice', Value.Value);
+end;
+
+Procedure TJsonEvalTests.TryNavigateTo_NestedKeys_ReturnsValue;
+Var
+  Value: TJSONValue;
+begin
+  Assert.IsTrue(TJsonEvaluator.TryNavigateTo(FJson, ['Address', 'Street'], Value));
+  Assert.IsNotNull(Value);
+  Assert.AreEqual('Main Street', Value.Value);
+end;
+
+Procedure TJsonEvalTests.TryNavigateTo_KeyThenIndex_ReturnsValue;
+Var
+  Value: TJSONValue;
+begin
+  // Tags[2] is "gamma"
+  Assert.IsTrue(TJsonEvaluator.TryNavigateTo(FJson, ['Tags', 2], Value));
+  Assert.IsNotNull(Value);
+  Assert.AreEqual('gamma', Value.Value);
+end;
+
+Procedure TJsonEvalTests.TryNavigateTo_IndexStep_ReturnsValue;
+Var
+  Value: TJSONValue;
+begin
+  // Items[0] is {"Id":1,"Label":"first"}
+  Assert.IsTrue(TJsonEvaluator.TryNavigateTo(FJson, ['Items', 0], Value));
+  Assert.IsTrue(Value is TJSONObject);
+end;
+
+Procedure TJsonEvalTests.TryNavigateTo_EmptyPath_ReturnsRoot;
+Var
+  Value: TJSONValue;
+begin
+  Assert.IsTrue(TJsonEvaluator.TryNavigateTo(FJson, [], Value));
+  Assert.AreEqual(TJSONValue(FJson), Value);
+end;
+
+Procedure TJsonEvalTests.TryNavigateTo_MissingKey_ReturnsFalse;
+Var
+  Value: TJSONValue;
+begin
+  Assert.IsFalse(TJsonEvaluator.TryNavigateTo(FJson, ['MISSING'], Value));
+  Assert.IsNull(Value);
+end;
+
+Procedure TJsonEvalTests.TryNavigateTo_IndexOutOfRange_ReturnsFalse;
+Var
+  Value: TJSONValue;
+begin
+  Assert.IsFalse(TJsonEvaluator.TryNavigateTo(FJson, ['Tags', 99], Value));
+  Assert.IsNull(Value);
+end;
+
+Procedure TJsonEvalTests.TryNavigateTo_KeyStepOnArray_ReturnsFalse;
+Var
+  Value: TJSONValue;
+begin
+  // 'Tags' is an array — a string key step into it must return False
+  Assert.IsFalse(TJsonEvaluator.TryNavigateTo(FJson, ['Tags', 'x'], Value));
+  Assert.IsNull(Value);
+end;
+
+Procedure TJsonEvalTests.TryNavigateTo_IndexStepOnObject_ReturnsFalse;
+Var
+  Value: TJSONValue;
+begin
+  // 'Address' is an object — an integer index step into it must return False
+  Assert.IsFalse(TJsonEvaluator.TryNavigateTo(FJson, ['Address', 0], Value));
+  Assert.IsNull(Value);
 end;
 
 // GetKeyValuePairs (root)
@@ -423,99 +601,6 @@ begin
   end;
 end;
 
-// AsStr
-
-Procedure TJsonEvalTests.AsStr_StringLeaf_ReturnsValue;
-Var
-  Value: String;
-begin
-  Assert.IsTrue(TJsonEvaluator.AsStr(FJson, ['Name'], Value));
-  Assert.AreEqual('Alice', Value);
-end;
-
-Procedure TJsonEvalTests.AsStr_NumberLeaf_ReturnsValue;
-Var
-  Value: String;
-begin
-  Assert.IsTrue(TJsonEvaluator.AsStr(FJson, ['Count'], Value));
-  Assert.AreEqual('7', Value);
-end;
-
-Procedure TJsonEvalTests.AsStr_BoolLeaf_ReturnsValue;
-Var
-  Value: String;
-begin
-  var Json := TJSONObject.ParseJSONValue('{"Flag":true}') as TJSONObject;
-  try
-    Assert.IsTrue(TJsonEvaluator.AsStr(Json, ['Flag'], Value));
-    Assert.AreEqual('true', Value);
-  finally
-    Json.Free;
-  end;
-end;
-
-Procedure TJsonEvalTests.AsStr_NullLeaf_ReturnsEmptyString;
-Var
-  Value: String;
-begin
-  var Json := TJSONObject.ParseJSONValue('{"Empty":null}') as TJSONObject;
-  try
-    Assert.IsTrue(TJsonEvaluator.AsStr(Json, ['Empty'], Value));
-    Assert.AreEqual('', Value);
-  finally
-    Json.Free;
-  end;
-end;
-
-Procedure TJsonEvalTests.AsStr_ObjectLeaf_ReturnsSerializedJson;
-Var
-  Value: String;
-begin
-  Assert.IsTrue(TJsonEvaluator.AsStr(FJson, ['Address'], Value));
-  // Create Json-object
-  var Parsed := TJSONObject.ParseJSONValue(Value) as TJSONObject;
-  try
-    Assert.IsNotNull(Parsed);
-  finally
-    Parsed.Free;
-  end;
-end;
-
-Procedure TJsonEvalTests.AsStr_ArrayLeaf_ReturnsSerializedJson;
-Var
-  Value: String;
-begin
-  Assert.IsTrue(TJsonEvaluator.AsStr(FJson, ['Tags'], Value));
-  // Create Json-array
-  var Parsed := TJSONObject.ParseJSONValue(Value) as TJSONArray;
-  try
-    Assert.IsNotNull(Parsed);
-    Assert.AreEqual(3, Parsed.Count);
-  finally
-    Parsed.Free;
-  end;
-end;
-
-Procedure TJsonEvalTests.AsStr_MissingKey_ReturnsFalse;
-Var
-  Value: String;
-begin
-  Assert.IsFalse(TJsonEvaluator.AsStr(FJson, ['MISSING'], Value));
-end;
-
-Procedure TJsonEvalTests.AsStr_EmptyPath_ReturnsValue;
-Var
-  Value: String;
-begin
-  var JsonStr := TJSONString.Create('Alice');
-  try
-    Assert.IsTrue(TJsonEvaluator.AsStr(JsonStr, [], Value));
-    Assert.AreEqual('Alice', Value);
-  finally
-    JsonStr.Free;
-  end;
-end;
-
 // GetInt
 
 Procedure TJsonEvalTests.GetInt_ValidNumber_ReturnsValue;
@@ -730,6 +815,181 @@ Var
   Values: TArray<Float64>;
 begin
   Assert.IsFalse(TJsonEvaluator.GetFloats(FJson, ['Tags'], Values));
+end;
+
+// AsStr
+
+Procedure TJsonEvalTests.AsStr_StringLeaf_ReturnsValue;
+Var
+  Value: String;
+begin
+  Assert.IsTrue(TJsonEvaluator.AsStr(FJson, ['Name'], Value));
+  Assert.AreEqual('Alice', Value);
+end;
+
+Procedure TJsonEvalTests.AsStr_NumberLeaf_ReturnsValue;
+Var
+  Value: String;
+begin
+  Assert.IsTrue(TJsonEvaluator.AsStr(FJson, ['Count'], Value));
+  Assert.AreEqual('7', Value);
+end;
+
+Procedure TJsonEvalTests.AsStr_BoolLeaf_ReturnsValue;
+Var
+  Value: String;
+begin
+  var Json := TJSONObject.ParseJSONValue('{"Flag":true}') as TJSONObject;
+  try
+    Assert.IsTrue(TJsonEvaluator.AsStr(Json, ['Flag'], Value));
+    Assert.AreEqual('true', Value);
+  finally
+    Json.Free;
+  end;
+end;
+
+Procedure TJsonEvalTests.AsStr_NullLeaf_ReturnsEmptyString;
+Var
+  Value: String;
+begin
+  var Json := TJSONObject.ParseJSONValue('{"Empty":null}') as TJSONObject;
+  try
+    Assert.IsTrue(TJsonEvaluator.AsStr(Json, ['Empty'], Value));
+    Assert.AreEqual('', Value);
+  finally
+    Json.Free;
+  end;
+end;
+
+Procedure TJsonEvalTests.AsStr_ObjectLeaf_ReturnsSerializedJson;
+Var
+  Value: String;
+begin
+  Assert.IsTrue(TJsonEvaluator.AsStr(FJson, ['Address'], Value));
+  // Create Json-object
+  var Parsed := TJSONObject.ParseJSONValue(Value) as TJSONObject;
+  try
+    Assert.IsNotNull(Parsed);
+  finally
+    Parsed.Free;
+  end;
+end;
+
+Procedure TJsonEvalTests.AsStr_ArrayLeaf_ReturnsSerializedJson;
+Var
+  Value: String;
+begin
+  Assert.IsTrue(TJsonEvaluator.AsStr(FJson, ['Tags'], Value));
+  // Create Json-array
+  var Parsed := TJSONObject.ParseJSONValue(Value) as TJSONArray;
+  try
+    Assert.IsNotNull(Parsed);
+    Assert.AreEqual(3, Parsed.Count);
+  finally
+    Parsed.Free;
+  end;
+end;
+
+Procedure TJsonEvalTests.AsStr_MissingKey_ReturnsFalse;
+Var
+  Value: String;
+begin
+  Assert.IsFalse(TJsonEvaluator.AsStr(FJson, ['MISSING'], Value));
+end;
+
+Procedure TJsonEvalTests.AsStr_EmptyPath_ReturnsValue;
+Var
+  Value: String;
+begin
+  var JsonStr := TJSONString.Create('Alice');
+  try
+    Assert.IsTrue(TJsonEvaluator.AsStr(JsonStr, [], Value));
+    Assert.AreEqual('Alice', Value);
+  finally
+    JsonStr.Free;
+  end;
+end;
+
+// AsStrs
+
+Procedure TJsonEvalTests.AsStrs_StringArray_ReturnsValues;
+Var
+  Values: TArray<String>;
+begin
+  Assert.IsTrue(TJsonEvaluator.AsStrs(FJson, ['Tags'], Values));
+  Assert.AreEqual(3, Integer(Length(Values)));
+  Assert.AreEqual('alpha', Values[0]);
+  Assert.AreEqual('beta',  Values[1]);
+  Assert.AreEqual('gamma', Values[2]);
+end;
+
+Procedure TJsonEvalTests.AsStrs_NumberArray_ReturnsStringValues;
+Var
+  Values: TArray<String>;
+begin
+  // Unlike GetStrs, AsStrs accepts numeric elements and converts them to strings
+  Assert.IsTrue(TJsonEvaluator.AsStrs(FJson, ['Scores'], Values));
+  Assert.AreEqual(3, Integer(Length(Values)));
+  Assert.AreEqual('10', Values[0]);
+  Assert.AreEqual('20', Values[1]);
+  Assert.AreEqual('30', Values[2]);
+end;
+
+Procedure TJsonEvalTests.AsStrs_MixedArray_ReturnsStringValues;
+Var
+  Values: TArray<String>;
+begin
+  var Json := TJSONObject.ParseJSONValue('{"Mix":["hello",42,true,null]}') as TJSONObject;
+  try
+    Assert.IsTrue(TJsonEvaluator.AsStrs(Json, ['Mix'], Values));
+    Assert.AreEqual(4, Integer(Length(Values)));
+    Assert.AreEqual('hello', Values[0]);
+    Assert.AreEqual('42',    Values[1]);
+    Assert.AreEqual('true',  Values[2]);
+    Assert.AreEqual('',      Values[3]);  // null maps to empty string
+  finally
+    Json.Free;
+  end;
+end;
+
+Procedure TJsonEvalTests.AsStrs_ObjectArray_ReturnsSerializedJson;
+Var
+  Values: TArray<String>;
+begin
+  // Items is an array of objects — each element is serialized as JSON text
+  Assert.IsTrue(TJsonEvaluator.AsStrs(FJson, ['Items'], Values));
+  Assert.AreEqual(2, Integer(Length(Values)));
+  var Parsed := TJSONObject.ParseJSONValue(Values[0]) as TJSONObject;
+  try
+    Assert.IsNotNull(Parsed);
+    Assert.AreEqual('first', Parsed.GetValue<String>('Label'));
+  finally
+    Parsed.Free;
+  end;
+end;
+
+Procedure TJsonEvalTests.AsStrs_EmptyPath_ReturnsValues;
+Var
+  Values: TArray<String>;
+begin
+  var Arr := FJson.Values['Tags'] as TJSONArray;
+  Assert.IsTrue(TJsonEvaluator.AsStrs(Arr, [], Values));
+  Assert.AreEqual(3, Integer(Length(Values)));
+  Assert.AreEqual('alpha', Values[0]);
+end;
+
+Procedure TJsonEvalTests.AsStrs_NotAnArray_ReturnsFalse;
+Var
+  Values: TArray<String>;
+begin
+  Assert.IsFalse(TJsonEvaluator.AsStrs(FJson, ['Name'], Values));
+end;
+
+Procedure TJsonEvalTests.AsStrs_MissingKey_ReturnsFalse;
+Var
+  Values: TArray<String>;
+begin
+  Assert.IsFalse(TJsonEvaluator.AsStrs(FJson, ['MISSING'], Values));
 end;
 
 initialization
