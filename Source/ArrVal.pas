@@ -23,6 +23,7 @@ Type
   public
     Constructor Create(Values: TArray<T>);
     Function Length: Integer; inline;
+    Procedure AssignTo(var Values: array of T);
   public
     Property Values[Index: Integer]: T read GetValues; default;
   end;
@@ -36,6 +37,7 @@ Type
   public
     Constructor Create(Values: TArray<T>);
     Function Length: Integer; inline;
+    Procedure AssignTo(var Values: array of T);
   public
     Property Values[Index: Integer]: T read GetValues write SetValues; default;
   end;
@@ -69,6 +71,14 @@ begin
   Result := System.Length(FValues);
 end;
 
+Procedure TArrayView<T>.AssignTo(var Values: array of T);
+begin
+  if System.Length(Values) = Length then
+    for var Index := 0 to Length-1 do Values[Index] := FValues[Index]
+  else
+    raise Exception.Create('Invalid array length');
+end;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 Constructor TArrayValues<T>.Create(Values: TArray<T>);
@@ -89,6 +99,14 @@ end;
 Function TArrayValues<T>.Length: Integer;
 begin
   Result := System.Length(FValues);
+end;
+
+Procedure TArrayValues<T>.AssignTo(var Values: array of T);
+begin
+  if System.Length(Values) = Length then
+    for var Index := 0 to Length-1 do Values[Index] := FValues[Index]
+  else
+    raise Exception.Create('Invalid array length');
 end;
 
 end.

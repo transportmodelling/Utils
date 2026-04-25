@@ -26,6 +26,10 @@ Type
     Procedure TestViewIndexedRead;
     [Test]
     Procedure TestViewEmptyArray;
+    [Test]
+    Procedure TestViewAssignTo;
+    [Test]
+    Procedure TestViewAssignToLengthMismatch;
     // TArrayValues<T>
     [Test]
     Procedure TestValuesCreate;
@@ -39,6 +43,10 @@ Type
     Procedure TestValuesWriteDoesNotReallocate;
     [Test]
     Procedure TestValuesEmptyArray;
+    [Test]
+    Procedure TestValuesAssignTo;
+    [Test]
+    Procedure TestValuesAssignToLengthMismatch;
     // Type aliases - TArrayView
     [Test]
     Procedure TestIntArrayView;
@@ -175,6 +183,60 @@ begin
   SetLength(Arr, 0);
   Vals := TArrayValues<Integer>.Create(Arr);
   Assert.AreEqual(0, Vals.Length);
+end;
+
+Procedure TArrayViewTests.TestViewAssignTo;
+Var
+  Src: TArray<Integer>;
+  Dest: array[0..2] of Integer;
+  View: TArrayView<Integer>;
+begin
+  Src := TArray<Integer>.Create(10, 20, 30);
+  View := TArrayView<Integer>.Create(Src);
+  View.AssignTo(Dest);
+  Assert.AreEqual(10, Dest[0]);
+  Assert.AreEqual(20, Dest[1]);
+  Assert.AreEqual(30, Dest[2]);
+end;
+
+Procedure TArrayViewTests.TestViewAssignToLengthMismatch;
+Var
+  Src: TArray<Integer>;
+  Dest: array[0..1] of Integer;
+  View: TArrayView<Integer>;
+begin
+  Src := TArray<Integer>.Create(10, 20, 30);
+  View := TArrayView<Integer>.Create(Src);
+  Assert.WillRaise(
+    procedure begin View.AssignTo(Dest) end,
+    Exception);
+end;
+
+Procedure TArrayViewTests.TestValuesAssignTo;
+Var
+  Src: TArray<Integer>;
+  Dest: array[0..2] of Integer;
+  Vals: TArrayValues<Integer>;
+begin
+  Src := TArray<Integer>.Create(10, 20, 30);
+  Vals := TArrayValues<Integer>.Create(Src);
+  Vals.AssignTo(Dest);
+  Assert.AreEqual(10, Dest[0]);
+  Assert.AreEqual(20, Dest[1]);
+  Assert.AreEqual(30, Dest[2]);
+end;
+
+Procedure TArrayViewTests.TestValuesAssignToLengthMismatch;
+Var
+  Src: TArray<Integer>;
+  Dest: array[0..1] of Integer;
+  Vals: TArrayValues<Integer>;
+begin
+  Src := TArray<Integer>.Create(10, 20, 30);
+  Vals := TArrayValues<Integer>.Create(Src);
+  Assert.WillRaise(
+    procedure begin Vals.AssignTo(Dest) end,
+    Exception);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

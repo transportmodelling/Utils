@@ -37,6 +37,7 @@ uses
 begin
   try
     // Initialization
+    FormatSettings.DecimalSeparator := '.';
     TDUnitX.CheckCommandLine;
     TDUnitX.Options.XMLOutputFile := '.\TestUtils.xml';
     // Create the test Runner
