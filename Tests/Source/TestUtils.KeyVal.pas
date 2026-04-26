@@ -21,6 +21,8 @@ Type
   public
     [Setup]
     Procedure Setup;
+    [TearDown]
+    Procedure TearDown;
 
     // Create
     [Test] Procedure Create_FromArray_SetsExpectedPairs;
@@ -56,7 +58,11 @@ Type
     [Test] Procedure Contains_ExistingKey_ReturnsTrue;
     [Test] Procedure Contains_MissingKey_ReturnsFalse;
     [Test] Procedure Contains_KeyIsCaseInsensitive;
+    [Test] Procedure Contains_DuplicateKey_SecondOccurrence_ReturnsTrue;
+    [Test] Procedure Contains_OccurrenceOutOfRange_ReturnsFalse;
     [Test] Procedure Contains_WithValue_ReturnsValue;
+    [Test] Procedure Contains_WithValue_SecondOccurrence_ReturnsCorrectValue;
+    [Test] Procedure Contains_WithValue_OccurrenceOutOfRange_ReturnsFalse;
 
     // Str
     [Test] Procedure Str_ExistingKey_ReturnsValue;
@@ -87,6 +93,16 @@ Type
     // AddToDictionary
     [Test] Procedure AddToDictionary_PopulatesDictionary;
     [Test] Procedure AddToDictionary_DuplicateKey_RaisesException;
+
+    // Path
+    [Test] Procedure Path_MissingKey_RaisesException;
+    [Test] Procedure Path_AbsolutePath_ReturnsPathUnchanged;
+    [Test] Procedure Path_RelativePath_ExpandsAgainstBaseDir;
+    [Test] Procedure Path_DuplicateKey_SecondOccurrence_ReturnsCorrectPath;
+    [Test] Procedure Path_OccurrenceOutOfRange_RaisesException;
+
+    // SetBaseDir
+    [Test] Procedure SetBaseDir_PathUsesNewBaseDir;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -107,6 +123,12 @@ begin
   FPairs.Append('City','Amsterdam');
   FPairs.Append('Count','7');
   FPairs.Append('Score','9.5');
+end;
+
+Procedure TKeyValTests.TearDown;
+begin
+  // Restore the class-level BaseDir to the exe directory after each test.
+  TKeyValuePairs.SetBaseDir(ExtractFileDir(ParamStr(0)));
 end;
 
 // Create
@@ -313,12 +335,39 @@ begin
   Assert.IsTrue(FPairs.Contains('NAME'));
 end;
 
+Procedure TKeyValTests.Contains_DuplicateKey_SecondOccurrence_ReturnsTrue;
+begin
+  FPairs.Append('Name','Bob');
+  Assert.IsTrue(FPairs.Contains('Name',1));
+end;
+
+Procedure TKeyValTests.Contains_OccurrenceOutOfRange_ReturnsFalse;
+begin
+  Assert.IsFalse(FPairs.Contains('Name',1)); // only one 'Name'
+end;
+
 Procedure TKeyValTests.Contains_WithValue_ReturnsValue;
 Var
   Value: String;
 begin
   Assert.IsTrue(FPairs.Contains('Name',Value));
   Assert.AreEqual('Alice',Value);
+end;
+
+Procedure TKeyValTests.Contains_WithValue_SecondOccurrence_ReturnsCorrectValue;
+Var
+  Value: String;
+begin
+  FPairs.Append('Name','Bob');
+  Assert.IsTrue(FPairs.Contains('Name',Value,1));
+  Assert.AreEqual('Bob',Value);
+end;
+
+Procedure TKeyValTests.Contains_WithValue_OccurrenceOutOfRange_ReturnsFalse;
+Var
+  Value: String;
+begin
+  Assert.IsFalse(FPairs.Contains('Name',Value,1)); // only one 'Name'
 end;
 
 // Str
@@ -445,6 +494,49 @@ begin
   finally
     Dict.Free;
   end;
+end;
+
+// Path
+
+Procedure TKeyValTests.Path_MissingKey_RaisesException;
+begin
+  Assert.WillRaiseAny(Procedure begin FPairs.Path('MISSING') end);
+end;
+
+Procedure TKeyValTests.Path_AbsolutePath_ReturnsPathUnchanged;
+begin
+  FPairs.Append('File','C:\Absolute\file.txt');
+  Assert.AreEqual('C:\Absolute\file.txt',FPairs.Path('File'));
+end;
+
+Procedure TKeyValTests.Path_RelativePath_ExpandsAgainstBaseDir;
+begin
+  TKeyValuePairs.SetBaseDir('C:\BaseDir');
+  FPairs.Append('File','sub\file.txt');
+  Assert.AreEqual('C:\BaseDir\sub\file.txt',FPairs.Path('File'));
+end;
+
+Procedure TKeyValTests.Path_DuplicateKey_SecondOccurrence_ReturnsCorrectPath;
+begin
+  TKeyValuePairs.SetBaseDir('C:\BaseDir');
+  FPairs.Append('File','first.txt');
+  FPairs.Append('File','second.txt');
+  Assert.AreEqual('C:\BaseDir\second.txt',FPairs.Path('File',1));
+end;
+
+Procedure TKeyValTests.Path_OccurrenceOutOfRange_RaisesException;
+begin
+  FPairs.Append('File','data.txt');
+  Assert.WillRaiseAny(Procedure begin FPairs.Path('File',1) end); // only one 'File'
+end;
+
+// SetBaseDir
+
+Procedure TKeyValTests.SetBaseDir_PathUsesNewBaseDir;
+begin
+  TKeyValuePairs.SetBaseDir('C:\OtherDir');
+  FPairs.Append('File','data.txt');
+  Assert.AreEqual('C:\OtherDir\data.txt',FPairs.Path('File'));
 end;
 
 initialization

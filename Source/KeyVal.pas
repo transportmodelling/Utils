@@ -12,13 +12,19 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils, StrUtils, Generics.Collections;
+  SysUtils, StrUtils, Generics.Collections, BaseDir;
 
 Type
   TKeyValuePair = TPair<String,String>;
   TKeyValuePairs = TArray<TKeyValuePair>;
 
   TKeyValuePairsHelper = record helper for TKeyValuePairs
+  private
+    Class Var
+      // Base directory used by the Path-method
+      BaseDirectory: TBaseDirectory;
+  public
+    Class Procedure SetBaseDir(const BaseDir: String);
   public
     // Manage content
     Constructor Create(const KeyValuePairs: array of TKeyValuePair); overload;
@@ -33,12 +39,13 @@ Type
     Procedure Delete(const Key: String); overload;
     // Query content
     Function Count: Integer;
-    Function Contains(const Key: String): Boolean; overload;
-    Function Contains(const Key: String; var Value: String): Boolean; overload;
+    Function Contains(const Key: String; OccurrenceIndex: Integer = 0): Boolean; overload;
+    Function Contains(const Key: String; var Value: String; OccurrenceIndex: Integer = 0): Boolean; overload;
     Function Str(const Key: String; OccurrenceIndex: Integer = 0): String;
     Function Int(const Key: String; OccurrenceIndex: Integer = 0): Integer;
     Function Int64(const Key: String; OccurrenceIndex: Integer = 0): Int64;
     Function Float(const Key: String; OccurrenceIndex: Integer = 0): Float64;
+    Function Path(const Key: String; OccurrenceIndex: Integer = 0): String;
     Function AsString(const KeyValueSeparator: Char = ':'; PairSeparator: Char = ';'): String;
     Procedure AddToDictionary(const Dictionary: TDictionary<String,String>);
   end;
@@ -46,6 +53,11 @@ Type
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
+
+Class Procedure TKeyValuePairsHelper.SetBaseDir(const BaseDir: String);
+begin
+  BaseDirectory := BaseDir;
+end;
 
 Constructor TKeyValuePairsHelper.Create(const KeyValuePairs: array of TKeyValuePair);
 begin
@@ -128,22 +140,27 @@ begin
   Result := Length(Self);
 end;
 
-Function TKeyValuePairsHelper.Contains(const Key: String): Boolean;
+Function TKeyValuePairsHelper.Contains(const Key: String; OccurrenceIndex: Integer = 0): Boolean;
 Var
   Value: String;
 begin
-  Result := Contains(Key,Value);
+  Result := Contains(Key,Value,OccurrenceIndex);
 end;
 
-Function TKeyValuePairsHelper.Contains(const Key: String; var Value: String): Boolean;
+Function TKeyValuePairsHelper.Contains(const Key: String; var Value: String; OccurrenceIndex: Integer = 0): Boolean;
 begin
-  Result := false;
+  var MatchCount := 0;
   for var KeyValuePair := 0 to Count-1 do
   if SameText(Self[KeyValuePair].Key,Key) then
   begin
-    Value := Self[KeyValuePair].Value;
-    Exit(true);
+    if MatchCount = OccurrenceIndex then
+    begin
+      Value := Self[KeyValuePair].Value;
+      Exit(true);
+    end;
+    Inc(MatchCount);
   end;
+  Result := false;
 end;
 
 Function TKeyValuePairsHelper.Str(const Key: String; OccurrenceIndex: Integer = 0): String;
@@ -179,6 +196,11 @@ begin
   if not TryStrToFloat(S,Result) then raise Exception.CreateFmt('Key (%s) value "%s" is not a valid float',[Key,S]);
 end;
 
+Function TKeyValuePairsHelper.Path(const Key: String; OccurrenceIndex: Integer = 0): String;
+begin
+  Result := BaseDirectory.AbsolutePath(Str(Key,OccurrenceIndex));
+end;
+
 Function TKeyValuePairsHelper.AsString(const KeyValueSeparator: Char = ':'; PairSeparator: Char = ';'): String;
 // Returns all pairs serialized as a single string.
 // Each pair is formatted as Key + KeyValueSeparator + ' ' + Value.
@@ -198,4 +220,6 @@ begin
   for var Pair in Self do Dictionary.Add(Pair.Key, Pair.Value);
 end;
 
+initialization
+  TKeyValuePairs.BaseDirectory.SetExeDir;
 end.
