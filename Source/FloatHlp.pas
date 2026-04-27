@@ -80,38 +80,24 @@ begin
 end;
 
 Function TFloat64Helper.ToString(Decimals: Byte; SkipTrailingZeroDecimals: Boolean): string;
+const
+  FixedFormats: array[0..5] of string = ('0','0.0','0.00','0.000','0.0000','0.00000');
+  TrimmedFormats: array[0..5] of string = ('0','0.#','0.##','0.###','0.####','0.#####');
+var
+  FormatMask: string;
 begin
   if Decimals > 16 then Decimals := 16;
-  case Decimals of
-    // For performance use hard-coded format strings for low decimal values
-    0: Result := FormatFloat('0',Self);
-    1: if SkipTrailingZeroDecimals then
-         Result := FormatFloat('0.#',Self)
-       else
-         Result := FormatFloat('0.0',Self);
-    2: if SkipTrailingZeroDecimals then
-         Result := FormatFloat('0.##',Self)
-       else
-         Result := FormatFloat('0.00',Self);
-    3: if SkipTrailingZeroDecimals then
-         Result := FormatFloat('0.###',Self)
-       else
-         Result := FormatFloat('0.000',Self);
-    4: if SkipTrailingZeroDecimals then
-         Result := FormatFloat('0.####',Self)
-       else
-         Result := FormatFloat('0.0000',Self);
-    5: if SkipTrailingZeroDecimals then
-         Result := FormatFloat('0.#####',Self)
-       else
-         Result := FormatFloat('0.00000',Self);
+  if Decimals <= 5 then
+    if SkipTrailingZeroDecimals then
+      FormatMask := TrimmedFormats[Decimals]
     else
-       // For higher values, use dynamic format string creation
-       if SkipTrailingZeroDecimals then
-         Result := FormatFloat('0.'+StringOfChar('#',Decimals),Self)
-       else
-         Result := FormatFloat('0.'+StringOfChar('0',Decimals),Self);
-  end;
+      FormatMask := FixedFormats[Decimals]
+  else
+    if SkipTrailingZeroDecimals then
+      FormatMask := '0.' + StringOfChar('#', Decimals)
+    else
+      FormatMask := '0.' + StringOfChar('0', Decimals);
+  Result := FormatFloat(FormatMask, Self);
 end;
 
 Function TFloat64Helper.ToString(Decimals: Byte; FixedDecimals,SkipTrailingZeroDecimals: Boolean): string;
