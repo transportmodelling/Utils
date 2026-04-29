@@ -1,7 +1,8 @@
-﻿unit Yaml.Parse;
+unit Yaml.Parse;
 
 ////////////////////////////////////////////////////////////////////////////////
 //
+// Author: Jaap Baak (initial implementation generated with Claude Sonnet 4.6)
 // https://github.com/transportmodelling/Utils
 //
 ////////////////////////////////////////////////////////////////////////////////
@@ -40,15 +41,21 @@ Type
     Function StripComment(const Line: String): String;
     Function UnQuotedString(const S: String): String;
     Function CountIndent(const S: String): Integer;
+    Function SplitFlowItems(const Inner: String): TArray<String>;
     Function ParseFlowSequence(const S: String): TJSONArray;
     Function ParseFlowMap(const S: String): TJSONObject;
     Function ParseScalar(const S: String): TJSONValue;
     Function ParseFlowValue(const S: String): TJSONValue;
+    Function FindKeySeparator(const YamlLine: String): Integer;
+    Function HandleBlockScalarLine(const RawLine, YamlLine: String; LineIndent: Integer): Boolean;
     Procedure ResetContext;
     Procedure HandleDocumentSeparator;
     Procedure HandleStreamEnd;
+    Procedure ApplyFoldedStyle;
+    Procedure ApplyChomping;
     Procedure FinalizeBlockScalar;
     Procedure AdjustContext(LineIndent: Integer; IsListItem: Boolean);
+    Procedure InitBlockScalar(const Value: String; Pair: TJSONPair);
     Procedure ParseKeyPair(const YamlLine: String);
     Procedure ParseListItem(const YamlLine: String; LineIndent: Integer);
     Procedure ParseLine(const RawLine: String);
@@ -180,12 +187,9 @@ begin
   Result := ParseScalar(S);
 end;
 
-Function TYamlParser.ParseFlowMap(const S: String): TJSONObject;
+Function TYamlParser.SplitFlowItems(const Inner: String): TArray<String>;
 begin
-  Result := TJsonObject.Create;
-  if Length(S) <= 2 then Exit; // empty {}
-
-  var Inner := Copy(S, 2, Length(S) - 2);
+  Result := [];
   var StartPos := 1;
   var Depth := 0;
   var InQuote := False;
@@ -196,52 +200,45 @@ begin
     var C := Inner[i];
     if InQuote then
     begin
-       if (C = QuoteChar) then
-       begin
-          if (i = 1) or (Inner[i-1] <> '\') then InQuote := False;
-       end;
+      if (C = QuoteChar) and ((i = 1) or (Inner[i-1] <> '\')) then InQuote := False;
     end
     else
     begin
-       if (C = '"') or (C = '''') then
-       begin
-          InQuote := True;
-          QuoteChar := C;
-       end
-       else if (C = '{') or (C = '[') then Inc(Depth)
-       else if (C = '}') or (C = ']') then Dec(Depth)
-       else if (C = ',') and (Depth = 0) then
-       begin
-          var ItemStr := Trim(Copy(Inner, StartPos, i - StartPos));
-          if ItemStr <> '' then
-          begin
-             var SeparatorPos := Pos(':', ItemStr);
-             if SeparatorPos > 0 then
-             begin
-                var KeyStr := UnQuotedString(Trim(Copy(ItemStr, 1, SeparatorPos - 1)));
-                var ValStr := Trim(Copy(ItemStr, SeparatorPos + 1, Length(ItemStr)));
-                Result.AddPair(KeyStr, ParseFlowValue(ValStr));
-             end;
-          end;
-          StartPos := i + 1;
-       end;
+      if (C = '"') or (C = '''') then
+      begin
+        InQuote := True;
+        QuoteChar := C;
+      end
+      else if (C = '{') or (C = '[') then Inc(Depth)
+      else if (C = '}') or (C = ']') then Dec(Depth)
+      else if (C = ',') and (Depth = 0) then
+      begin
+        Result := Result + [Trim(Copy(Inner, StartPos, i - StartPos))];
+        StartPos := i + 1;
+      end;
     end;
   end;
 
   if StartPos <= Length(Inner) then
-  begin
-     var ItemStr := Trim(Copy(Inner, StartPos, Length(Inner) - StartPos + 1));
-     if ItemStr <> '' then
-     begin
-        var SeparatorPos := Pos(':', ItemStr);
-        if SeparatorPos > 0 then
-        begin
-           var KeyStr := UnQuotedString(Trim(Copy(ItemStr, 1, SeparatorPos - 1)));
-           var ValStr := Trim(Copy(ItemStr, SeparatorPos + 1, Length(ItemStr)));
-           Result.AddPair(KeyStr, ParseFlowValue(ValStr));
-        end;
-     end;
-  end;
+    Result := Result + [Trim(Copy(Inner, StartPos, Length(Inner) - StartPos + 1))];
+end;
+
+Function TYamlParser.ParseFlowMap(const S: String): TJSONObject;
+begin
+  Result := TJsonObject.Create;
+  if Length(S) <= 2 then Exit; // empty {}
+
+  for var ItemStr in SplitFlowItems(Copy(S, 2, Length(S) - 2)) do
+    if ItemStr <> '' then
+    begin
+      var SeparatorPos := Pos(':', ItemStr);
+      if SeparatorPos > 0 then
+      begin
+        var KeyStr := UnQuotedString(Trim(Copy(ItemStr, 1, SeparatorPos - 1)));
+        var ValStr := Trim(Copy(ItemStr, SeparatorPos + 1, Length(ItemStr)));
+        Result.AddPair(KeyStr, ParseFlowValue(ValStr));
+      end;
+    end;
 end;
 
 Function TYamlParser.ParseFlowSequence(const S: String): TJSONArray;
@@ -249,46 +246,9 @@ begin
   Result := TJSONArray.Create;
   if Length(S) <= 2 then Exit; // empty []
 
-  var Inner := Copy(S, 2, Length(S) - 2);
-  var StartPos := 1;
-  var Depth := 0;
-  var InQuote := False;
-  var QuoteChar := #0;
-
-  for var i := 1 to Length(Inner) do
-  begin
-    var C := Inner[i];
-    if InQuote then
-    begin
-       if (C = QuoteChar) then
-       begin
-          if (i = 1) or (Inner[i-1] <> '\') then InQuote := False;
-       end;
-    end
-    else
-    begin
-       if (C = '"') or (C = '''') then
-       begin
-          InQuote := True;
-          QuoteChar := C;
-       end
-       else if (C = '[') or (C = '{') then Inc(Depth)
-       else if (C = ']') or (C = '}') then Dec(Depth)
-       else if (C = ',') and (Depth = 0) then
-       begin
-          var ItemStr := Trim(Copy(Inner, StartPos, i - StartPos));
-          Result.AddElement(ParseFlowValue(ItemStr));
-          StartPos := i + 1;
-       end;
-    end;
-  end;
-
-  if StartPos <= Length(Inner) then
-  begin
-     var ItemStr := Trim(Copy(Inner, StartPos, Length(Inner) - StartPos + 1));
-     if ItemStr <> '' then
-       Result.AddElement(ParseFlowValue(ItemStr));
-  end;
+  for var ItemStr in SplitFlowItems(Copy(S, 2, Length(S) - 2)) do
+    if ItemStr <> '' then
+      Result.AddElement(ParseFlowValue(ItemStr));
 end;
 
 Function TYamlParser.CountIndent(const S: String): Integer;
@@ -331,69 +291,65 @@ begin
     ResetContext;
 end;
 
+Procedure TYamlParser.ApplyFoldedStyle;
+begin
+  // Folded style '>': join lines with spaces, blank lines become newlines
+  var Folded := '';
+  var Lines := TStringList.Create;
+  try
+    Lines.Text := FCurrentBlock;
+    for var I := 0 to Lines.Count - 1 do
+    begin
+      var Line := Trim(Lines[I]);
+      if Line = '' then
+      begin
+        if Folded <> '' then Folded := Trim(Folded) + sLineBreak + sLineBreak;
+      end
+      else
+        Folded := Folded + Line + ' ';
+    end;
+    FCurrentBlock := Trim(Folded);
+  finally
+    Lines.Free;
+  end;
+end;
+
+Procedure TYamlParser.ApplyChomping;
+begin
+  // YAML 1.2 chomping:
+  //   Strip ('-'): remove all trailing newlines.
+  //   Keep  ('+'): preserve trailing blank lines + one final newline.
+  //   Clip  (' '): strip trailing newlines, then add exactly one back.
+  case FChompingStyle of
+    '-': FCurrentBlock := TrimRight(FCurrentBlock);
+    '+': FCurrentBlock := FCurrentBlock + sLineBreak;
+  else    FCurrentBlock := TrimRight(FCurrentBlock) + sLineBreak;
+  end;
+end;
+
 Procedure TYamlParser.FinalizeBlockScalar;
 begin
-  if FBlockType <> #0 then
+  if FBlockType = #0 then Exit;
+
+  if FBlockType = '>' then
+    ApplyFoldedStyle
+  else
   begin
-    if FBlockType = '>' then
-    begin
-       // Folded style: join lines with spaces, blank lines become newlines
-       var Folded := '';
-       var Lines := TStringList.Create;
-       try
-         Lines.Text := FCurrentBlock;
-         for var I := 0 to Lines.Count - 1 do
-         begin
-            var Line := Trim(Lines[I]);
-            if Line = '' then
-            begin
-               if Folded <> '' then Folded := Trim(Folded) + sLineBreak + sLineBreak;
-            end
-            else
-               Folded := Folded + Line + ' ';
-         end;
-         FCurrentBlock := Trim(Folded);
-       finally
-         Lines.Free;
-       end;
-    end
-    else
-    begin
-       // Literal style '|': strip trailing newline added by ParseLine
-       // (FCurrentBlock already has a trailing sLineBreak per line)
-       // Remove the final trailing newline before chomping is applied
-       if FCurrentBlock.EndsWith(sLineBreak) then
-         FCurrentBlock := Copy(FCurrentBlock, 1, Length(FCurrentBlock) - Length(sLineBreak));
-    end;
-
-     // Apply chomping (YAML 1.2 spec):
-     //   Strip ('-'): remove all trailing newlines.
-     //   Keep  ('+'): preserve trailing blank lines already in content, then
-     //                append one final newline.
-     //   Clip  (' '): strip all trailing newlines, then append exactly one.
-     case FChompingStyle of
-       '-': // Strip — remove all trailing newlines
-         FCurrentBlock := TrimRight(FCurrentBlock);
-       '+': // Keep — preserve existing trailing blank lines + one final newline
-         FCurrentBlock := FCurrentBlock + sLineBreak;
-     else  // Clip (default) — strip trailing newlines, then add exactly one back
-         FCurrentBlock := TrimRight(FCurrentBlock) + sLineBreak;
-     end;
-
-    // Assign to last node
-    if (FLastPair <> nil) and (FLastPair.JsonValue is TJSONNull) then
-    begin
-       // In Delphi, TJSONPair owns Value. Setting JsonValue frees the old one.
-       FLastPair.JsonValue := TJSONString.Create(FCurrentBlock);
-    end;
-
-    // Reset
-    FBlockType := #0;
-    FCurrentBlock := '';
-    FBlockIndent := -1;
-    FChompingStyle := ' ';
-    FExplicitIndent := 0;
+    // Literal style '|': remove the final trailing newline before chomping
+    if FCurrentBlock.EndsWith(sLineBreak) then
+      FCurrentBlock := Copy(FCurrentBlock, 1, Length(FCurrentBlock) - Length(sLineBreak));
   end;
+
+  ApplyChomping;
+
+  if (FLastPair <> nil) and (FLastPair.JsonValue is TJSONNull) then
+    FLastPair.JsonValue := TJSONString.Create(FCurrentBlock);
+
+  FBlockType := #0;
+  FCurrentBlock := '';
+  FBlockIndent := -1;
+  FChompingStyle := ' ';
+  FExplicitIndent := 0;
 end;
 
 Procedure TYamlParser.HandleStreamEnd;
@@ -444,10 +400,9 @@ begin
   end;
 end;
 
-Procedure TYamlParser.ParseKeyPair(const YamlLine: String);
+Function TYamlParser.FindKeySeparator(const YamlLine: String): Integer;
 begin
-  // Quote-aware scan for ': ' separator (handles keys that contain colons)
-  var SeparatorPos := 0;
+  Result := 0;
   var InQuote := False;
   var QuoteChar := #0;
   for var i := 1 to Length(YamlLine) do
@@ -465,70 +420,59 @@ begin
         InQuote := True;
         QuoteChar := C;
       end
-      else if (C = ':') then
+      else if C = ':' then
       begin
-        // ': ' separator
         if (i < Length(YamlLine)) and (YamlLine[i+1] = ' ') then
-        begin
-          SeparatorPos := i;
-          Break;
-        end;
-        // trailing ':' with nothing after
+          Exit(i);
         if i = Length(YamlLine) then
-        begin
-          SeparatorPos := i;
-          Break;
-        end;
+          Exit(i);
       end;
     end;
   end;
+end;
 
+Procedure TYamlParser.InitBlockScalar(const Value: String; Pair: TJSONPair);
+begin
+  FBlockType    := Value[1];
+  FCurrentBlock := '';
+  FBlockIndent  := -1;
+  FChompingStyle  := ' ';
+  FExplicitIndent := 0;
+  for var mi := 2 to Length(Value) do
+  begin
+    if Value[mi] = '-' then FChompingStyle := '-'
+    else if Value[mi] = '+' then FChompingStyle := '+'
+    else if (Value[mi] >= '1') and (Value[mi] <= '9') then
+      FExplicitIndent := Ord(Value[mi]) - Ord('0');
+  end;
+  Pair.JsonValue := TJSONNull.Create;
+end;
+
+Procedure TYamlParser.ParseKeyPair(const YamlLine: String);
+begin
+  var SeparatorPos := FindKeySeparator(YamlLine);
   if SeparatorPos > 0 then
   begin
     var Key := UnQuotedString(Trim(Copy(YamlLine, 1, SeparatorPos - 1)));
-    var Value: String;
+    var Value := '';
     if SeparatorPos < Length(YamlLine) then
-      Value := Trim(Copy(YamlLine, SeparatorPos + 1, Length(YamlLine)))
-    else
-      Value := '';
-
+      Value := Trim(Copy(YamlLine, SeparatorPos + 1, Length(YamlLine)));
     var Pair := TJSONPair.Create(Key, ParseFlowValue(Value));
     if FContextStack.Last.Node is TJsonObject then
       TJsonObject(FContextStack.Last.Node).AddPair(Pair);
     FLastPair := Pair;
-
-    // Check for Block Scalar Indicators: | or > with optional chomping (-, +) and/or indent (digit)
     if (Length(Value) >= 1) and ((Value[1] = '|') or (Value[1] = '>')) then
-    begin
-       FBlockType := Value[1];
-       FCurrentBlock := '';
-       FBlockIndent := -1;
-       // Parse optional modifiers: any combination of chomping (-, +) and explicit indent digit
-       FChompingStyle := ' '; // ' '=clip (default), '-'=strip, '+'=keep
-       FExplicitIndent := 0;
-       for var mi := 2 to Length(Value) do
-       begin
-         if Value[mi] = '-' then FChompingStyle := '-'
-         else if Value[mi] = '+' then FChompingStyle := '+'
-         else if (Value[mi] >= '1') and (Value[mi] <= '9') then
-           FExplicitIndent := Ord(Value[mi]) - Ord('0');
-       end;
-       // Replace placeholder value; will be replaced when block is finalized
-       Pair.JsonValue := TJSONNull.Create;
-         end;
+      InitBlockScalar(Value, Pair);
   end
   else
   begin
-    // No key separator found — the line is a bare scalar.
-    // Replace the root node with the parsed scalar value.
     var Scalar := ParseScalar(YamlLine);
     FRootNode.Free;
     FRootNode := Scalar;
-    // Update the context stack root entry so further lines reference the new node
     var Ctx := FContextStack[0];
     Ctx.Node := FRootNode;
     FContextStack[0] := Ctx;
-    FStopParsing := True; // A scalar root is complete after one line
+    FStopParsing := True;
   end;
 end;
 
@@ -582,76 +526,54 @@ begin
   end;
 end;
 
+Function TYamlParser.HandleBlockScalarLine(const RawLine, YamlLine: String; LineIndent: Integer): Boolean;
+begin
+  if YamlLine = '' then
+  begin
+    FCurrentBlock := FCurrentBlock + sLineBreak;
+    Exit(True);
+  end;
+
+  if FBlockIndent = -1 then
+  begin
+    if LineIndent <= FContextStack.Last.Indent then
+    begin
+      FinalizeBlockScalar;
+      Exit(False);
+    end
+    else
+    begin
+      if FExplicitIndent > 0 then
+        FBlockIndent := FContextStack.Last.Indent + FExplicitIndent
+      else
+        FBlockIndent := LineIndent;
+    end;
+  end;
+
+  if (LineIndent < FBlockIndent) and (Trim(RawLine) <> '') then
+  begin
+    FinalizeBlockScalar;
+    Exit(False);
+  end;
+
+  var Content := '';
+  if Length(RawLine) >= FBlockIndent then
+    Content := Copy(RawLine, FBlockIndent + 1, Length(RawLine));
+  FCurrentBlock := FCurrentBlock + Content + sLineBreak;
+  Result := True;
+end;
+
 Procedure TYamlParser.ParseLine(const RawLine: String);
 begin
   var LineIndent := CountIndent(RawLine);
   var YamlLine := Trim(StripComment(RawLine));
 
-  // Special Handling for Block Scalar Content
-  if FBlockType <> #0 then
-  begin
-     if YamlLine = '' then
-     begin
-        FCurrentBlock := FCurrentBlock + sLineBreak;
-        Exit;
-     end;
-
-     // Detect indentation level for the block
-     if FBlockIndent = -1 then
-     begin
-        if LineIndent <= FContextStack.Last.Indent then
-        begin
-       // Indentation dropped back, block ended
-       FinalizeBlockScalar;
-       // Fallthrough, but we need to reset the loop for this line since it wasn't consumed
-       // However, we are in ParseLine for a specific line.
-       // We must continue processing this line as a normal YAML line.
-     end
-     else
-     begin
-        // Use explicit indent if specified, otherwise auto-detect from first content line
-        if FExplicitIndent > 0 then
-          FBlockIndent := FContextStack.Last.Indent + FExplicitIndent
-        else
-          FBlockIndent := LineIndent;
-     end;
-  end;
-
- if FBlockIndent <> -1 then
- begin
-    if (LineIndent < FBlockIndent) and (Trim(RawLine) <> '') then
-    begin
-       FinalizeBlockScalar;
-       // Fall through to normal parsing for this line
-    end
-    else
-    begin
-           // Extract content based on block indent
-           var Content: String;
-           if Length(RawLine) >= FBlockIndent then
-              Content := Copy(RawLine, FBlockIndent + 1, Length(RawLine))
-           else
-              Content := ''; // Should be covered by empty line check above
-
-           FCurrentBlock := FCurrentBlock + Content + sLineBreak;
-           Exit;
-        end;
-     end;
-  end;
+  if (FBlockType <> #0) and HandleBlockScalarLine(RawLine, YamlLine, LineIndent) then Exit;
 
   if (YamlLine <> '') and (not YamlLine.StartsWith('#')) then
   begin
-    if YamlLine.StartsWith('---') then
-    begin
-      HandleDocumentSeparator;
-      Exit;
-    end;
-
-    if YamlLine.StartsWith('...') then
-    begin
-      HandleStreamEnd;
-      Exit;
-    end;
+    if YamlLine.StartsWith('---') then begin HandleDocumentSeparator; Exit; end;
+    if YamlLine.StartsWith('...') then begin HandleStreamEnd; Exit; end;
 
     FDocStarted := True;
 
@@ -659,15 +581,11 @@ begin
     begin
       var IsListItem := YamlLine.StartsWith('- ') or (YamlLine = '-');
       AdjustContext(LineIndent, IsListItem);
-
       if IsListItem then
         ParseListItem(YamlLine, LineIndent)
       else
         ParseKeyPair(YamlLine);
-
-      // If we just started a block, we set the initial indent expectation relative to key
-      if FBlockType <> #0 then
-         FBlockIndent := -1; // Wait for next line to determine block indent
+      if FBlockType <> #0 then FBlockIndent := -1;
     end
     else if FCurrentDocIndex > FTargetDocument then
       FStopParsing := True;
