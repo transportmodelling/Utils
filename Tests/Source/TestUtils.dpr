@@ -31,6 +31,7 @@ uses
   TestUtils.Polynom in 'TestUtils.Polynom.pas',
   TestUtils.Ranges in 'TestUtils.Ranges.pas',
   TestUtils.Spline in 'TestUtils.Spline.pas',
+  TestUtils.ThrdLib in 'TestUtils.ThrdLib.pas',
   TestUtils.TxtTab in 'TestUtils.TxtTab.pas',
   TestUtils.Yaml in 'TestUtils.Yaml.pas';
 

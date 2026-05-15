@@ -348,6 +348,38 @@ Provides `TTextTableReader` — a forward-only reader for tab-delimited (or cust
   end;
 ```
 
+## ThrdLib.pas
+Provides a structured thread-management and parallel-iteration library built on top of `TThread`.
+
+- **`TGuardedThread`** — abstract base for managed threads. Subclasses implement `ExecuteThread`; unhandled exceptions are captured and forwarded to the owning guard rather than crashing the process.
+- **`TThreadsGuard<T>`** — starts one or more `TGuardedThread` descendants, tracks their completion via an internal `TEvent`, and exposes `WaitFor` (with optional timeout), `Error` (retrieve the first error message, optionally resetting it), and `StartThreads` (accepts a new batch while a previous batch is still running). A global instance `ThreadsGuard` is created at unit initialization.
+- **`TBlockingThreadsGuard<T>`** — extends `TThreadsGuard<T>` so that `StartThreads` refuses a new batch until all threads from the previous batch have finished. Adds `Terminate` to signal all running threads to stop.
+- **`TThreadedIterator`** — base class for thread-pool-based iteration. Maintains a pool of reusable worker threads; subclasses set the `Iteration` field to a `TIteration` instance and call the protected `Execute` overload.
+- **`TParallelFor`** — parallel for loop with a configurable thread-pool size. Each iteration receives both the iteration index and the zero-based thread-pool index, allowing per-thread accumulation buffers that avoid `TInterlocked`. Provides four `Execute` overloads accepting either a `TLoopIteration` delegate or a `TIteration` subclass, with optional explicit thread count and stride.
+
+```
+  // Sum primes in parallel, one accumulator slot per thread
+  var ParallelFor := TParallelFor.Create(4);
+  try
+    var NPrimes: array[0..3] of Integer;
+    ParallelFor.Execute(2, Max,
+      procedure(I, Thread: Integer)
+      begin
+        if IsPrime(I) then Inc(NPrimes[Thread]);
+      end);
+    var Total := NPrimes[0] + NPrimes[1] + NPrimes[2] + NPrimes[3];
+    writeln(Total);
+  finally
+    ParallelFor.Free;
+  end;
+
+  // Use the global guard to fire-and-forget a batch of threads
+  var Msg: string;
+  ThreadsGuard.StartThreads([TMyThread.Create, TMyThread.Create]);
+  ThreadsGuard.WaitFor;
+  if ThreadsGuard.Error(Msg) then writeln('Error: ', Msg);
+```
+
 ## Yaml.pas
 Provides `TYaml` — a record with class methods that parse a YAML document into a `TJSONValue` tree. The root is typically a mapping (`TJsonObject`), but `StringToValue` / `ReadValueFromFile` also accept bare sequences and scalars. Multi-document streams are supported via the `Document` parameter (0-based). Anchors/aliases and multi-line flow collections are not supported.
 
