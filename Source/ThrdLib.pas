@@ -12,6 +12,7 @@ Type
   private
     Count: Integer;
     Idle: TEvent;
+    HasError: Boolean;
     FirstError: String;
     Procedure RemoveThread(Index: Integer); virtual;
     Procedure ThreadError(const ErrorMessage: String);
@@ -152,6 +153,7 @@ Procedure TGuardData.ThreadError(const ErrorMessage: String);
 begin
   TMonitor.Enter(Self);
   try
+    HasError := true;
     if FirstError = '' then FirstError := ErrorMessage;
   finally
     TMonitor.Exit(Self);
@@ -245,7 +247,11 @@ begin
   TMonitor.Enter(Self);
   try
     ErrorMessage := FirstError;
-    if Reset then FirstError := '';
+    if Reset then
+    begin
+      HasError := false;
+      FirstError := '';
+    end;
     Result := (ErrorMessage <> '');
   finally
     TMonitor.Exit(Self);
@@ -308,7 +314,7 @@ begin
     end;
     TMonitor.Enter(Iterator);
     try
-      if (not Terminated) and (Iterator.Guard.FirstError = '') and (Iterator.IterationCount > 0) then
+      if (not Terminated) and (not Iterator.Guard.HasError) and (Iterator.IterationCount > 0) then
       begin
         Current := Iterator.Next;
         Inc(Iterator.Next,Stride);
@@ -378,6 +384,7 @@ begin
     end else
     begin
       // Multi threaded
+      Guard.HasError := false;
       Guard.FirstError := '';
       TMonitor.Enter(Self);
       try
