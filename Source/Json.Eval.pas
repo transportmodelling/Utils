@@ -52,10 +52,12 @@ Type
     Class Function TryNavigateTo(const JsonValue: TJSONValue; const Path: array of TPathStep; out Value: TJSONValue): Boolean; overload; static;
     Class Function GetKeyValuePairs(JsonObject: TJSONObject; out Value: TKeyValuePairs): Boolean; overload; static;
     Class Function GetKeyValuePairs(JsonValue: TJSONValue; const Path: array of TPathStep; out Value: TKeyValuePairs): Boolean; overload; static;
+    Class Function GetName(JsonValue: TJSONValue; const Path: array of TPathStep; out Name: String): Boolean; overload; static;
     Class Function GetStr(JsonValue: TJSONValue; const Path: array of TPathStep; out Value: String): Boolean; static;
     Class Function GetInt(JsonValue: TJSONValue; const Path: array of TPathStep; out Value: Integer): Boolean; static;
     Class Function GetInt64(JsonValue: TJSONValue; const Path: array of TPathStep; out Value: Int64): Boolean; static;
     Class Function GetFloat(JsonValue: TJSONValue; const Path: array of TPathStep; out Value: Float64): Boolean; static;
+    Class Function GetLength(JsonValue: TJsonValue; const Path: array of TPathStep; out Length: Integer): Boolean; static;
     Class Function GetStrs(JsonValue: TJSONValue; const Path: array of TPathStep; out Values: TArray<String>): Boolean; static;
     Class Function GetInts(JsonValue: TJSONValue; const Path: array of TPathStep; out Values: TArray<Integer>): Boolean; static;
     Class Function GetFloats(JsonValue: TJSONValue; const Path: array of TPathStep; out Values: TArray<Float64>): Boolean; static;
@@ -178,7 +180,7 @@ begin
   end;
 end;
 
-Class Function TJsonEvaluator.GetValue<T>(const JsonValue: TJSONValue; const Path: array of TPathStep; 
+Class Function TJsonEvaluator.GetValue<T>(const JsonValue: TJSONValue; const Path: array of TPathStep;
                                           const TypeCast: TJsonTypeCast<T>; const Default: T; out Value: T): Boolean;
 Var
   Leaf: TJsonValue;
@@ -282,6 +284,32 @@ begin
   Result := GetKeyValuePairs(TJSONObject(Target),Value)
 end;
 
+Class Function TJsonEvaluator.GetName(JsonValue: TJSONValue; const Path: array of TPathStep; out Name: String): Boolean;
+// Navigates into JsonValue following all but the last step of Path, then looks up
+// the final step (which must be a string key) in the resulting TJSONObject and sets
+// Name to the key name of the matching pair.
+// Returns True on success; False if the path is empty, any navigation fails, the
+// final step is an index, or the penultimate node is not a TJSONObject.
+Var
+  Parent: TJsonValue;
+begin
+  Result := false;
+  Name := '';
+  if (Length(Path) > 0) and (not Path[High(Path)].IsIndex) then
+  if TryNavigateTo(JsonValue,Slice(Path,Length(Path)-1),Parent) then
+  begin
+    var LastStep := Path[High(Path)];
+    if Parent is TJSONObject then
+    for var Pair in TJSONObject(Parent) do
+    if SameText(Pair.JsonString.Value,LastStep.Key) then
+    begin
+      Name := Pair.JsonString.Value;
+      Result := true;
+      Break;
+    end;
+  end;
+end;
+
 Class Function TJsonEvaluator.GetStr(JsonValue: TJSONValue; const Path: array of TPathStep; out Value: String): Boolean;
 // Returns True and sets Value to the string at Path if the leaf is a TJSONString.
 // Returns False on missing path, wrong type, or any navigation error.
@@ -308,6 +336,23 @@ Class Function TJsonEvaluator.GetFloat(JsonValue: TJSONValue; const Path: array 
 // convertible to Float64. Returns False on missing path, wrong type, or conversion failure.
 begin
   Result := GetValue<Float64>(JsonValue,Path,CreateFloatTypeCast(),0.0,Value);
+end;
+
+Class Function TJsonEvaluator.GetLength(JsonValue: TJsonValue; const Path: array of TPathStep; out Length: Integer): Boolean;
+// Returns True and sets Length to the number of elements if the target at Path is a TJSONArray.
+// Returns False on missing path, wrong container type, or any navigation error.
+Var
+  Arr: TJSONArray;
+begin
+  if TryGetArrayAtPath(JsonValue,Path,Arr) then
+  begin
+    Result := true;
+    Length := Arr.Count;
+  end else
+  begin
+    Result := false;
+    Length := 0;
+  end;
 end;
 
 Class Function TJsonEvaluator.GetStrs(JsonValue: TJSONValue; const Path: array of TPathStep; out Values: TArray<String>): Boolean;

@@ -1,4 +1,4 @@
-﻿unit TestUtils.Json.Eval;
+unit TestUtils.Json.Eval;
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -128,6 +128,22 @@ Type
     [Test] Procedure AsStrs_EmptyPath_ReturnsValues;
     [Test] Procedure AsStrs_NotAnArray_ReturnsFalse;
     [Test] Procedure AsStrs_MissingKey_ReturnsFalse;
+
+    // GetName
+    [Test] Procedure GetName_RootKey_ReturnsName;
+    [Test] Procedure GetName_NestedKey_ReturnsName;
+    [Test] Procedure GetName_PreservesOriginalCasing;
+    [Test] Procedure GetName_KeyIsCaseInsensitive;
+    [Test] Procedure GetName_EmptyPath_ReturnsFalse;
+    [Test] Procedure GetName_LastStepIsIndex_ReturnsFalse;
+    [Test] Procedure GetName_MissingKey_ReturnsFalse;
+
+    // GetLength
+    [Test] Procedure GetLength_Array_ReturnsCount;
+    [Test] Procedure GetLength_NestedArray_ReturnsCount;
+    [Test] Procedure GetLength_EmptyPath_ReturnsCount;
+    [Test] Procedure GetLength_NotAnArray_ReturnsFalse;
+    [Test] Procedure GetLength_MissingKey_ReturnsFalse;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -990,6 +1006,111 @@ Var
   Values: TArray<String>;
 begin
   Assert.IsFalse(TJsonEvaluator.AsStrs(FJson, ['MISSING'], Values));
+end;
+
+// GetName
+
+Procedure TJsonEvalTests.GetName_RootKey_ReturnsName;
+Var
+  Name: String;
+begin
+  // Path points to the "Name" key at root level
+  Assert.IsTrue(TJsonEvaluator.GetName(FJson, ['Name'], Name));
+  Assert.AreEqual('Name', Name);
+end;
+
+Procedure TJsonEvalTests.GetName_NestedKey_ReturnsName;
+Var
+  Name: String;
+begin
+  // Path walks into Address then picks the "Street" key
+  Assert.IsTrue(TJsonEvaluator.GetName(FJson, ['Address', 'Street'], Name));
+  Assert.AreEqual('Street', Name);
+end;
+
+Procedure TJsonEvalTests.GetName_PreservesOriginalCasing;
+Var
+  Name: String;
+begin
+  // Lookup uses "city" (lowercase) but the stored key is "City"
+  Assert.IsTrue(TJsonEvaluator.GetName(FJson, ['city'], Name));
+  Assert.AreEqual('City', Name);
+end;
+
+Procedure TJsonEvalTests.GetName_KeyIsCaseInsensitive;
+Var
+  Name: String;
+begin
+  Assert.IsTrue(TJsonEvaluator.GetName(FJson, ['ADDRESS', 'STREET'], Name));
+  Assert.AreEqual('Street', Name);
+end;
+
+Procedure TJsonEvalTests.GetName_EmptyPath_ReturnsFalse;
+Var
+  Name: String;
+begin
+  Assert.IsFalse(TJsonEvaluator.GetName(FJson, [], Name));
+end;
+
+Procedure TJsonEvalTests.GetName_LastStepIsIndex_ReturnsFalse;
+Var
+  Name: String;
+begin
+  // Last step is an integer index - GetName requires a string key as the final step
+  Assert.IsFalse(TJsonEvaluator.GetName(FJson, ['Tags', 0], Name));
+end;
+
+Procedure TJsonEvalTests.GetName_MissingKey_ReturnsFalse;
+Var
+  Name: String;
+begin
+  Assert.IsFalse(TJsonEvaluator.GetName(FJson, ['MISSING'], Name));
+end;
+
+// GetLength
+
+Procedure TJsonEvalTests.GetLength_Array_ReturnsCount;
+Var
+  Len: Integer;
+begin
+  // Tags has 3 elements
+  Assert.IsTrue(TJsonEvaluator.GetLength(FJson, ['Tags'], Len));
+  Assert.AreEqual(3, Len);
+end;
+
+Procedure TJsonEvalTests.GetLength_NestedArray_ReturnsCount;
+Var
+  Len: Integer;
+begin
+  // Items has 2 elements
+  Assert.IsTrue(TJsonEvaluator.GetLength(FJson, ['Items'], Len));
+  Assert.AreEqual(2, Len);
+end;
+
+Procedure TJsonEvalTests.GetLength_EmptyPath_ReturnsCount;
+Var
+  Len: Integer;
+begin
+  // Pass the Tags array directly with an empty path
+  var Arr := FJson.Values['Tags'] as TJSONArray;
+  Assert.IsTrue(TJsonEvaluator.GetLength(Arr, [], Len));
+  Assert.AreEqual(3, Len);
+end;
+
+Procedure TJsonEvalTests.GetLength_NotAnArray_ReturnsFalse;
+Var
+  Len: Integer;
+begin
+  Assert.IsFalse(TJsonEvaluator.GetLength(FJson, ['Name'], Len));
+  Assert.AreEqual(0, Len);
+end;
+
+Procedure TJsonEvalTests.GetLength_MissingKey_ReturnsFalse;
+Var
+  Len: Integer;
+begin
+  Assert.IsFalse(TJsonEvaluator.GetLength(FJson, ['MISSING'], Len));
+  Assert.AreEqual(0, Len);
 end;
 
 initialization
