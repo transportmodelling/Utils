@@ -303,24 +303,38 @@ begin
 end;
 
 Procedure TThreadedIterator.TIteratorThread.ExecuteThread;
+var
+  HadException: Boolean;
 begin
   repeat
+    // Wait until the owning iterator signals work is available (or Terminate is called)
     Active.WaitFor(Infinite);
+    HadException := false;
     if not Terminated then
     try
       Iterator.Iteration.Execute(Current,ThreadIndex);
     except
-      on E: Exception do Iterator.Guard.ThreadError(E.Message + ' (' + Current.ToString + ')');
+      on E: Exception do
+      begin
+        // Record error and mark locally so this thread goes idle unconditionally below.
+        // HadException must be set before entering the Iterator monitor to avoid a
+        // window where the main thread could nil Iterator.Iteration between
+        // ThreadError returning and TMonitor.Enter.
+        Iterator.Guard.ThreadError(E.Message + ' (' + Current.ToString + ')');
+        HadException := true;
+      end;
     end;
     TMonitor.Enter(Iterator);
     try
-      if (not Terminated) and (not Iterator.Guard.HasError) and (Iterator.IterationCount > 0) then
+      if (not Terminated) and (not HadException) and (not Iterator.Guard.HasError) and (Iterator.IterationCount > 0) then
       begin
+        // Claim the next iteration
         Current := Iterator.Next;
         Inc(Iterator.Next,Stride);
         Dec(Iterator.IterationCount,Stride);
       end else
       begin
+        // No more work (or termination/error): go idle and notify if last active thread
         Active.ResetEvent;
         Dec(Iterator.ActiveThreads);
         if Iterator.ActiveThreads = 0 then Iterator.LoopCompleted.SetEvent;
@@ -384,8 +398,13 @@ begin
     end else
     begin
       // Multi threaded
-      Guard.HasError := false;
-      Guard.FirstError := '';
+      TMonitor.Enter(Guard);
+      try
+        Guard.HasError := false;
+        Guard.FirstError := '';
+      finally
+        TMonitor.Exit(Guard);
+      end;
       TMonitor.Enter(Self);
       try
         LoopCompleted.ResetEvent;
