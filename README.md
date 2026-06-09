@@ -1,4 +1,4 @@
-# Utils
+﻿# Utils
 A general utilities library for Delphi projects
 
 ## ArrBld.pas
@@ -29,8 +29,8 @@ Provides record helpers for `TArray<Integer>`, `TArray<Float64>` and `TArray<Str
 ## ArrVal.pas
 Provides `TArrayView<T>` and `TArrayValues<T>` records that wrap a `TArray<T>` to restrict what callers can do with it.
 
-- `TArrayView<T>` — read-only view: exposes indexed read and `Length`, but prevents any modification of the values or reallocation of the array.
-- `TArrayValues<T>` — read/write values view: allows indexed read and write, but prevents reallocation of the array.
+- `TArrayView<T>`  --  read-only view: exposes indexed read and `Length`, but prevents any modification of the values or reallocation of the array.
+- `TArrayValues<T>`  --  read/write values view: allows indexed read and write, but prevents reallocation of the array.
 
 Convenience type aliases are provided for common element types: `TIntArrayView`, `TFloat64ArrayView`, `TFloat32ArrayView`, `TStringArrayView` and their `TArrayValues` counterparts.
 
@@ -49,7 +49,7 @@ Convenience type aliases are provided for common element types: `TIntArrayView`,
 ```
 
 ## BaseDir.pas
-Provides `TBaseDirectory` — a record that wraps a base directory path and offers path containment checks and relative/absolute path conversion. The path is always stored normalised (fully expanded, with a trailing path delimiter). The record auto-initialises to the current working directory.
+Provides `TBaseDirectory`  --  a record that wraps a base directory path and offers path containment checks and relative/absolute path conversion. The path is always stored normalised (fully expanded, with a trailing path delimiter). The record auto-initialises to the current working directory.
 
 ```
   var Base := TBaseDirectory.Create('C:\Projects\MyApp');
@@ -67,9 +67,9 @@ Provides `TBaseDirectory` — a record that wraps a base directory path and offe
 ## DBF.pas
 Provides low-level dBase (.dbf) file reading and writing. Three types are involved:
 
-- `TDBFField` — describes a single field (name, type `C`/`D`/`L`/`N`/`F`, length, decimal count, optional truncation on write).
-- `TDBFReader` — opens an existing file and iterates records forward-only via `NextRecord`. Field values are accessed by index (default property) or by name via `IndexOf`. Convenience methods `GetValues` and `GetPairs` snapshot all field values for the current record.
-- `TDBFWriter` — creates a new file from a field schema (or by copying the schema from a `TDBFReader`), and appends records one at a time via `AppendRecord`.
+- `TDBFField`  --  describes a single field (name, type `C`/`D`/`L`/`N`/`F`, length, decimal count, optional truncation on write).
+- `TDBFReader`  --  opens an existing file and iterates records forward-only via `NextRecord`. Field values are accessed by index (default property) or by name via `IndexOf`. Convenience methods `GetValues` and `GetPairs` snapshot all field values for the current record.
+- `TDBFWriter`  --  creates a new file from a field schema (or by copying the schema from a `TDBFReader`), and appends records one at a time via `AppendRecord`.
 
 Memo fields are not supported (they read back as `Null`).
 
@@ -116,7 +116,7 @@ Provides an array with dynamic rank.
 ```
 
 ## FloatHlp.pas
-Provides `TFloat64Helper` — a record helper for `Float64` that adds rounding, in-place and functional arithmetic, and flexible string formatting.
+Provides `TFloat64Helper`  --  a record helper for `Float64` that adds rounding, in-place and functional arithmetic, and flexible string formatting.
 
 ```
   var V: Float64 := 1234.5678;
@@ -139,7 +139,7 @@ Provides `TFloat64Helper` — a record helper for `Float64` that adds rounding, 
 ```
 
 ## FP16.pas
-Provides `Float16` — a record representing an IEEE 754 half-precision (16-bit) floating-point number. Supports implicit conversion to and from `Float32`, correctly handling normal values, denormalized values, signed zero, infinity, and NaN.
+Provides `Float16`  --  a record representing an IEEE 754 half-precision (16-bit) floating-point number. Supports implicit conversion to and from `Float32`, correctly handling normal values, denormalized values, signed zero, infinity, and NaN.
 
 ```
   // Convert Float32 to Float16 and back
@@ -156,34 +156,34 @@ Provides `Float16` — a record representing an IEEE 754 half-precision (16-bit)
 ```
 
 ## Json.Eval.pas
-Provides `TJsonEvaluator` — a stateless record with class methods for navigating and extracting typed values from a `TJSONValue` tree using a path of `TPathStep` steps. A step is either a string key (for objects) or an integer index (for arrays); both implicit conversions are provided.
+Provides `TJsonEvaluator` -- a stateless record with class methods for navigating and extracting typed values from a `TJSONValue` tree. Paths are sequences of `TPathStep` values, where each step is either a string key (for objects) or an integer index (for arrays). All methods return `True` on success and `False` on any navigation or type mismatch.
 
-- **Navigation**: `NavigateTo` applies one step; `NavigatePath` walks the full path.
-- **Extraction**: `GetStr`, `GetInt`, `GetInt64`, `GetFloat` — return `True` and set the out-parameter when the leaf is of the expected JSON type; `False` otherwise. `AsStr` accepts any leaf type and converts it to `String`.
-- **Array extraction**: `GetStrs`, `GetInts`, `GetFloats` — navigate to a `TJSONArray` and return all elements as a typed Delphi array; `False` if any element has the wrong type.
-- **Key-value pairs**: `GetKeyValuePairs` extracts all immediate fields of a `TJSONObject` into a `TKeyValuePairs`; sub-objects and arrays are serialized as JSON text.
+- **Navigation and field access**: `NavigateTo` walks a path and returns a non-owning `TJSONValue` reference; `GetFields` extracts all immediate fields of an object into a `TArray<TJsonField>` (also non-owning).
+- **Typed extraction**: `GetStr`, `GetInt`, `GetInt64`, `GetFloat` and their array variants `GetStrs`, `GetInts`, `GetFloats` return strongly typed values with strict type checking.
+- **String conversion**: `AsStr` converts any `TJSONValue` directly to `String` (objects and arrays as serialised JSON, null/nil as `''`); a path overload navigates first. `AsStrs` does the same for every element of an array.
 
 ```
-  var Json := TJSONObject.ParseJSONValue('{"user":{"name":"Alice","score":9.5},"tags":["a","b"]}');
+  var Json := TJSONObject.ParseJSONValue(
+    '{"user":{"name":"Alice","score":9.5},"tags":["a","b"]}') as TJSONObject;
   try
     var Name: String;
     if TJsonEvaluator.GetStr(Json, ['user', 'name'], Name) then
-      writeln(Name);                       // Alice
+      writeln(Name);                      // Alice
 
-    var Score: Float64;
-    TJsonEvaluator.GetFloat(Json, ['user', 'score'], Score);
-    writeln(Score);                        // 9.5
+    var Fields: TArray<TJsonField>;
+    TJsonEvaluator.GetFields(Json, ['user'], Fields);
+    for var F in Fields do
+      writeln(F.Key, ' = ', TJsonEvaluator.AsStr(F.Value));   // name = Alice  score = 9.5
 
     var Tags: TArray<String>;
     TJsonEvaluator.GetStrs(Json, ['tags'], Tags);
-    writeln(Tags[0]);                      // a
+    writeln(Tags[0]);                     // a
   finally
     Json.Free;
   end;
 ```
-
 ## Json.ObjArr.pas
-Provides `TJsonObjectArrayParser` — a lightweight streaming parser that iterates over the top-level objects of a JSON array without loading the entire document into memory. Each call to `Next` returns the raw JSON text of the next object; `EndOfArray` signals when no more objects remain. Key names can be normalised to lowercase or uppercase on the fly.
+Provides `TJsonObjectArrayParser`  --  a lightweight streaming parser that iterates over the top-level objects of a JSON array without loading the entire document into memory. Each call to `Next` returns the raw JSON text of the next object; `EndOfArray` signals when no more objects remain. Key names can be normalised to lowercase or uppercase on the fly.
 
 ```
   // Parse from a string
@@ -208,7 +208,7 @@ Provides `TJsonObjectArrayParser` — a lightweight streaming parser that iterat
 ```
 
 ## KeyVal.pas
-Provides `TKeyValuePairsHelper` — a record helper for `TKeyValuePairs` (an alias for `TArray<TPair<String,String>>`) that adds construction, mutation, and querying operations for an ordered list of string key-value pairs. Keys are matched case-insensitively throughout.
+Provides `TKeyValuePairsHelper`  --  a record helper for `TKeyValuePairs` (an alias for `TArray<TPair<String,String>>`) that adds construction, mutation, and querying operations for an ordered list of string key-value pairs. Keys are matched case-insensitively throughout.
 
 - **Construction**: from an open array of pairs, a `TDictionary<String,String>`, or a serialized string with configurable separators.
 - **Mutation**: `Append` (single pair, open array, or dictionary), `Delete` by index or key, `Clear`.
@@ -233,11 +233,11 @@ Provides `TKeyValuePairsHelper` — a record helper for `TKeyValuePairs` (an ali
 ```
 
 ## MemDBF.pas
-Provides `TMemDBF` — loads a `.dbf` file into a `TFDMemTable` for in-memory editing using the full FireDAC dataset API, then writes it back out via `DBF.pas`. Requires FireDAC.
+Provides `TMemDBF`  --  loads a `.dbf` file into a `TFDMemTable` for in-memory editing using the full FireDAC dataset API, then writes it back out via `DBF.pas`. Requires FireDAC.
 
 Two constructors:
-- `Create(FileName)` — creates and owns an internal `TFDMemTable`.
-- `Create(FileName, Table)` — populates a caller-supplied `TFDMemTable`; the caller retains ownership and must free it.
+- `Create(FileName)`  --  creates and owns an internal `TFDMemTable`.
+- `Create(FileName, Table)`  --  populates a caller-supplied `TFDMemTable`; the caller retains ownership and must free it.
 
 ```
   var M := TMemDBF.Create('data.dbf');
@@ -256,7 +256,7 @@ Two constructors:
 ```
 
 ## ObjRef.pas
-Provides `TReference<T>` — a smart-pointer helper that wraps any class instance in a reference-counted `TFunc<T>`. The wrapped object is automatically freed when the last reference goes out of scope, eliminating the need for a manual `Free` call.
+Provides `TReference<T>`  --  a smart-pointer helper that wraps any class instance in a reference-counted `TFunc<T>`. The wrapped object is automatically freed when the last reference goes out of scope, eliminating the need for a manual `Free` call.
 
 ```
   var Obj: TFunc<TStringList> := TReference<TStringList>.Create(TStringList.Create);
@@ -278,7 +278,7 @@ Provides a TStringParser that splits strings into multiple tokens.
 ```
 
 ## Polynom.pas
-Provides `TPolynomial` — a record representing a polynomial with `Float64` coefficients. The degree is tracked automatically and leading zero coefficients are stripped. Supports:
+Provides `TPolynomial`  --  a record representing a polynomial with `Float64` coefficients. The degree is tracked automatically and leading zero coefficients are stripped. Supports:
 
 - **Construction** from a constant or an array of coefficients (constant term first).
 - **Evaluation** via the default array property `Value[x]`, using Horner's method.
@@ -298,8 +298,8 @@ Provides a property set, implemented as a set of name-value pairs.
 ## Ranges.pas
 Provides `TRange` and `TRanges` for working with inclusive integer ranges.
 
-- `TRange` — a single inclusive range `[Min..Max]` with `Count`, `Contains`, `Values` and `Split`.
-- `TRanges` — a collection of ranges with parsing from/to string, `Contains`, and `Values`.
+- `TRange`  --  a single inclusive range `[Min..Max]` with `Count`, `Contains`, `Values` and `Split`.
+- `TRanges`  --  a collection of ranges with parsing from/to string, `Contains`, and `Values`.
 
 ```
   // Single range
@@ -318,14 +318,14 @@ Provides `TRange` and `TRanges` for working with inclusive integer ranges.
 ```
 
 ## Spline.pas
-Provides `TSpline` — a record representing a piecewise polynomial (spline) defined by an ordered sequence of knots and a polynomial for each interval between them. Supports:
+Provides `TSpline`  --  a record representing a piecewise polynomial (spline) defined by an ordered sequence of knots and a polynomial for each interval between them. Supports:
 
 - **Construction** from a knots array (N+1 values) and a polynomials array (N pieces); the two must be consistent in length.
 - **Multiplication** of two splines: the `*` operator produces a new spline whose domain is the intersection of the two operands' domains, with piece boundaries merged and each resulting piece being the product of the corresponding polynomials.
 - **Integration** over the full domain (`Integrate`) or over a sub-interval (`Integrate(a, b)`), summing the definite integrals of each covered piece.
 
 ## TxtTab.pas
-Provides `TTextTableReader` — a forward-only reader for tab-delimited (or custom-delimited) text files with a header row. The first row is read automatically as field names; each subsequent call to `ReadLine` advances to the next data row and returns `False` when the file is exhausted.
+Provides `TTextTableReader`  --  a forward-only reader for tab-delimited (or custom-delimited) text files with a header row. The first row is read automatically as field names; each subsequent call to `ReadLine` advances to the next data row and returns `False` when the file is exhausted.
 
 ```
   var Reader := TTextTableReader.Create('data.txt');
@@ -351,11 +351,11 @@ Provides `TTextTableReader` — a forward-only reader for tab-delimited (or cust
 ## ThrdLib.pas
 Provides a structured thread-management and parallel-iteration library built on top of `TThread`.
 
-- **`TGuardedThread`** — abstract base for managed threads. Subclasses implement `ExecuteThread`; unhandled exceptions are captured and forwarded to the owning guard rather than crashing the process.
-- **`TThreadsGuard<T>`** — starts one or more `TGuardedThread` descendants, tracks their completion via an internal `TEvent`, and exposes `WaitFor` (with optional timeout), `Error` (retrieve the first error message, optionally resetting it), and `StartThreads` (accepts a new batch while a previous batch is still running). A global instance `ThreadsGuard` is created at unit initialization.
-- **`TBlockingThreadsGuard<T>`** — extends `TThreadsGuard<T>` so that `StartThreads` refuses a new batch until all threads from the previous batch have finished. Adds `Terminate` to signal all running threads to stop.
-- **`TThreadedIterator`** — base class for thread-pool-based iteration. Maintains a pool of reusable worker threads; subclasses set the `Iteration` field to a `TIteration` instance and call the protected `Execute` overload.
-- **`TParallelFor`** — parallel for loop with a configurable thread-pool size. Each iteration receives both the iteration index and the zero-based thread-pool index, allowing per-thread accumulation buffers that avoid `TInterlocked`. Provides four `Execute` overloads accepting either a `TLoopIteration` delegate or a `TIteration` subclass, with optional explicit thread count and stride.
+- **`TGuardedThread`**  --  abstract base for managed threads. Subclasses implement `ExecuteThread`; unhandled exceptions are captured and forwarded to the owning guard rather than crashing the process.
+- **`TThreadsGuard<T>`**  --  starts one or more `TGuardedThread` descendants, tracks their completion via an internal `TEvent`, and exposes `WaitFor` (with optional timeout), `Error` (retrieve the first error message, optionally resetting it), and `StartThreads` (accepts a new batch while a previous batch is still running). A global instance `ThreadsGuard` is created at unit initialization.
+- **`TBlockingThreadsGuard<T>`**  --  extends `TThreadsGuard<T>` so that `StartThreads` refuses a new batch until all threads from the previous batch have finished. Adds `Terminate` to signal all running threads to stop.
+- **`TThreadedIterator`**  --  base class for thread-pool-based iteration. Maintains a pool of reusable worker threads; subclasses set the `Iteration` field to a `TIteration` instance and call the protected `Execute` overload.
+- **`TParallelFor`**  --  parallel for loop with a configurable thread-pool size. Each iteration receives both the iteration index and the zero-based thread-pool index, allowing per-thread accumulation buffers that avoid `TInterlocked`. Provides four `Execute` overloads accepting either a `TLoopIteration` delegate or a `TIteration` subclass, with optional explicit thread count and stride.
 
 ```
   // Sum primes in parallel, one accumulator slot per thread
@@ -381,10 +381,10 @@ Provides a structured thread-management and parallel-iteration library built on 
 ```
 
 ## Yaml.pas
-Provides `TYaml` — a record with class methods that parse a YAML document into a `TJSONValue` tree. The root is typically a mapping (`TJsonObject`), but `StringToValue` / `ReadValueFromFile` also accept bare sequences and scalars. Multi-document streams are supported via the `Document` parameter (0-based). Anchors/aliases and multi-line flow collections are not supported.
+Provides `TYaml`  --  a record with class methods that parse a YAML document into a `TJSONValue` tree. The root is typically a mapping (`TJsonObject`), but `StringToValue` / `ReadValueFromFile` also accept bare sequences and scalars. Multi-document streams are supported via the `Document` parameter (0-based). Anchors/aliases and multi-line flow collections are not supported.
 
-- `StringToObject` / `StringsToObject` / `ReadFromFile` — parse a mapping root and return a `TJsonObject`; raise `EYamlParseException` if the root is not a mapping.
-- `StringToValue` / `StringsToValue` / `ReadValueFromFile` — parse any root and return a `TJSONValue`.
+- `StringToObject` / `StringsToObject` / `ReadFromFile`  --  parse a mapping root and return a `TJsonObject`; raise `EYamlParseException` if the root is not a mapping.
+- `StringToValue` / `StringsToValue` / `ReadValueFromFile`  --  parse any root and return a `TJSONValue`.
 
 ```
   // Read a YAML file into a JSON object
@@ -396,7 +396,7 @@ Provides `TYaml` — a record with class methods that parse a YAML document into
     Config.Free;
   end;
 
-  // Parse a multi-document stream — select the second document
+  // Parse a multi-document stream  --  select the second document
   var Doc := TYaml.ReadFromFile('data.yaml', 1);
   try
     writeln(Doc.GetValue('Name').Value);
