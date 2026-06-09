@@ -80,6 +80,7 @@ Type
     Procedure TrimTokens;
     Function Extract(const Token: String): Integer; overload;
     Function Extract(Token: Integer): String; overload;
+    Procedure Append(const Token: String);
     Procedure Clear;
     Procedure Assign(const Line: String); overload;
     Procedure Assign(const Line: String; Quote: Char); overload;
@@ -424,6 +425,11 @@ begin
     for var Index := Token to Count-2 do FTokens[Index] := FTokens[Index+1];
     SetLength(FTokens,Count-1);
   end;
+end;
+
+Procedure TStringParser.Append(const Token: String);
+begin
+  FTokens := FTokens + [Token];
 end;
 
 Procedure TStringParser.Clear;
