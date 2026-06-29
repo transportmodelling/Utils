@@ -45,18 +45,18 @@ implementation
 
 Constructor TMemDBF.Create(const FileName: String);
 begin
-  Create(FileName,TFDMemTable.Create(nil));
   OwnsTable := true;
+  Create(FileName,TFDMemTable.Create(nil));
 end;
 
 Constructor TMemDBF.Create(const FileName: String; const Table: TFDMemTable);
 begin
   inherited Create;
+  FTable := Table;
   if FileExists(FileName) then
   begin
     // Set property values
     FFileName := FileName;
-    FTable := Table;
     // Read table
     var DBFReader := TDBFReader.Create(FileName);
     try
