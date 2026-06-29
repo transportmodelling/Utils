@@ -39,6 +39,7 @@ begin
   try
     // Initialization
     FormatSettings.DecimalSeparator := '.';
+    ReportMemoryLeaksOnShutdown := True;
     TDUnitX.CheckCommandLine;
     TDUnitX.Options.XMLOutputFile := '.\TestUtils.xml';
     // Create the test Runner
@@ -47,9 +48,9 @@ begin
     Runner.FailsOnNoAsserts := False;
     // Create loggers
     var ConsoleLogger := TDUnitXConsoleLogger.Create(false);
-    var NunitLogger := TDUnitXXMLJUnitFileLogger.Create(TDUnitX.Options.XMLOutputFile);
+    var JunitLogger := TDUnitXXMLJUnitFileLogger.Create(TDUnitX.Options.XMLOutputFile);
     Runner.AddLogger(ConsoleLogger);
-    Runner.AddLogger(NunitLogger);
+    Runner.AddLogger(JunitLogger);
     //Run tests
     var Results := Runner.Execute;
     if not Results.AllPassed then System.ExitCode := EXIT_ERRORS;

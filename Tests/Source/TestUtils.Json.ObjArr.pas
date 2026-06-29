@@ -197,7 +197,7 @@ procedure TJsonObjectArrayParserTests.TestColonInStringValue;
 begin
   // A comma inside a string value re-flips Name:=true mid-value, causing
   // subsequent value characters to be cased as if they were key names.
-  // Input: [{"k":"a,b"}]  — value contains a comma.
+  // Input: [{"k":"a,b"}]  -- value contains a comma.
   // With ctUppercase and the bug, after the ',' in the value, Name flips to
   // true so 'b' gets uppercased -> value becomes "a,B" instead of "a,b".
   var P := TJsonObjectArrayParser.Create('[{"k":"a,b"}]');
@@ -212,7 +212,7 @@ end;
 
 procedure TJsonObjectArrayParserTests.TestDoubleBackslashEscape;
 begin
-  // JSON text: [{"a":"x\\","b":1}]  — value of "a" is the two-char string x\
+  // JSON text: [{"a":"x\\","b":1}]  -- value of "a" is the two-char string x\
   var Json     := '[{"a":"x\\","b":1}]';
   var Expected := '{"a":"x\\","b":1}';
   var P := TJsonObjectArrayParser.Create(Json);
@@ -227,7 +227,7 @@ end;
 
 procedure TJsonObjectArrayParserTests.TestDoubleBackslashEscapeWithCase;
 begin
-  // JSON text: [{"k":"x\\yz"}]  — value is x\yz (backslash escaped as \\).
+  // JSON text: [{"k":"x\\yz"}]  -- value is x\yz (backslash escaped as \\).
   // With ctUppercase: after \\ the Escape flag must be false so '"' ends the
   // string and 'yz' is not cased as a key name.
   var Json := '[{"k":"x\\yz"}]';
@@ -279,6 +279,7 @@ begin
     Assert.IsTrue(S3.Contains('"name"') and S3.Contains('"Carol"'), 'Third object: name=Carol');
   finally
     P.Free;
+    Stream.Free;
   end;
 end;
 
