@@ -101,8 +101,9 @@ begin
 end;
 
 Function TFloat64Helper.ToString(Decimals: Byte; FixedDecimals,SkipTrailingZeroDecimals: Boolean): string;
-// If not FixedDecimals the number of decimals decreases for big numbers, 1 less for each additional digit.
-// Decimals gives the number of decimals when the absolute value is less than 1.
+// Magnitude-adaptive formatting: if not FixedDecimals, the number of decimals is reduced by 1 for each
+// integer digit, keeping the total number of significant digits constant.
+// Decimals gives the number of decimals for values with Abs(Self) < 1.
 begin
   if Decimals > 16 then Decimals := 16;
   if FixedDecimals then Result := ToString(Decimals,SkipTrailingZeroDecimals) else
