@@ -72,12 +72,13 @@ begin
 end;
 
 Constructor TKeyValuePairsHelper.Create(const KeyValuePairs: String; const KeyValueSeparator,PairSeparator: Char);
+// Keys and values are trimmed, so strings with whitespace around the separators (as produced by AsString) are parsed correctly.
 begin
   Clear;
   for var Token in SplitString(KeyValuePairs,PairSeparator) do
   begin
     var Sep := Pos(KeyValueSeparator, Token);
-    if Sep > 0 then Append(Copy(Token,1,Sep-1),Copy(Token,Sep+1,MaxInt));
+    if Sep > 0 then Append(Trim(Copy(Token,1,Sep-1)),Trim(Copy(Token,Sep+1,MaxInt)));
   end;
 end;
 
