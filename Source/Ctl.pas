@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  SysUtils, IOUtils, PropSet, Log;
+  SysUtils, IOUtils, PropSet, KeyVal, Log;
 
 Type
   TControlFile = Type TPropertySet;
@@ -23,10 +23,10 @@ Type
     Function Read(ControlFilename: String): Boolean;
     Function InpFileName(const Name: string; out FileName: String): Boolean; overload;
     Function InpFileName(const Name: string; Optional: Boolean = false): String; overload;
-    Function InpProperties(const Name: string; Optional: Boolean = false): TPropertySet;
+    Function InpProperties(const Name: string; Optional: Boolean = false): TKeyValuePairs;
     Function OutpFileName(const Name: string; out FileName: String): Boolean; overload;
     Function OutpFileName(const Name: string; Optional: Boolean = false): String; overload;
-    Function OutpProperties(const Name: string; Optional: Boolean = false): TPropertySet;
+    Function OutpProperties(const Name: string; Optional: Boolean = false): TKeyValuePairs;
   end;
 
 Var
@@ -50,6 +50,9 @@ begin
     Self.NameValueSeparator := ':';
     Self.PropertiesSeparator := ';';
     Self.BaseDirectory := ExtractFileDir(ControlFileName);
+    // Relative paths in key-value configurations (e.g. matrix files) must
+    // resolve against the control file directory as well
+    TKeyValuePairs.SetBaseDir(ExtractFileDir(ControlFileName));
     Self.AsStrings := TFile.ReadAllLines(ControlFileName);
     Self.Lock;
   end else
@@ -87,17 +90,17 @@ begin
       raise Exception.Create('Missing file name (' + Name + ')')
 end;
 
-Function TCtlFileHelper.InpProperties(const Name: string; Optional: Boolean = false): TPropertySet;
+Function TCtlFileHelper.InpProperties(const Name: string; Optional: Boolean = false): TKeyValuePairs;
 Var
   Value: String;
 begin
+  Result.Clear;
   if Contains(Name,Value) and (Value <> '') then
   begin
-    Result := TPropertySet.Create('=',';',true);
-    Result.AsString := Value;
-    if Result.Contains('file',Value) then
+    Result := TKeyValuePairs.Create(Value,'=',';');
+    if Result.Contains('file') then
     begin
-      Value := TPropertySet.BaseDirectory.AbsolutePath(Value);
+      Value := Result.Path('file');
       if FileExists(Value) then
       begin
         if LogFile <> nil then LogFile.InputFile(Name,Value);
@@ -134,17 +137,17 @@ begin
       raise Exception.Create('Missing file name (' + Name + ')')
 end;
 
-Function TCtlFileHelper.OutpProperties(const Name: string; Optional: Boolean = false): TPropertySet;
+Function TCtlFileHelper.OutpProperties(const Name: string; Optional: Boolean = false): TKeyValuePairs;
 Var
   Value: String;
 begin
+  Result.Clear;
   if Contains(Name,Value) and (Value <> '') then
   begin
-    Result := TPropertySet.Create('=',';',true);
-    Result.AsString := Value;
-    if Result.Contains('file',Value) then
+    Result := TKeyValuePairs.Create(Value,'=',';');
+    if Result.Contains('file') then
     begin
-      Value := TPropertySet.BaseDirectory.AbsolutePath(Value);
+      Value := Result.Path('file');
       if LogFile <> nil then LogFile.OutputFile(Name,Value);
     end else
       raise Exception.Create('Missing file property (' + Name + ')')
