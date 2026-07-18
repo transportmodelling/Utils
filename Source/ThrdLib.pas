@@ -138,6 +138,30 @@ Type
     Destructor Destroy; override;
   end;
 
+  TParallelTask = reference to Procedure(Thread: Integer);
+
+  TParallel = Class(TThreadedIterator)
+  // Executes an array of tasks in parallel. Each task is executed exactly once,
+  // with the index of the executing thread in the thread pool as its argument.
+  // Executing the array of tasks is implemented as a parallel for loop over the
+  // task indices, using the inherited TThreadedIterator.
+  private
+    Type
+      TTaskListAdapter = Class(TIteration)
+      private
+        Tasks: TArray<TParallelTask>;
+      protected
+        Procedure Execute(const Iteration,Thread: Integer); override;
+      end;
+    Var
+      Adapter: TTaskListAdapter;
+  public
+    Constructor Create(ThreadCount: Integer);
+    Procedure Execute(const Tasks: array of TParallelTask); overload;
+    Procedure Execute(const NThreads: Integer; const Tasks: array of TParallelTask); overload;
+    Destructor Destroy; override;
+  end;
+
 Var
   ThreadsGuard: TThreadsGuard<TGuardedThread> = nil;
 
@@ -487,6 +511,45 @@ begin
 end;
 
 Destructor TParallelFor.Destroy;
+begin
+  Adapter.Free;
+  inherited Destroy;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Procedure TParallel.TTaskListAdapter.Execute(const Iteration,Thread: Integer);
+begin
+  Tasks[Iteration](Thread);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Constructor TParallel.Create(ThreadCount: Integer);
+begin
+  inherited Create(ThreadCount);
+  Adapter := TTaskListAdapter.Create;
+  Iteration := Adapter;
+end;
+
+Procedure TParallel.Execute(const Tasks: array of TParallelTask);
+begin
+  Execute(FMaxThreads,Tasks);
+end;
+
+Procedure TParallel.Execute(const NThreads: Integer; const Tasks: array of TParallelTask);
+begin
+  SetLength(Adapter.Tasks,Length(Tasks));
+  for var Task := low(Tasks) to high(Tasks) do Adapter.Tasks[Task] := Tasks[Task];
+  try
+    Execute(NThreads,0,high(Tasks));
+  finally
+    // Release the task references (and anything they capture)
+    Adapter.Tasks := nil;
+  end;
+end;
+
+Destructor TParallel.Destroy;
 begin
   Adapter.Free;
   inherited Destroy;

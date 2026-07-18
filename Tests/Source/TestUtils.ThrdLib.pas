@@ -171,6 +171,34 @@ type
     [Test] procedure Execute_SingleThreaded_AllIterationsRun;
   end;
 
+  // ---------------------------------------------------------------------------
+  // TParallelTests
+  // ---------------------------------------------------------------------------
+
+  [TestFixture]
+  TParallelTests = class
+  private
+    FParallel: TParallel;
+    FTaskRuns: TArray<Integer>;
+    // Factory method: each returned task captures its own Index parameter,
+    // which is not possible with a for-loop control variable.
+    function CountingTask(Index: Integer): TParallelTask;
+  public
+    [Setup]
+    procedure Setup;
+    [TearDown]
+    procedure TearDown;
+
+    [Test] procedure Execute_AllTasksRunOnce;
+    [Test] procedure Execute_SingleTask;
+    [Test] procedure Execute_EmptyArray_NothingRuns;
+    [Test] procedure Execute_FewerTasksThanThreads;
+    [Test] procedure Execute_ThreadIndexInRange;
+    [Test] procedure Execute_NThreadsOne_UsesSingleThread;
+    [Test] procedure Execute_Reusable;
+    [Test] procedure Execute_ExceptionPropagates;
+  end;
+
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
@@ -710,11 +738,133 @@ begin
   end;
 end;
 
+// ---------------------------------------------------------------------------
+// TParallelTests
+// ---------------------------------------------------------------------------
+
+procedure TParallelTests.Setup;
+begin
+  FParallel := TParallel.Create(4);
+  FTaskRuns := nil;
+end;
+
+procedure TParallelTests.TearDown;
+begin
+  FParallel.Free;
+end;
+
+function TParallelTests.CountingTask(Index: Integer): TParallelTask;
+begin
+  Result := procedure(Thread: Integer)
+            begin
+              TInterlocked.Increment(FTaskRuns[Index]);
+            end;
+end;
+
+procedure TParallelTests.Execute_AllTasksRunOnce;
+var
+  LTasks: TArray<TParallelTask>;
+begin
+  SetLength(FTaskRuns, 20);
+  SetLength(LTasks, 20);
+  for var I := 0 to high(LTasks) do LTasks[I] := CountingTask(I);
+  FParallel.Execute(LTasks);
+  for var I := 0 to high(FTaskRuns) do
+    Assert.AreEqual(1, FTaskRuns[I],
+      'Task ' + I.ToString + ' should run exactly once');
+end;
+
+procedure TParallelTests.Execute_SingleTask;
+begin
+  SetLength(FTaskRuns, 1);
+  FParallel.Execute([CountingTask(0)]);
+  Assert.AreEqual(1, FTaskRuns[0], 'A single task should run exactly once');
+end;
+
+procedure TParallelTests.Execute_EmptyArray_NothingRuns;
+var
+  LCount: Integer;
+begin
+  LCount := 0;
+  FParallel.Execute([]);
+  Assert.AreEqual(0, LCount, 'An empty task array should complete without running anything');
+end;
+
+procedure TParallelTests.Execute_FewerTasksThanThreads;
+begin
+  SetLength(FTaskRuns, 2);
+  FParallel.Execute([CountingTask(0), CountingTask(1)]);
+  Assert.AreEqual(1, FTaskRuns[0]);
+  Assert.AreEqual(1, FTaskRuns[1]);
+end;
+
+procedure TParallelTests.Execute_ThreadIndexInRange;
+var
+  LTasks: TArray<TParallelTask>;
+  LBadIndex: Integer;
+begin
+  LBadIndex := 0;
+  SetLength(LTasks, 20);
+  for var I := 0 to high(LTasks) do
+    LTasks[I] := procedure(Thread: Integer)
+                 begin
+                   if (Thread < 0) or (Thread >= FParallel.MaxThreads) then
+                     TInterlocked.Increment(LBadIndex);
+                 end;
+  FParallel.Execute(LTasks);
+  Assert.AreEqual(0, LBadIndex, 'Thread index should always be in [0, MaxThreads)');
+end;
+
+procedure TParallelTests.Execute_NThreadsOne_UsesSingleThread;
+var
+  LTasks: TArray<TParallelTask>;
+  LMaxThread: Integer;
+begin
+  LMaxThread := -1;
+  SetLength(LTasks, 10);
+  for var I := 0 to high(LTasks) do
+    LTasks[I] := procedure(Thread: Integer)
+                 begin
+                   if Thread > LMaxThread then LMaxThread := Thread;
+                 end;
+  FParallel.Execute(1, LTasks);
+  Assert.AreEqual(0, LMaxThread,
+    'NThreads=1 should route all tasks through thread index 0');
+end;
+
+procedure TParallelTests.Execute_Reusable;
+begin
+  SetLength(FTaskRuns, 2);
+  FParallel.Execute([CountingTask(0), CountingTask(1)]);
+  FParallel.Execute([CountingTask(0), CountingTask(1)]);
+  Assert.AreEqual(2, FTaskRuns[0],
+    'TParallel should accept a second Execute call after the first completes');
+  Assert.AreEqual(2, FTaskRuns[1]);
+end;
+
+procedure TParallelTests.Execute_ExceptionPropagates;
+var
+  LMsg: string;
+begin
+  LMsg := '';
+  try
+    FParallel.Execute([
+      procedure(Thread: Integer) begin end,
+      procedure(Thread: Integer) begin raise Exception.Create('task error') end
+    ]);
+  except
+    on E: Exception do LMsg := E.Message;
+  end;
+  Assert.AreEqual('task error (1)', LMsg,
+    'An exception raised inside a task should propagate to the caller');
+end;
+
 initialization
   TDUnitX.RegisterTestFixture(TThreadsGuardTests);
   TDUnitX.RegisterTestFixture(TBlockingThreadsGuardTerminateTests);
   TDUnitX.RegisterTestFixture(TBlockingThreadsGuardTests);
   TDUnitX.RegisterTestFixture(TGlobalThreadsGuardTests);
   TDUnitX.RegisterTestFixture(TParallelForTests);
+  TDUnitX.RegisterTestFixture(TParallelTests);
 
 end.
