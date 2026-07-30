@@ -24,6 +24,13 @@ Type
     Function MultipliedBy(const Value: Float64): Float64; inline;
     Procedure DivideBy(const Value: Float64); inline;
     Function DividedBy(const Value: Float64): Float64; inline;
+    Function IsPositive: Boolean;
+    Function IsNegative: Boolean;
+    Function IsGreaterThan(const Value: Float64): Boolean;
+    Function IsGreaterEqual(const Value: Float64): Boolean;
+    Function IsLessThan(const Value: Float64): Boolean;
+    Function IsLessEqual(const Value: Float64): Boolean;
+    Function IsBetween(const MinValue,MaxValue: Float64; const Inclusive: Boolean = true): Boolean;
     Function ToString: String; overload;
     Function ToString(const Format: String): String; overload;
     Function ToString(Decimals: Byte; SkipTrailingZeroDecimals: Boolean): string; overload;
@@ -67,6 +74,44 @@ end;
 Function TFloat64Helper.DividedBy(const Value: Float64): Float64;
 begin
   Result := Self/Value;
+end;
+
+Function TFloat64Helper.IsPositive: Boolean;
+begin
+  Result := (Self > 0);
+end;
+
+Function TFloat64Helper.IsNegative: Boolean;
+begin
+  Result := (Self < 0);
+end;
+
+Function TFloat64Helper.IsGreaterThan(const Value: Float64): Boolean;
+begin
+  Result := (Self > Value);
+end;
+
+Function TFloat64Helper.IsGreaterEqual(const Value: Float64): Boolean;
+begin
+  Result := (Self >= Value);
+end;
+
+Function TFloat64Helper.IsLessThan(const Value: Float64): Boolean;
+begin
+  Result := (Self < Value);
+end;
+
+Function TFloat64Helper.IsLessEqual(const Value: Float64): Boolean;
+begin
+  Result := (Self <= Value);
+end;
+
+Function TFloat64Helper.IsBetween(const MinValue,MaxValue: Float64; const Inclusive: Boolean = true): Boolean;
+begin
+  if Inclusive then
+    Result := ( (Self >= MinValue) and (Self <= MaxValue) )
+  else
+    Result := ( (Self > MinValue) and (Self < MaxValue) )
 end;
 
 Function TFloat64Helper.ToString: String;
