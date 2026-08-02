@@ -232,8 +232,12 @@ end;
 
 Function TlogFile.FileProperties(const FileName: string): string;
 begin
-  Result := DateTimeToStr(TFile.GetLastWriteTime(FileName)) + '; ' +
-            TFile.GetSize(FileName).ToString + ' bytes';
+  try
+    Result := '; ' + DateTimeToStr(TFile.GetLastWriteTime(FileName)) +
+              '; ' + TFile.GetSize(FileName).ToString + ' bytes';
+  except
+    Result := '';
+  end;
 end;
 
 Function TLogFile.FileInfo(const FileName: string; NameOnly: Boolean): string;
@@ -242,7 +246,7 @@ begin
     Result := ExtractFileName(FileName)
   else
     Result := ShortenPath(FileName);
-  Result := Result + '; ' +  FileProperties(FileName);
+  Result := Result + FileProperties(FileName);
 end;
 
 Function TLogFile.VarRecToStr(VarRec: TVarRec; NDecimals: Integer): String;
