@@ -18,6 +18,8 @@ Type
   TControlFile = Type TPropertySet;
 
   TCtlFileHelper = record helper for TControlFile
+  private
+    Function FileProperties(const Name: string; Optional,Input: Boolean): TKeyValuePairs;
   public
     Constructor Create(ControlFileName: String);
     Function Read(ControlFilename: String): Boolean;
@@ -90,7 +92,7 @@ begin
       raise Exception.Create('Missing file name (' + Name + ')')
 end;
 
-Function TCtlFileHelper.InpProperties(const Name: string; Optional: Boolean = false): TKeyValuePairs;
+Function TCtlFileHelper.FileProperties(const Name: string; Optional,Input: Boolean): TKeyValuePairs;
 Var
   Value: String;
 begin
@@ -101,11 +103,15 @@ begin
     if Result.Contains('file') then
     begin
       Value := Result.Path('file');
-      if FileExists(Value) then
+      if Input then
       begin
-        if LogFile <> nil then LogFile.InputFile(Name,Value);
+        if FileExists(Value) then
+        begin
+          if LogFile <> nil then LogFile.InputFile(Name,Value);
+        end else
+          raise Exception.Create('File does not exist (' + Name + ')')
       end else
-        raise Exception.Create('File does not exist (' + Name + ')')
+        if LogFile <> nil then LogFile.OutputFile(Name,Value);
     end else
       raise Exception.Create('Missing file property (' + Name + ')')
   end else
@@ -113,6 +119,11 @@ begin
     if not Optional then
       raise Exception.Create('Missing properties (' + Name + ')')
   end;
+end;
+
+Function TCtlFileHelper.InpProperties(const Name: string; Optional: Boolean = false): TKeyValuePairs;
+begin
+  Result := FileProperties(Name,Optional,true);
 end;
 
 Function TCtlFileHelper.OutpFileName(const Name: string; out FileName: String): Boolean;
@@ -138,24 +149,8 @@ begin
 end;
 
 Function TCtlFileHelper.OutpProperties(const Name: string; Optional: Boolean = false): TKeyValuePairs;
-Var
-  Value: String;
 begin
-  Result.Clear;
-  if Contains(Name,Value) and (Value <> '') then
-  begin
-    Result := TKeyValuePairs.Create(Value,'=',';');
-    if Result.Contains('file') then
-    begin
-      Value := Result.Path('file');
-      if LogFile <> nil then LogFile.OutputFile(Name,Value);
-    end else
-      raise Exception.Create('Missing file property (' + Name + ')')
-  end else
-  begin
-    if not Optional then
-      raise Exception.Create('Missing properties (' + Name + ')')
-  end;
+  Result := FileProperties(Name,Optional,false);
 end;
 
 end.
