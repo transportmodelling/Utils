@@ -46,6 +46,10 @@ Type
     Function Int64(const Key: String; OccurrenceIndex: Integer = 0): Int64;
     Function Float(const Key: String; OccurrenceIndex: Integer = 0): Float64;
     Function Path(const Key: String; OccurrenceIndex: Integer = 0): String;
+    // Queries returning a default value when the key does not exist
+    Function ToStr(const Key,Default: String): String;
+    Function ToInt(const Key: String; Default: Integer): Integer;
+    Function ToFloat(const Key: String; Default: Float64): Float64;
     Function AsString(const KeyValueSeparator: Char = ':'; PairSeparator: Char = ';'): String;
     Procedure AddToDictionary(const Dictionary: TDictionary<String,String>);
   end;
@@ -200,6 +204,21 @@ end;
 Function TKeyValuePairsHelper.Path(const Key: String; OccurrenceIndex: Integer = 0): String;
 begin
   Result := BaseDirectory.AbsolutePath(Str(Key,OccurrenceIndex));
+end;
+
+Function TKeyValuePairsHelper.ToStr(const Key,Default: String): String;
+begin
+  if not Contains(Key,Result) then Result := Default;
+end;
+
+Function TKeyValuePairsHelper.ToInt(const Key: String; Default: Integer): Integer;
+begin
+  if Contains(Key) then Result := Int(Key) else Result := Default;
+end;
+
+Function TKeyValuePairsHelper.ToFloat(const Key: String; Default: Float64): Float64;
+begin
+  if Contains(Key) then Result := Float(Key) else Result := Default;
 end;
 
 Function TKeyValuePairsHelper.AsString(const KeyValueSeparator: Char = ':'; PairSeparator: Char = ';'): String;

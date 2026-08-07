@@ -85,6 +85,20 @@ Type
     [Test] Procedure Float_ValidFloat_ReturnsValue;
     [Test] Procedure Float_InvalidFloat_RaisesException;
 
+    // ToStr
+    [Test] Procedure ToStr_ExistingKey_ReturnsValue;
+    [Test] Procedure ToStr_MissingKey_ReturnsDefault;
+
+    // ToInt
+    [Test] Procedure ToInt_ExistingKey_ReturnsValue;
+    [Test] Procedure ToInt_MissingKey_ReturnsDefault;
+    [Test] Procedure ToInt_InvalidInteger_RaisesException;
+
+    // ToFloat
+    [Test] Procedure ToFloat_ExistingKey_ReturnsValue;
+    [Test] Procedure ToFloat_MissingKey_ReturnsDefault;
+    [Test] Procedure ToFloat_InvalidFloat_RaisesException;
+
     // AsString
     [Test] Procedure AsString_DefaultSeparators_ReturnsExpected;
     [Test] Procedure AsString_CustomSeparators_ReturnsExpected;
@@ -444,6 +458,52 @@ end;
 Procedure TKeyValTests.Float_InvalidFloat_RaisesException;
 begin
   Assert.WillRaiseAny(Procedure begin FPairs.Float('Name') end);
+end;
+
+// ToStr
+
+Procedure TKeyValTests.ToStr_ExistingKey_ReturnsValue;
+begin
+  Assert.AreEqual('Alice',FPairs.ToStr('Name','Default'));
+end;
+
+Procedure TKeyValTests.ToStr_MissingKey_ReturnsDefault;
+begin
+  Assert.AreEqual('Default',FPairs.ToStr('MISSING','Default'));
+end;
+
+// ToInt
+
+Procedure TKeyValTests.ToInt_ExistingKey_ReturnsValue;
+begin
+  Assert.AreEqual(7,FPairs.ToInt('Count',0));
+end;
+
+Procedure TKeyValTests.ToInt_MissingKey_ReturnsDefault;
+begin
+  Assert.AreEqual(-1,FPairs.ToInt('MISSING',-1));
+end;
+
+Procedure TKeyValTests.ToInt_InvalidInteger_RaisesException;
+begin
+  Assert.WillRaiseAny(Procedure begin FPairs.ToInt('Name',0) end);
+end;
+
+// ToFloat
+
+Procedure TKeyValTests.ToFloat_ExistingKey_ReturnsValue;
+begin
+  Assert.AreEqual(Float64(9.5),FPairs.ToFloat('Score',0),0.0001);
+end;
+
+Procedure TKeyValTests.ToFloat_MissingKey_ReturnsDefault;
+begin
+  Assert.AreEqual(Float64(2.5),FPairs.ToFloat('MISSING',2.5),0.0001);
+end;
+
+Procedure TKeyValTests.ToFloat_InvalidFloat_RaisesException;
+begin
+  Assert.WillRaiseAny(Procedure begin FPairs.ToFloat('Name',0) end);
 end;
 
 // AsString
