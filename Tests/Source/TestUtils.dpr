@@ -30,6 +30,7 @@ uses
   TestUtils.Parse in 'TestUtils.Parse.pas',
   TestUtils.Polynom in 'TestUtils.Polynom.pas',
   TestUtils.Ranges in 'TestUtils.Ranges.pas',
+  TestUtils.Script in 'TestUtils.Script.pas',
   TestUtils.Spline in 'TestUtils.Spline.pas',
   TestUtils.ThrdLib in 'TestUtils.ThrdLib.pas',
   TestUtils.TxtTab in 'TestUtils.TxtTab.pas',

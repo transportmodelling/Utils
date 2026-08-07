@@ -310,6 +310,36 @@ Provides `TRange` and `TRanges` for working with inclusive integer ranges.
   writeln(String(RS));        // '1,3-5,7'
 ```
 
+## Script.pas
+Provides a framework for script interpreters. A script is a series of commands, each consisting of a command name and key-value arguments. Three classes are involved:
+
+- `TScriptFileReader`  --  abstract base class for script file readers, providing script commands one at a time. Before commands are returned, parameter placeholders within the argument values (parameter names enclosed in a configurable delimiter, e.g. `%purp%`) are replaced by the parameter values. Parameter scopes can be stacked; on name clashes the innermost scope takes precedence.
+- `TTextScriptFileReader`  --  reads script files in text format. A command starts at the first position of a line and takes its arguments as indented `key: value` lines below it, and/or as `key=value` pairs separated by semicolons on the command line itself. Empty lines and lines starting with an asterisk or hash character are comments. The include-command inserts the commands of another script file; its other properties define parameters that apply to the included file only.
+- `TScriptInterpreter`  --  abstract base class for script interpreters. A script consists of one or more sections, each starting with an init-command; whenever the next init-command is reached, the interpreted section is executed as a run before the interpretation of the next section starts. Descendants implement `InterpretInitCommand` and `InterpretCommand`, and can override the run lifecycle methods (`InitializeRun`, `RunCompleted`, `FinalizeRun` and `HandleException`).
+
+```
+  Type
+    TEchoInterpreter = Class(TScriptInterpreter)
+    strict protected
+      Procedure InterpretInitCommand(const [ref] Arguments: TKeyValuePairs); override;
+      Function InterpretCommand(const Command: String; const [ref] Arguments: TKeyValuePairs): Boolean; override;
+    end;
+
+  Function TEchoInterpreter.InterpretCommand(const Command: String; const [ref] Arguments: TKeyValuePairs): Boolean;
+  begin
+    Result := SameText(Command,'echo');
+    if Result then writeln(Arguments.Str('value'));
+  end;
+
+  // Execute a script, passing a value for the %name%-parameter
+  var Interpreter := TEchoInterpreter.Create;
+  try
+    Interpreter.Execute('script.txt',TKeyValuePairs.Create([TKeyValuePair.Create('name','World')]));
+  finally
+    Interpreter.Free;
+  end;
+```
+
 ## Spline.pas
 Provides `TSpline`  --  a record representing a piecewise polynomial (spline) defined by an ordered sequence of knots and a polynomial for each interval between them. Supports:
 
