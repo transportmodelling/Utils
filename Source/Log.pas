@@ -36,6 +36,7 @@ Type
       MaxPathLevels = 4;
     Var
       LogFileInfo: Boolean;
+      Started: Boolean; // Set when the session start has been logged
       Buffer,SeparatorLine: String;
       LogEvent: TLogEvent;
       StartTime: TDateTime;
@@ -49,6 +50,7 @@ Type
     Function  FileProperties(const FileName: string): string;
     Function  FileInfo(const FileName: string; NameOnly: Boolean): string;
     Function  VarRecToStr(VarRec: TVarRec; NDecimals: Integer): String;
+    Procedure LogSessionSummary;
   public
     Constructor Create(const OnLog: TLogEvent = nil); overload;
     Constructor Create(const LogFileName: String;
@@ -150,6 +152,7 @@ begin
     GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE),CBI);
     ConsoleWidth := CBI.dwSize.X;
   end;
+  Started := true;
   StartTime := Now;
   Log('START ' + DateTimeToStr(StartTime));
   Log('Executable: ' + FileInfo(ParamStr(0),true));
@@ -199,6 +202,7 @@ begin
   end;
   LogWriter.AutoFlush := false;
   // Log start info
+  Started := true;
   StartTime := Now;
   Log('START ' + DateTimeToStr(StartTime));
   Log('Executable: ' + FileInfo(ParamStr(0),true));
@@ -264,6 +268,34 @@ begin
     vtVariant:       Result := String(VarRec.VVariant^);
     else raise Exception.Create('Unsupported type in Log');
   end;
+end;
+
+Procedure TLogFile.LogSessionSummary;
+begin
+  // Log buffered content
+  if Buffer <> '' then Log;
+  // Log input files
+  if Length(InputFiles) > 0 then
+  begin
+    Log;
+    Log('Input files:');
+    for var InpFile := low(InputFiles) to high(InputFiles) do
+    Log(InputFiles[InpFile].FileLabel + ': ' + InputFiles[InpFile].FileInfo);
+  end;
+  // Log output files
+  if Length(OutputFiles) > 0 then
+  begin
+    Log;
+    Log('Output files:');
+    for var OutpFile := low(OutputFiles) to high(OutputFiles) do
+    if FileExists(OutputFiles[OutpFile].FileInfo) then
+    Log(OutputFiles[OutpFile].FileLabel + ': ' + FileInfo(OutputFiles[OutpFile].FileInfo,false));
+  end;
+  // Log stop time
+  var StopTime := Now;
+  var RunTime := TRunTime.Create(StartTime,StopTime);
+  Log;
+  Log('STOP ' + DateTimeToStr(StopTime) + ' (Run time: ' + RunTime.ToString+ ')');
 end;
 
 Procedure TLogFile.Log(const Line: String = ''; const LineFeed: Boolean = true);
@@ -394,30 +426,8 @@ end;
 
 Destructor TLogFile.Destroy;
 begin
-  // Log buffered content
-  if Buffer <> '' then Log;
-  // Log input files
-  if Length(InputFiles) > 0 then
-  begin
-    Log;
-    Log('Input files:');
-    for var InpFile := low(InputFiles) to high(InputFiles) do
-    Log(InputFiles[InpFile].FileLabel + ': ' + InputFiles[InpFile].FileInfo);
-  end;
-  // Log output files
-  if Length(OutputFiles) > 0 then
-  begin
-    Log;
-    Log('Output files:');
-    for var OutpFile := low(OutputFiles) to high(OutputFiles) do
-    if FileExists(OutputFiles[OutpFile].FileInfo) then
-    Log(OutputFiles[OutpFile].FileLabel + ': ' + FileInfo(OutputFiles[OutpFile].FileInfo,false));
-  end;
-  // Log stop time
-  var StopTime := Now;
-  var RunTime := TRunTime.Create(StartTime,StopTime);
-  Log;
-  Log('STOP ' + DateTimeToStr(StopTime) + ' (Run time: ' + RunTime.ToString+ ')');
+  // A log file that failed to open has no session to summarize
+  if Started then LogSessionSummary;
   // Destroy objects
   LogWriter.Free;
   LogStream.Free;
