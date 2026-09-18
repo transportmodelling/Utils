@@ -310,6 +310,22 @@ Provides `TRange` and `TRanges` for working with inclusive integer ranges.
   writeln(String(RS));        // '1,3-5,7'
 ```
 
+## RunStats.pas
+Provides `TRunningStatistics`  --  a class that calculates the mean and standard deviation on the fly, while observations (e.g. simulation draws) come in, without storing them. It uses Welford's algorithm: the mean is updated with the method of successive averages and the sum of squared deviations is updated alongside it, which keeps it numerically stable. Statistics of independently collected observations (e.g. per thread) can be combined with `Merge`. Statistics that are undefined for the current number of observations return `NaN`.
+
+```
+  var Stats := TRunningStatistics.Create;
+  try
+    for var Draw := 1 to 1000 do Stats.Add(Random);
+    writeln(Stats.Count);              // 1000
+    writeln(Stats.Mean);               // ~0.5
+    writeln(Stats.StandardDeviation);  // ~0.289 (sample standard deviation)
+    writeln(Stats.StandardError);      // ~0.009 (standard error of the mean)
+  finally
+    Stats.Free;
+  end;
+```
+
 ## Script.pas
 Provides a framework for script interpreters. A script is a series of commands, each consisting of a command name and key-value arguments. Three classes are involved:
 
