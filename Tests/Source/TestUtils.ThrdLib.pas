@@ -13,6 +13,7 @@ interface
 uses
   SysUtils,
   Classes,
+  Windows,
   DUnitX.TestFramework,
   SyncObjs,
   ThrdLib;
@@ -169,6 +170,7 @@ type
     [Test] procedure Execute_Exception_SingleThreadedPath;
     [Test] procedure Execute_Exception_OnlyFirstPropagates;
     [Test] procedure Execute_SingleThreaded_AllIterationsRun;
+    [Test] procedure Destroy_NoThreadOutlivesIterator;
   end;
 
   // ---------------------------------------------------------------------------
@@ -735,6 +737,45 @@ begin
       'Single-threaded TParallelFor should run all iterations in the calling thread');
   finally
     LPar.Free;
+  end;
+end;
+
+procedure TParallelForTests.Destroy_NoThreadOutlivesIterator;
+// The guard turns idle a moment before its threads end, so a destructor that
+// only waits for the guard returns while threads still run. Repeating the
+// cycle makes that window show.
+const
+  NThreads = 16;
+var
+  LHandles: array of THandle;
+begin
+  for var Cycle := 1 to 20 do
+  begin
+    LHandles := nil;
+    SetLength(LHandles, NThreads);
+    var LPar := TParallelFor.Create(NThreads);
+    try
+      LPar.Execute(0, 10*NThreads-1,
+        procedure(I, T: Integer)
+        begin
+          if LHandles[T] = 0 then
+            DuplicateHandle(GetCurrentProcess, GetCurrentThread, GetCurrentProcess,
+                            @LHandles[T], SYNCHRONIZE, False, 0);
+          Sleep(1);
+        end);
+    finally
+      LPar.Free;
+    end;
+    try
+      for var T := 0 to NThreads-1 do
+      if LHandles[T] <> 0 then
+        Assert.IsTrue(WaitForSingleObject(LHandles[T], 0) = WAIT_OBJECT_0,
+          'Thread ' + T.ToString + ' still runs after the iterator was freed'
+          + ' (cycle ' + Cycle.ToString + ')');
+    finally
+      for var T := 0 to NThreads-1 do
+      if LHandles[T] <> 0 then CloseHandle(LHandles[T]);
+    end;
   end;
 end;
 

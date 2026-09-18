@@ -77,6 +77,7 @@ Type
       end;
     Var
       FMaxThreads,Next,IterationCount,ActiveThreads: Integer;
+      Threads: array of TIteratorThread;
       LoopCompleted: TEvent;
       Iteration: TIteration;
       Guard: TBlockingThreadsGuard<TIteratorThread>;
@@ -323,6 +324,8 @@ end;
 Constructor TThreadedIterator.TIteratorThread.Create;
 begin
   inherited Create;
+  // The iterator frees its threads, once each has run to its end
+  FreeOnTerminate := false;
   Active := TEvent.Create(nil,true,false,'');
 end;
 
@@ -384,8 +387,6 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 Constructor TThreadedIterator.Create(ThreadCount: Integer);
-Var
-  Threads: array of TIteratorThread;
 begin
   inherited Create;
   FMaxThreads := ThreadCount;
@@ -457,7 +458,17 @@ begin
   if Guard <> nil then
   begin
     Guard.Terminate;
-    Guard.WaitFor;
+    // The guard turns idle before its threads have ended: a thread signals it
+    // and then still takes the thread synchronization lock of the runtime
+    // library, which the program frees when it ends. Waiting for the threads
+    // themselves keeps any of them from outliving the iterator. A thread that
+    // never started, because the constructor failed, is ended by Free.
+    for var Thread := low(Threads) to high(Threads) do
+    if Threads[Thread] <> nil then
+    begin
+      if not Threads[Thread].Suspended then Threads[Thread].WaitFor;
+      Threads[Thread].Free;
+    end;
     Guard.Free;
     LoopCompleted.Free;
   end;
