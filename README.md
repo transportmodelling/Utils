@@ -310,6 +310,40 @@ Provides `TRange` and `TRanges` for working with inclusive integer ranges.
   writeln(String(RS));        // '1,3-5,7'
 ```
 
+## RNG.pas
+Provides random number generators, and weighted drawing of options.
+
+- `TRandomNumberGenerator`  --  abstract base class: `Init` (re)starts the sequence, `Next` returns a uniform random number in [0,1).
+- `TMersenneTwister`  --  MT19937, the generator used by Python, R, MATLAB and C++. The raw 32-bit values are available through `NextUInt32`.
+- `TXoshiro256`  --  `xoshiro256**`, seeded through SplitMix64. Faster than the Mersenne twister, and with a much smaller state (32 bytes, against 2.5 KB).
+- `TPCG64`  --  PCG XSL RR 128/64, the generator NumPy's PCG64 is based on. Different streams yield independent sequences for the same seed.
+- `TSplitMix64`  --  a record that expands a seed into the state of another generator.
+- `TWeightedDraw`  --  draws an option with a probability proportional to its weight. Weights need not sum to 1, and zero weight options (e.g. unavailable alternatives) are never drawn. The generator is not owned, so it can be shared by multiple weighted draws.
+
+```
+  var Generator := TXoshiro256.Create(1234);
+  try
+    writeln(Generator.Next);   // uniform random number in [0,1)
+    Generator.Init;            // restart the sequence
+
+    // Draw an option with a probability proportional to its weight
+    var Modes := TWeightedDraw.Create(Generator);
+    try
+      Modes.SetWeights([1, 0, 3, 6]);
+      writeln(Modes.Draw);     // 0, 2 or 3 (option 1 is never drawn)
+
+      // Weights can also be set one by one
+      Modes.WeightCount := 3;  // resets all weights to zero
+      Modes.Weights[2] := 1;
+      writeln(Modes.Draw);     // 2  (-1 when no option has a positive weight)
+    finally
+      Modes.Free;
+    end;
+  finally
+    Generator.Free;
+  end;
+```
+
 ## RunStats.pas
 Provides `TRunningStatistics`  --  a class that calculates the mean and standard deviation on the fly, while observations (e.g. simulation draws) come in, without storing them. It uses Welford's algorithm: the mean is updated with the method of successive averages and the sum of squared deviations is updated alongside it, which keeps it numerically stable. Statistics of independently collected observations (e.g. per thread) can be combined with `Merge`. Statistics that are undefined for the current number of observations return `NaN`.
 
