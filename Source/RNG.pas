@@ -137,6 +137,57 @@ Type
     Property Seed: UInt64 read FSeed;
   end;
 
+  TPhiloxKey = array[0..1] of UInt32;
+  TPhiloxCounter = array[0..3] of UInt32;
+  TPhiloxBlock = array[0..3] of UInt32;
+
+  TPhilox4x32 = Class(TRandomNumberGenerator)
+  // Philox4x32-10 (Salmon, Moraes, Dror & Shaw), a counter-based generator: a block
+  // of four 32-bit random numbers is a function of a 64-bit key and a 128-bit counter,
+  // so any block is computed directly, without the blocks before it. A random number
+  // can thus be identified by what it is drawn for, rather than by the order of drawing.
+  // As a sequential generator it walks the counter up from a start counter, as a
+  // 128-bit number with Counter[0] as its lowest word. Each block yields two uniform
+  // random numbers.
+  // Based on: https://github.com/DEShawResearch/random123
+  private
+    Const
+      DefaultSeed = 0;
+      Rounds = 10;
+      M0 = $D2511F53; // Round multipliers
+      M1 = $CD9E8D57;
+      W0 = $9E3779B9; // Key increments per round
+      W1 = $BB67AE85;
+      BlockUniforms = 2; // Uniform random numbers per block
+      Scale53 = 1/9007199254740992; // 2^-53
+    Var
+      FKey: TPhiloxKey;
+      FStart,NextCounter: TPhiloxCounter;
+      CurrentBlock: TPhiloxBlock;
+      Used: Integer; // Uniform random numbers taken from the current block
+    Procedure SetKey(const Key: TPhiloxKey);
+    Procedure SetStart(const Start: TPhiloxCounter);
+    Procedure IncrementCounter;
+  public
+    // The block of random numbers of a key and counter
+    Class Function Block(const Key: TPhiloxKey; const Counter: TPhiloxCounter): TPhiloxBlock; static;
+    // Uniform random number in [0,1) from two 32-bit random numbers: the upper 53 bits
+    // of the 64-bit number with Low as its lower and High as its upper word
+    Class Function Uniform(const Low,High: UInt32): Float64; static; inline;
+    Constructor Create; overload;
+    // The key holds the lower and upper word of the seed; the walk starts at counter 0
+    Constructor Create(const Seed: UInt64); overload;
+    Constructor Create(const Key: TPhiloxKey; const Start: TPhiloxCounter); overload;
+    Procedure Init; override;
+    // Uniform random number in [0,1): the first one of a block from its words 0 and 1,
+    // the second one from its words 2 and 3
+    Function Next: Float64; override;
+  public
+    // Setting the key or the start counter restarts the walk
+    Property Key: TPhiloxKey read FKey write SetKey;
+    Property Start: TPhiloxCounter read FStart write SetStart;
+  end;
+
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
@@ -433,6 +484,105 @@ Function TPCG64.Next: Float64;
 begin
   // Upper 53 bits, the precision of a Float64
   Result := Int64(NextUInt64 shr 11)*Scale53;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Class Function TPhilox4x32.Block(const Key: TPhiloxKey; const Counter: TPhiloxCounter): TPhiloxBlock;
+// The rounds work on local variables rather than on the result array, so that the
+// compiler can keep the words in registers
+begin
+  var K0 := Key[0];
+  var K1 := Key[1];
+  var C0 := Counter[0];
+  var C1 := Counter[1];
+  var C2 := Counter[2];
+  var C3 := Counter[3];
+  for var Round := 1 to Rounds do
+  begin
+    // Full 64-bit products of two 32-bit values
+    var Product0 := UInt64(M0)*C0;
+    var Product1 := UInt64(M1)*C2;
+    C0 := UInt32(Product1 shr 32) xor C1 xor K0;
+    C1 := UInt32(Product1);
+    C2 := UInt32(Product0 shr 32) xor C3 xor K1;
+    C3 := UInt32(Product0);
+    // Bump the key for the next round
+    Inc(K0,W0);
+    Inc(K1,W1);
+  end;
+  Result[0] := C0;
+  Result[1] := C1;
+  Result[2] := C2;
+  Result[3] := C3;
+end;
+
+Class Function TPhilox4x32.Uniform(const Low,High: UInt32): Float64;
+begin
+  // Upper 53 bits, the precision of a Float64
+  Result := Int64(((UInt64(High) shl 32) or Low) shr 11)*Scale53;
+end;
+
+Constructor TPhilox4x32.Create;
+begin
+  Create(DefaultSeed);
+end;
+
+Constructor TPhilox4x32.Create(const Seed: UInt64);
+begin
+  FKey[0] := UInt32(Seed);
+  FKey[1] := UInt32(Seed shr 32);
+  for var Word := 0 to 3 do FStart[Word] := 0;
+  inherited Create;
+end;
+
+Constructor TPhilox4x32.Create(const Key: TPhiloxKey; const Start: TPhiloxCounter);
+begin
+  FKey := Key;
+  FStart := Start;
+  inherited Create;
+end;
+
+Procedure TPhilox4x32.SetKey(const Key: TPhiloxKey);
+begin
+  FKey := Key;
+  Init;
+end;
+
+Procedure TPhilox4x32.SetStart(const Start: TPhiloxCounter);
+begin
+  FStart := Start;
+  Init;
+end;
+
+Procedure TPhilox4x32.IncrementCounter;
+// Adds one to the 128-bit counter, carrying into the next word when a word wraps to 0
+begin
+  var Word := 0;
+  Inc(NextCounter[Word]);
+  while (NextCounter[Word] = 0) and (Word < 3) do
+  begin
+    Inc(Word);
+    Inc(NextCounter[Word]);
+  end;
+end;
+
+Procedure TPhilox4x32.Init;
+begin
+  NextCounter := FStart;
+  Used := BlockUniforms;
+end;
+
+Function TPhilox4x32.Next: Float64;
+begin
+  if Used = BlockUniforms then
+  begin
+    CurrentBlock := Block(FKey,NextCounter);
+    IncrementCounter;
+    Used := 0;
+  end;
+  Result := Uniform(CurrentBlock[2*Used],CurrentBlock[2*Used+1]);
+  Inc(Used);
 end;
 
 end.

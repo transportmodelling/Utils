@@ -50,6 +50,24 @@ Type
   end;
 
   [TestFixture]
+  TPhilox4x32Tests = class
+  private
+    Function Key(const k0,k1: UInt32): TPhiloxKey;
+    Function Counter(const c0,c1,c2,c3: UInt32): TPhiloxCounter;
+  public
+    [Test] Procedure Block_KnownAnswers_MatchReference;
+    [Test] Procedure Uniform_EqualsScaledUpper53Bits;
+    [Test] Procedure Uniform_Extremes_InUnitInterval;
+    [Test] Procedure Create_Seed_SplitsIntoKey;
+    [Test] Procedure Next_EqualsUniformsOfSuccessiveBlocks;
+    [Test] Procedure Next_CounterCarriesIntoNextWord;
+    [Test] Procedure Init_RestartsSequence;
+    [Test] Procedure KeyAndStart_RestartWalk;
+    [Test] Procedure Create_DifferentKeys_DifferentSequences;
+    [Test] Procedure Next_InUnitInterval;
+  end;
+
+  [TestFixture]
   TWeightedDrawTests = class
   private
     FGenerator: TRandomNumberGenerator;
@@ -320,6 +338,151 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
+Function TPhilox4x32Tests.Key(const k0,k1: UInt32): TPhiloxKey;
+begin
+  Result[0] := k0;
+  Result[1] := k1;
+end;
+
+Function TPhilox4x32Tests.Counter(const c0,c1,c2,c3: UInt32): TPhiloxCounter;
+begin
+  Result[0] := c0;
+  Result[1] := c1;
+  Result[2] := c2;
+  Result[3] := c3;
+end;
+
+Procedure TPhilox4x32Tests.Block_KnownAnswers_MatchReference;
+// Reference values from the kat_vectors file of Random123 (philox4x32, 10 rounds)
+Const
+  Counters: array[0..2,0..3] of UInt32 = (($00000000,$00000000,$00000000,$00000000),
+                                          ($FFFFFFFF,$FFFFFFFF,$FFFFFFFF,$FFFFFFFF),
+                                          ($243F6A88,$85A308D3,$13198A2E,$03707344));
+  Keys: array[0..2,0..1] of UInt32 = (($00000000,$00000000),
+                                      ($FFFFFFFF,$FFFFFFFF),
+                                      ($A4093822,$299F31D0));
+  Expected: array[0..2,0..3] of UInt32 = (($6627E8D5,$E169C58D,$BC57AC4C,$9B00DBD8),
+                                          ($408F276D,$41C83B0E,$A20BC7C6,$6D5451FD),
+                                          ($D16CFE09,$94FDCCEB,$5001E420,$24126EA1));
+begin
+  for var Vector := 0 to 2 do
+  begin
+    var Block := TPhilox4x32.Block(Key(Keys[Vector,0],Keys[Vector,1]),
+                                   Counter(Counters[Vector,0],Counters[Vector,1],
+                                           Counters[Vector,2],Counters[Vector,3]));
+    for var Word := 0 to 3 do
+    Assert.AreEqual<UInt32>(Expected[Vector,Word],Block[Word],
+                            'Vector ' + Vector.ToString + ', word ' + Word.ToString);
+  end;
+end;
+
+Procedure TPhilox4x32Tests.Uniform_EqualsScaledUpper53Bits;
+begin
+  Assert.AreEqual((UInt64($E169C58D6627E8D5) shr 11)/9007199254740992,
+                  TPhilox4x32.Uniform($6627E8D5,$E169C58D),0.0);
+end;
+
+Procedure TPhilox4x32Tests.Uniform_Extremes_InUnitInterval;
+begin
+  Assert.AreEqual(0.0,TPhilox4x32.Uniform(0,0),0.0);
+  Assert.AreEqual((9007199254740992-1)/9007199254740992,TPhilox4x32.Uniform($FFFFFFFF,$FFFFFFFF),0.0);
+end;
+
+Procedure TPhilox4x32Tests.Create_Seed_SplitsIntoKey;
+begin
+  var Philox := TPhilox4x32.Create($0123456789ABCDEF);
+  try
+    Assert.AreEqual<UInt32>($89ABCDEF,Philox.Key[0]);
+    Assert.AreEqual<UInt32>($01234567,Philox.Key[1]);
+    for var Word := 0 to 3 do Assert.AreEqual<UInt32>(0,Philox.Start[Word]);
+  finally
+    Philox.Free;
+  end;
+end;
+
+Procedure TPhilox4x32Tests.Next_EqualsUniformsOfSuccessiveBlocks;
+begin
+  var Philox := TPhilox4x32.Create(Key(1,2),Counter(7,0,0,0));
+  try
+    var First := TPhilox4x32.Block(Key(1,2),Counter(7,0,0,0));
+    var Second := TPhilox4x32.Block(Key(1,2),Counter(8,0,0,0));
+    Assert.AreEqual(TPhilox4x32.Uniform(First[0],First[1]),Philox.Next,0.0);
+    Assert.AreEqual(TPhilox4x32.Uniform(First[2],First[3]),Philox.Next,0.0);
+    Assert.AreEqual(TPhilox4x32.Uniform(Second[0],Second[1]),Philox.Next,0.0);
+  finally
+    Philox.Free;
+  end;
+end;
+
+Procedure TPhilox4x32Tests.Next_CounterCarriesIntoNextWord;
+begin
+  var Philox := TPhilox4x32.Create(Key(1,2),Counter($FFFFFFFF,$FFFFFFFF,5,0));
+  try
+    Philox.Next;
+    Philox.Next;
+    var Carried := TPhilox4x32.Block(Key(1,2),Counter(0,0,6,0));
+    Assert.AreEqual(TPhilox4x32.Uniform(Carried[0],Carried[1]),Philox.Next,0.0);
+  finally
+    Philox.Free;
+  end;
+end;
+
+Procedure TPhilox4x32Tests.Init_RestartsSequence;
+begin
+  var Philox := TPhilox4x32.Create(99);
+  try
+    var First := Philox.Next;
+    for var Draw := 1 to 1000 do Philox.Next;
+    Philox.Init;
+    Assert.AreEqual(First,Philox.Next,0.0);
+  finally
+    Philox.Free;
+  end;
+end;
+
+Procedure TPhilox4x32Tests.KeyAndStart_RestartWalk;
+begin
+  var Philox := TPhilox4x32.Create(99);
+  try
+    for var Draw := 1 to 5 do Philox.Next;
+    Philox.Start := Counter(3,4,5,6);
+    var Started := TPhilox4x32.Block(Key(99,0),Counter(3,4,5,6));
+    Assert.AreEqual(TPhilox4x32.Uniform(Started[0],Started[1]),Philox.Next,0.0,'Start');
+    Philox.Key := Key(9,9);
+    var Keyed := TPhilox4x32.Block(Key(9,9),Counter(3,4,5,6));
+    Assert.AreEqual(TPhilox4x32.Uniform(Keyed[0],Keyed[1]),Philox.Next,0.0,'Key');
+  finally
+    Philox.Free;
+  end;
+end;
+
+Procedure TPhilox4x32Tests.Create_DifferentKeys_DifferentSequences;
+begin
+  var Key1 := TPhilox4x32.Create(Key(42,1),Counter(0,0,0,0));
+  var Key2 := TPhilox4x32.Create(Key(42,2),Counter(0,0,0,0));
+  try
+    var Equal := 0;
+    for var Draw := 1 to 100 do
+    if Key1.Next = Key2.Next then Inc(Equal);
+    Assert.AreEqual(0,Equal);
+  finally
+    Key1.Free;
+    Key2.Free;
+  end;
+end;
+
+Procedure TPhilox4x32Tests.Next_InUnitInterval;
+begin
+  var Philox := TPhilox4x32.Create;
+  try
+    CheckUnitInterval(Philox);
+  finally
+    Philox.Free;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
 Procedure TWeightedDrawTests.Setup;
 begin
   FGenerator := TXoshiro256.Create(1);
@@ -496,6 +659,7 @@ initialization
   TDUnitX.RegisterTestFixture(TSplitMix64Tests);
   TDUnitX.RegisterTestFixture(TXoshiro256Tests);
   TDUnitX.RegisterTestFixture(TPCG64Tests);
+  TDUnitX.RegisterTestFixture(TPhilox4x32Tests);
   TDUnitX.RegisterTestFixture(TWeightedDrawTests);
 
 end.

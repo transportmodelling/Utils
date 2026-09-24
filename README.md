@@ -317,6 +317,7 @@ Provides random number generators, and weighted drawing of options.
 - `TMersenneTwister`  --  MT19937, the generator used by Python, R, MATLAB and C++. The raw 32-bit values are available through `NextUInt32`.
 - `TXoshiro256`  --  `xoshiro256**`, seeded through SplitMix64. Faster than the Mersenne twister, and with a much smaller state (32 bytes, against 2.5 KB).
 - `TPCG64`  --  PCG XSL RR 128/64, the generator NumPy's PCG64 is based on. Different streams yield independent sequences for the same seed.
+- `TPhilox4x32`  --  Philox4x32-10 (Random123), a counter-based generator: a block of four 32-bit random numbers is a function of a 64-bit key and a 128-bit counter. A random number can thus be computed directly from what it is drawn for, whatever the order of drawing or the number of threads. `Block` gives the random numbers of a key and counter, and `Uniform` turns two of them into a uniform random number in [0,1). As a sequential generator it walks the counter up from `Start`, yielding two uniform random numbers per block.
 - `TSplitMix64`  --  a record that expands a seed into the state of another generator.
 - `TWeightedDraw`  --  draws an option with a probability proportional to its weight. Weights need not sum to 1, and zero weight options (e.g. unavailable alternatives) are never drawn. The generator is not owned, so it can be shared by multiple weighted draws.
 
@@ -342,6 +343,22 @@ Provides random number generators, and weighted drawing of options.
   finally
     Generator.Free;
   end;
+```
+
+A counter-based generator identifies a random number by what it is drawn for, rather than by its position in a sequence:
+
+```
+  var Key: TPhiloxKey;
+  Key[0] := Seed;
+  Key[1] := Replication;
+  var Counter: TPhiloxCounter;
+  Counter[0] := 0;             // first random number of the event
+  Counter[1] := Person;
+  Counter[2] := Year;
+  Counter[3] := Event;
+  var Block := TPhilox4x32.Block(Key,Counter);
+  writeln(TPhilox4x32.Uniform(Block[0],Block[1]));   // uniform random number in [0,1)
+  writeln(TPhilox4x32.Uniform(Block[2],Block[3]));   // a second one of the same block
 ```
 
 ## RunStats.pas
