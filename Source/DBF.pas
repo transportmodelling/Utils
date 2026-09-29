@@ -79,9 +79,18 @@ Type
     FRecordIndex: Integer;
     FileReader: TBinaryReader;
     Version: Byte;
+    FHeaderCodePage: Integer;
+    FEncoding: TEncoding;
+    OwnsEncoding: Boolean;
+    Buffer: TBytes;
+    Function LanguageDriverCodePage(const LanguageDriver: Byte): Integer;
+    Function UTF8Length(const Bytes: TBytes; const Count: Integer; out DecodeCount: Integer): Boolean;
     Procedure SkipBytes(const Count: Integer);
     Procedure ReadTableHeader;
+    Procedure InitEncoding(const Encoding: TEncoding);
     Procedure ReadFieldDescriptors;
+    Procedure ReadBuffer(const Count: Integer; const Offset: Integer = 0);
+    Function  DecodeBuffer(const Count: Integer): String;
     Procedure ReadFieldValue(const Field: Integer);
     Function  ReadTextFieldValue(const Field: Integer; out Asterisks,Nullify: Boolean): String;
     Function  ParseTextFieldValue(const Field: Integer; const FieldValue: String; const Asterisks,Nullify: Boolean): Variant;
@@ -89,12 +98,24 @@ Type
     Function  ParseLogicalFieldValue(const Field: Integer; const FieldValue: String): Variant;
     Function  ParseNumericFieldValue(const Field: Integer; const FieldValue: String): Variant;
   public
-    Constructor Create(const FileName: String);
+    // The text in the file is read in the Encoding passed in (which the
+    // caller keeps owning), or else in the code page of the language driver
+    // in the header. When neither gives one, each text value is read as UTF-8
+    // when it is valid UTF-8, and in the system's ANSI code page otherwise.
+    // A convention outside the file, such as a shapefile's .cpg, is for the
+    // caller to turn into the Encoding.
+    Constructor Create(const FileName: String; const Encoding: TEncoding = nil);
     Function NextRecord: Boolean; overload;
     Function NextRecord(var Values: array of Variant): Boolean; overload;
     Destructor Destroy; override;
   public
     Property RecordIndex: Integer read FRecordIndex;
+    // The encoding the text is read in; nil when it is detected per value
+    Property Encoding: TEncoding read FEncoding;
+    // The code page the language driver in the header declares, whether or
+    // not the text is read in it; 0 when there is none or it is not known.
+    // Compare it with Encoding to see if an Encoding passed in disagrees.
+    Property HeaderCodePage: Integer read FHeaderCodePage;
   end;
 
   TDBFWriter = Class(TDBFFile)
@@ -295,17 +316,94 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Constructor TDBFReader.Create(const FileName: String);
+Constructor TDBFReader.Create(const FileName: String; const Encoding: TEncoding = nil);
 begin
   inherited Create;
   FRecordIndex := -1;
   FFileName := FileName;
   FileStream := TBufferedFileStream.Create(FileName,fmOpenRead or fmShareDenyWrite,4096);
   FileReader := nil;
-  FileReader := TBinaryReader.Create(FileStream,TEncoding.ANSI);
+  // Only reads bytes; the text is decoded in DecodeBuffer
+  FileReader := TBinaryReader.Create(FileStream);
   ReadTableHeader;
+  InitEncoding(Encoding);
   ReadFieldDescriptors;
   if Version in [48,49,50] then SkipBytes(263); // Read Visual FoxPro header;
+end;
+
+Function TDBFReader.LanguageDriverCodePage(const LanguageDriver: Byte): Integer;
+// The code page of the language driver ids in common use; 0 for none (0) or
+// an id not listed
+begin
+  case LanguageDriver of
+    $01: Result := 437;  // U.S. MS-DOS
+    $02: Result := 850;  // International MS-DOS
+    $03,$57,$58,$59: Result := 1252; // Windows ANSI
+    $64: Result := 852;  // Eastern European MS-DOS
+    $65: Result := 866;  // Russian MS-DOS
+    $78: Result := 950;  // Chinese (Hong Kong SAR, Taiwan) Windows
+    $79: Result := 949;  // Korean Windows
+    $7A: Result := 936;  // Chinese (PRC, Singapore) Windows
+    $7B: Result := 932;  // Japanese Windows
+    $7C: Result := 874;  // Thai Windows
+    $7D: Result := 1255; // Hebrew Windows
+    $7E: Result := 1256; // Arabic Windows
+    $C8: Result := 1250; // Eastern European Windows
+    $C9: Result := 1251; // Russian Windows
+    $CA: Result := 1254; // Turkish Windows
+    $CB: Result := 1253; // Greek Windows
+    $CC: Result := 1257; // Baltic Windows
+    else Result := 0;
+  end;
+end;
+
+Function TDBFReader.UTF8Length(const Bytes: TBytes; const Count: Integer; out DecodeCount: Integer): Boolean;
+// Whether the bytes are UTF-8, and if so how many of them to decode. A value
+// the writer cut off in the middle of a character still counts as UTF-8, less
+// the partial character, provided the rest holds a multi-byte character: a
+// lone high byte at the end is more likely ANSI.
+begin
+  var Index := 0;
+  var MultiByte := false;
+  while Index < Count do
+  begin
+    var Lead := Bytes[Index];
+    var CharLength: Integer;
+    if Lead < $80 then CharLength := 1 else
+    if (Lead >= $C2) and (Lead <= $DF) then CharLength := 2 else
+    if (Lead >= $E0) and (Lead <= $EF) then CharLength := 3 else
+    if (Lead >= $F0) and (Lead <= $F4) then CharLength := 4 else
+      Exit(false);
+    for var Next := Index+1 to Index+CharLength-1 do
+    begin
+      if Next >= Count then
+      begin
+        // Cut off at the end
+        DecodeCount := Index;
+        Exit(MultiByte);
+      end;
+      if Bytes[Next] and $C0 <> $80 then Exit(false);
+    end;
+    if CharLength > 1 then MultiByte := true;
+    Inc(Index,CharLength);
+  end;
+  DecodeCount := Count;
+  Result := true;
+end;
+
+Procedure TDBFReader.InitEncoding(const Encoding: TEncoding);
+begin
+  if Encoding <> nil then
+    FEncoding := Encoding
+  else
+    if FHeaderCodePage <> 0 then
+    try
+      FEncoding := TEncoding.GetEncoding(FHeaderCodePage);
+      OwnsEncoding := true;
+    except
+      // A code page this system does not have: detect the encoding per value
+      on EEncodingError do FEncoding := nil;
+    end;
 end;
 
 Procedure TDBFReader.SkipBytes(const Count: Integer);
@@ -326,29 +424,54 @@ begin
   SkipBytes(1); // dBase IV encryption flag
   SkipBytes(12); // Reserved
   SkipBytes(1); // Production MDX flag
-  SkipBytes(1); // Language driver
+  FHeaderCodePage := LanguageDriverCodePage(FileReader.ReadByte); // Language driver
   SkipBytes(2); // Reserved
 end;
 
 Procedure TDBFReader.ReadFieldDescriptors;
+Const
+  HeaderTerminator = 13;
 begin
-  while FileReader.PeekChar <> 13 do
+  // The first byte of a descriptor is the first of the field name
+  var First := FileReader.ReadByte;
+  while First <> HeaderTerminator do
   begin
     if Length(FFields) <= FFieldCount then SetLength(FFields,FFieldCount+16);
-    for var NameChar := 1 to 11 do
-    begin
-      var Chr := FileReader.ReadChar;
-      if Chr <> #0 then FFields[FFieldCount].FFieldName := FFields[FFieldCount].FFieldName + Chr;
-    end;
-    FFields[FFieldCount].FFieldType := FileReader.ReadChar;
+    ReadBuffer(10,1);
+    Buffer[0] := First;
+    // The name ends at the first #0
+    var NameLength := 0;
+    while (NameLength < 11) and (Buffer[NameLength] <> 0) do Inc(NameLength);
+    FFields[FFieldCount].FFieldName := DecodeBuffer(NameLength);
+    FFields[FFieldCount].FFieldType := Char(FileReader.ReadByte);
     SkipBytes(4); // Reserved
     FFields[FFieldCount].FFieldLength := FileReader.ReadByte;
     FFields[FFieldCount].FDecimalCount := FileReader.ReadByte;
     SkipBytes(14); // Reserved
     Inc(FFieldCount);
+    First := FileReader.ReadByte;
   end;
   SetLength(FFields,FFieldCount);
-  FileReader.ReadByte; // Header terminator
+end;
+
+Procedure TDBFReader.ReadBuffer(const Count: Integer; const Offset: Integer = 0);
+begin
+  if Length(Buffer) < Offset+Count then SetLength(Buffer,Offset+Count);
+  if FileReader.Read(Buffer,Offset,Count) < Count then raise Exception.Create('Unexpected end of file');
+end;
+
+Function TDBFReader.DecodeBuffer(const Count: Integer): String;
+begin
+  if FEncoding <> nil then
+    Result := FEncoding.GetString(Buffer,0,Count)
+  else
+  begin
+    var DecodeCount: Integer;
+    if UTF8Length(Buffer,Count,DecodeCount) then
+      Result := TEncoding.UTF8.GetString(Buffer,0,DecodeCount)
+    else
+      Result := TEncoding.ANSI.GetString(Buffer,0,Count);
+  end;
 end;
 
 Procedure TDBFReader.ReadFieldValue(const Field: Integer);
@@ -372,16 +495,18 @@ end;
 
 Function TDBFReader.ReadTextFieldValue(const Field: Integer; out Asterisks,Nullify: Boolean): String;
 begin
-  Result := '';
+  // The field length is in bytes, which in a multi-byte encoding need not be
+  // the number of characters. So read the bytes, then decode them together.
+  var Count := FFields[Field].FFieldLength;
+  ReadBuffer(Count);
   Asterisks := true;
   Nullify := true;
-  for var FieldChar := 1 to FFields[Field].FFieldLength do
+  for var Index := 0 to Count-1 do
   begin
-    var Chr := FileReader.ReadChar;
-    Asterisks := Asterisks and (Chr = '*');
-    Nullify := Nullify and (Chr = #0);
-    Result := Result + Chr;
+    Asterisks := Asterisks and (Buffer[Index] = Ord('*'));
+    Nullify := Nullify and (Buffer[Index] = 0);
   end;
+  Result := DecodeBuffer(Count);
 end;
 
 Function TDBFReader.ParseTextFieldValue(const Field: Integer; const FieldValue: String;
@@ -443,7 +568,7 @@ begin
   begin
     Result := true;
     repeat
-      DeletedRecord := (FileReader.ReadChar = '*');
+      DeletedRecord := (FileReader.ReadByte = Ord('*'));
       for var Field := 0 to FFieldCount-1 do ReadFieldValue(Field);
     until not DeletedRecord;
     Inc(FRecordIndex);
@@ -466,6 +591,7 @@ end;
 
 Destructor TDBFReader.Destroy;
 begin
+  if OwnsEncoding then FEncoding.Free;
   FileReader.Free;
   FileStream.Free;
   inherited Destroy;

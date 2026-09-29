@@ -73,6 +73,8 @@ Provides low-level dBase (.dbf) file reading and writing. Three types are involv
 
 Memo fields are not supported (they read back as `Null`).
 
+The reader decodes text in the encoding passed to its constructor, or else in the code page of the language driver in the header. When neither gives one, each text value is read as UTF-8 if it is valid UTF-8, and in the system's ANSI code page otherwise. An encoding declared outside the file, such as an ESRI shapefile's `.cpg`, is for the caller to pass in; `HeaderCodePage` reports what the header declares, so the caller can see whether the two disagree. The writer writes text in the system's ANSI code page.
+
 ```
   // Read
   var R := TDBFReader.Create('data.dbf');

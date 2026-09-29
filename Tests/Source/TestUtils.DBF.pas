@@ -11,7 +11,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 uses
-  SysUtils, IOUtils, Variants, DUnitX.TestFramework, DBF;
+  Classes, SysUtils, IOUtils, Variants, DUnitX.TestFramework, DBF;
 
 Type
   [TestFixture]
@@ -88,6 +88,39 @@ Type
     [Test] Procedure TestRoundTripLogicalField;
     [Test] Procedure TestRoundTripNullField;
     [Test] Procedure TestRoundTripMultipleRecords;
+  end;
+
+  [TestFixture]
+  TDBFEncodingTests = class
+  private
+    FTempFile: String;
+    Function Bytes(const Values: array of Byte): TBytes;
+    // Writes a file with one record of character fields F1, F2, ..., each
+    // value padded with spaces (or cut off) to its field length
+    Procedure WriteFile(const LanguageDriver: Byte;
+                        const FieldLengths: array of Byte;
+                        const Values: array of TBytes);
+    Function ReadFirstValue(const Encoding: TEncoding = nil): String;
+  public
+    [Setup]    Procedure Setup;
+    [TearDown] Procedure TearDown;
+    // Undeclared encoding: detected per value
+    [Test] Procedure TestUndeclaredUTF8;
+    [Test] Procedure TestUndeclaredAnsi;
+    [Test] Procedure TestUndeclaredUTF8CutOff;
+    [Test] Procedure TestUndeclaredHighByteAtEndIsAnsi;
+    [Test] Procedure TestUndeclaredEncodingIsNil;
+    // Declared encoding
+    [Test] Procedure TestLanguageDriver;
+    [Test] Procedure TestLanguageDriverOtherCodePage;
+    [Test] Procedure TestEncodingParameterOverridesLanguageDriver;
+    [Test] Procedure TestEncodingParameterStaysCallers;
+    // What the header declares
+    [Test] Procedure TestHeaderCodePage;
+    [Test] Procedure TestHeaderCodePageNoneOrUnknown;
+    [Test] Procedure TestHeaderCodePageWithEncodingPassed;
+    // Multi-byte values keep the following fields in place
+    [Test] Procedure TestMultiByteValueKeepsNextField;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -530,10 +563,229 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
+{ TDBFEncodingTests }
+
+Const
+  // Frysl-a-circumflex-n in UTF-8, with the a-circumflex as the two bytes C3 A2
+  FryslanUTF8: array[0..7] of Byte = ($46,$72,$79,$73,$6C,$C3,$A2,$6E);
+  // The same in Windows-1252, with the a-circumflex as the byte E2
+  Fryslan1252: array[0..6] of Byte = ($46,$72,$79,$73,$6C,$E2,$6E);
+
+Procedure TDBFEncodingTests.Setup;
+begin
+  FTempFile := TPath.GetTempFileName;
+end;
+
+Procedure TDBFEncodingTests.TearDown;
+begin
+  if FileExists(FTempFile) then DeleteFile(FTempFile);
+end;
+
+Function TDBFEncodingTests.Bytes(const Values: array of Byte): TBytes;
+begin
+  SetLength(Result,Length(Values));
+  for var Index := 0 to High(Values) do Result[Index] := Values[Index];
+end;
+
+Procedure TDBFEncodingTests.WriteFile(const LanguageDriver: Byte;
+                                      const FieldLengths: array of Byte;
+                                      const Values: array of TBytes);
+begin
+  var Stream := TFileStream.Create(FTempFile,fmCreate);
+  var Writer := TBinaryWriter.Create(Stream);
+  try
+    var RecordSize: Word := 1;
+    for var FieldLength in FieldLengths do Inc(RecordSize,FieldLength);
+    // Table header: 32 bytes, with the language driver at offset 29
+    Writer.Write(Byte(3));
+    Writer.Write(Bytes([126,1,1])); // Last update
+    Writer.Write(Integer(1));       // Record count
+    Writer.Write(Word(32*(Length(FieldLengths)+1)+1));
+    Writer.Write(RecordSize);
+    for var Offset := 12 to 28 do Writer.Write(Byte(0));
+    Writer.Write(LanguageDriver);
+    Writer.Write(Bytes([0,0]));
+    // Field descriptors: 32 bytes each
+    for var Field := 0 to High(FieldLengths) do
+    begin
+      var Name := TEncoding.ASCII.GetBytes('F' + IntToStr(Field+1));
+      SetLength(Name,11);
+      Writer.Write(Name);
+      Writer.Write(Byte(Ord('C')));
+      Writer.Write(Bytes([0,0,0,0]));
+      Writer.Write(FieldLengths[Field]);
+      Writer.Write(Byte(0));
+      for var Reserved := 1 to 14 do Writer.Write(Byte(0));
+    end;
+    Writer.Write(Byte(13)); // Header terminator
+    // The record
+    Writer.Write(Byte(Ord(' ')));
+    for var Field := 0 to High(FieldLengths) do
+    begin
+      var Value := Copy(Values[Field]);
+      var ValueLength := Length(Value);
+      SetLength(Value,FieldLengths[Field]);
+      for var Index := ValueLength to FieldLengths[Field]-1 do Value[Index] := Ord(' ');
+      Writer.Write(Value);
+    end;
+    Writer.Write(Byte(26));
+  finally
+    Writer.Free;
+    Stream.Free;
+  end;
+end;
+
+Function TDBFEncodingTests.ReadFirstValue(const Encoding: TEncoding = nil): String;
+begin
+  var R := TDBFReader.Create(FTempFile,Encoding);
+  try
+    Assert.IsTrue(R.NextRecord,'Record should exist');
+    Result := R[0];
+  finally
+    R.Free;
+  end;
+end;
+
+Procedure TDBFEncodingTests.TestUndeclaredUTF8;
+begin
+  WriteFile(0,[10],[Bytes(FryslanUTF8)]);
+  Assert.AreEqual('Frysl'#$E2'n',ReadFirstValue);
+end;
+
+Procedure TDBFEncodingTests.TestUndeclaredAnsi;
+begin
+  // Not valid UTF-8, so read in the system's ANSI code page
+  WriteFile(0,[10],[Bytes(Fryslan1252)]);
+  Assert.AreEqual(TEncoding.ANSI.GetString(Bytes(Fryslan1252)),ReadFirstValue);
+end;
+
+Procedure TDBFEncodingTests.TestUndeclaredUTF8CutOff;
+begin
+  // a-circumflex, x, a-circumflex (C3 A2 78 C3 A2) cut off at 4 bytes, in the second a-circumflex
+  WriteFile(0,[4],[Bytes([$C3,$A2,$78,$C3,$A2])]);
+  Assert.AreEqual(#$E2'x',ReadFirstValue);
+end;
+
+Procedure TDBFEncodingTests.TestUndeclaredHighByteAtEndIsAnsi;
+begin
+  // 'Cafe' with e-acute (E9) in Windows-1252 filling the field: the E9 at the end looks like
+  // the start of a UTF-8 character, but nothing before it is UTF-8
+  var Cafe := Bytes([$43,$61,$66,$E9]);
+  WriteFile(0,[4],[Cafe]);
+  Assert.AreEqual(TEncoding.ANSI.GetString(Cafe),ReadFirstValue);
+end;
+
+Procedure TDBFEncodingTests.TestLanguageDriver;
+begin
+  // Language driver $57 is Windows-1252: the UTF-8 bytes are read as 1252
+  WriteFile($57,[10],[Bytes(FryslanUTF8)]);
+  var R := TDBFReader.Create(FTempFile);
+  try
+    Assert.AreEqual(1252,Integer(R.Encoding.CodePage));
+    R.NextRecord;
+    Assert.AreEqual('Frysl'#$C3#$A2'n',String(R[0]));
+  finally
+    R.Free;
+  end;
+end;
+
+Procedure TDBFEncodingTests.TestUndeclaredEncodingIsNil;
+begin
+  WriteFile(0,[10],[Bytes(FryslanUTF8)]);
+  var R := TDBFReader.Create(FTempFile);
+  try
+    Assert.IsNull(R.Encoding,'Encoding should be detected per value');
+  finally
+    R.Free;
+  end;
+end;
+
+Procedure TDBFEncodingTests.TestLanguageDriverOtherCodePage;
+begin
+  // Language driver $C9 is Windows-1251, in which C0 is the Cyrillic capital A
+  WriteFile($C9,[4],[Bytes([$C0])]);
+  Assert.AreEqual(#$0410,ReadFirstValue);
+end;
+
+Procedure TDBFEncodingTests.TestEncodingParameterOverridesLanguageDriver;
+begin
+  WriteFile($57,[10],[Bytes(FryslanUTF8)]);
+  Assert.AreEqual('Frysl'#$E2'n',ReadFirstValue(TEncoding.UTF8));
+end;
+
+Procedure TDBFEncodingTests.TestEncodingParameterStaysCallers;
+begin
+  // The caller keeps owning the encoding, so freeing it after the reader must
+  // not free it twice
+  WriteFile(0,[10],[Bytes(FryslanUTF8)]);
+  var Encoding := TEncoding.GetEncoding(1252);
+  try
+    Assert.AreEqual('Frysl'#$C3#$A2'n',ReadFirstValue(Encoding));
+  finally
+    Encoding.Free;
+  end;
+end;
+
+Procedure TDBFEncodingTests.TestHeaderCodePage;
+begin
+  WriteFile($57,[10],[Bytes(FryslanUTF8)]);
+  var R := TDBFReader.Create(FTempFile);
+  try
+    Assert.AreEqual(1252,R.HeaderCodePage);
+  finally
+    R.Free;
+  end;
+end;
+
+Procedure TDBFEncodingTests.TestHeaderCodePageNoneOrUnknown;
+begin
+  for var LanguageDriver in [$00,$FF] do
+  begin
+    WriteFile(LanguageDriver,[10],[Bytes(FryslanUTF8)]);
+    var R := TDBFReader.Create(FTempFile);
+    try
+      Assert.AreEqual(0,R.HeaderCodePage,Format('Language driver $%.2x',[LanguageDriver]));
+    finally
+      R.Free;
+    end;
+  end;
+end;
+
+Procedure TDBFEncodingTests.TestHeaderCodePageWithEncodingPassed;
+begin
+  // The header declares Windows-1252 while UTF-8 is passed in: both show,
+  // so the caller can tell they disagree
+  WriteFile($57,[10],[Bytes(FryslanUTF8)]);
+  var R := TDBFReader.Create(FTempFile,TEncoding.UTF8);
+  try
+    Assert.AreEqual(1252,R.HeaderCodePage);
+    Assert.AreEqual(65001,Integer(R.Encoding.CodePage));
+  finally
+    R.Free;
+  end;
+end;
+
+Procedure TDBFEncodingTests.TestMultiByteValueKeepsNextField;
+begin
+  // Two a-circumflexes take all 4 bytes of the first field, but only 2 characters
+  WriteFile(0,[4,3],[Bytes([$C3,$A2,$C3,$A2]),Bytes([$61,$62,$63])]);
+  var R := TDBFReader.Create(FTempFile,TEncoding.UTF8);
+  try
+    R.NextRecord;
+    Assert.AreEqual(#$E2#$E2,String(R[0]));
+    Assert.AreEqual('abc',String(R[1]));
+  finally
+    R.Free;
+  end;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
 initialization
   TDUnitX.RegisterTestFixture(TDBFFieldTests);
   TDUnitX.RegisterTestFixture(TDBFWriterTests);
   TDUnitX.RegisterTestFixture(TDBFReaderTests);
   TDUnitX.RegisterTestFixture(TDBFRoundTripTests);
+  TDUnitX.RegisterTestFixture(TDBFEncodingTests);
 
 end.
