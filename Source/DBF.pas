@@ -12,7 +12,7 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 Uses
-  Classes, SysUtils, Variants, Generics.Collections, ArrBld;
+  Classes, SysUtils, Math, Variants, Generics.Collections, ArrBld;
 
 Type
   TDBFField = record
@@ -40,6 +40,30 @@ Type
     Property FieldLength: Byte read FFieldLength write SetFieldLength;
     Property DecimalCount: Byte read FDecimalCount write SetDecimalCount;
     Property Truncate: Boolean read FTruncate;
+  end;
+
+  TDBFFieldBuilder = Class
+  // Sizes a field to the values it is to hold: logical, date, numeric with or without decimals,
+  // or text, whichever holds them all
+  private
+    Type
+      TKind = (fkNone,fkLogical,fkDate,fkInteger,fkFloat,fkText);
+    Const
+      Decimals = 6;  // of a numeric field holding fractions
+    Var
+      FKind: TKind;
+      FDigits: Integer;  // of a number before the decimal point, with its sign
+      FWidth: Integer;   // of a value as text
+    Function ValueKind(const Value: Variant): TKind;
+  public
+    // A null or empty value adds nothing
+    Procedure Add(const Value: Variant);
+    // The field holding the values added, under the name given. Text longer than the field and
+    // decimals beyond those of the field are truncated when written.
+    Function Field(const FieldName: String): TDBFField;
+    // A valid field name for any text: upper case, letters, digits and underscores only, at
+    // most ten characters, and not one of TakenNames
+    Function ValidName(const Name: String; const TakenNames: array of String): String;
   end;
 
   TDBFFile = Class
@@ -241,6 +265,74 @@ end;
 Procedure TDBFField.Validate;
 begin
   if (FFieldName = '') or (FFieldType = #0) then raise Exception.Create('Uninitialized DBF Field');
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Function TDBFFieldBuilder.ValueKind(const Value: Variant): TKind;
+begin
+  case VarType(Value) and varTypeMask of
+    varEmpty,varNull: Result := fkNone;
+    varBoolean: Result := fkLogical;
+    varDate: Result := fkDate;
+    varSmallint,varInteger,varShortInt,varByte,varWord,varLongWord,varInt64,varUInt64: Result := fkInteger;
+    varSingle,varDouble,varCurrency: Result := fkFloat;
+    else Result := fkText;
+  end;
+end;
+
+Procedure TDBFFieldBuilder.Add(const Value: Variant);
+begin
+  var Kind := ValueKind(Value);
+  if Kind = fkNone then Exit;
+  // The kind holding this value and those before: a number can hold whole numbers, text anything
+  if FKind = fkNone then FKind := Kind else
+  if FKind <> Kind then
+  if (FKind in [fkInteger,fkFloat]) and (Kind in [fkInteger,fkFloat]) then FKind := fkFloat else FKind := fkText;
+  if Kind in [fkInteger,fkFloat] then
+  begin
+    var Number: Float64 := Value;
+    var Digits := Length(IntToStr(Trunc(Abs(Number))));
+    if Number < 0 then Inc(Digits);
+    if Digits > FDigits then FDigits := Digits;
+  end;
+  var Width := Length(VarToStr(Value));
+  if Width > FWidth then FWidth := Width;
+end;
+
+Function TDBFFieldBuilder.Field(const FieldName: String): TDBFField;
+begin
+  case FKind of
+    fkLogical: Result := TDBFField.Create(FieldName,'L',1,0);
+    fkDate: Result := TDBFField.Create(FieldName,'D',8,0);
+    fkInteger: Result := TDBFField.Create(FieldName,'N',Min(Max(FDigits,1),20),0,true);
+    fkFloat: Result := TDBFField.Create(FieldName,'N',Min(Max(FDigits,1)+1+Decimals,20),Decimals,true);
+    else Result := TDBFField.Create(FieldName,'C',Min(Max(FWidth,1),254),0,true);
+  end;
+end;
+
+Function TDBFFieldBuilder.ValidName(const Name: String; const TakenNames: array of String): String;
+begin
+  Result := '';
+  for var Ch in UpperCase(Name) do
+  if CharInSet(Ch,['A'..'Z','0'..'9','_']) then Result := Result + Ch else Result := Result + '_';
+  if Result = '' then Result := 'FIELD';
+  Result := Copy(Result,1,10);
+  // A number tells names apart that the rules made the same
+  var Base := Result;
+  var Number := 1;
+  repeat
+    var Taken := false;
+    for var TakenName in TakenNames do
+    if SameText(TakenName,Result) then
+    begin
+      Taken := true;
+      Break;
+    end;
+    if not Taken then Exit;
+    Inc(Number);
+    Result := Copy(Base,1,10-Length(Number.ToString)) + Number.ToString;
+  until false;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////

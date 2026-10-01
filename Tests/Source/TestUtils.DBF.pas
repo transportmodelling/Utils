@@ -123,11 +123,34 @@ Type
     [Test] Procedure TestMultiByteValueKeepsNextField;
   end;
 
+  [TestFixture]
+  TDBFFieldBuilderTests = class
+  private
+    FBuilder: TDBFFieldBuilder;
+    FTempFile: String;
+    // The field the builder gives the values, under the name given
+    Function FieldFor(const Values: array of Variant; const FieldName: String = 'F'): TDBFField;
+  public
+    [Setup]    Procedure Setup;
+    [TearDown] Procedure TearDown;
+    [Test] Procedure Nothing_IsOneCharacterOfText;
+    [Test] Procedure Null_AddsNothing;
+    [Test] Procedure Booleans_AreLogical;
+    [Test] Procedure Dates_AreDates;
+    [Test] Procedure Integers_AreNumericWithoutDecimals_SizedToTheLongest;
+    [Test] Procedure IntegersAndFloats_AreNumericWithDecimals;
+    [Test] Procedure Strings_AreText_SizedToTheLongest;
+    [Test] Procedure NumbersAndStrings_AreText;
+    [Test] Procedure Field_WritesAndReadsTheValuesBack;
+    [Test] Procedure ValidName_UpperCasesAndReplacesOtherCharacters;
+    [Test] Procedure ValidName_IsAtMostTenCharacters;
+    [Test] Procedure ValidName_EmptyGetsAName;
+    [Test] Procedure ValidName_TakenGetsANumber;
+  end;
+
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
-
-{ TDBFFieldTests }
 
 Procedure TDBFFieldTests.TestFieldNameEmpty;
 begin
@@ -208,8 +231,6 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-
-{ TDBFWriterTests }
 
 Procedure TDBFWriterTests.Setup;
 begin
@@ -317,8 +338,6 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-
-{ TDBFReaderTests }
 
 Procedure TDBFReaderTests.Setup;
 begin
@@ -468,8 +487,6 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-{ TDBFRoundTripTests }
-
 Procedure TDBFRoundTripTests.Setup;
 begin
   FTempFile := TPath.GetTempFileName;
@@ -481,8 +498,8 @@ begin
 end;
 
 Procedure TDBFRoundTripTests.WriteAndRead(const Fields: array of TDBFField;
-                                           const Values: array of Variant;
-                                           out ReadValues: TArray<Variant>);
+                                          const Values: array of Variant;
+                                          out ReadValues: TArray<Variant>);
 begin
   var W := TDBFWriter.Create(FTempFile, Fields);
   try
@@ -562,8 +579,6 @@ begin
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
-
-{ TDBFEncodingTests }
 
 Const
   // Frysl-a-circumflex-n in UTF-8, with the a-circumflex as the two bytes C3 A2
@@ -781,11 +796,141 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
+////////////////////////////////////////////////////////////////////////////////
+
+Procedure TDBFFieldBuilderTests.Setup;
+begin
+  FBuilder := TDBFFieldBuilder.Create;
+  FTempFile := TPath.GetTempFileName;
+end;
+
+Procedure TDBFFieldBuilderTests.TearDown;
+begin
+  FBuilder.Free;
+  if FileExists(FTempFile) then TFile.Delete(FTempFile);
+end;
+
+Function TDBFFieldBuilderTests.FieldFor(const Values: array of Variant; const FieldName: String = 'F'): TDBFField;
+begin
+  for var Value in Values do FBuilder.Add(Value);
+  Result := FBuilder.Field(FieldName);
+end;
+
+Procedure TDBFFieldBuilderTests.Nothing_IsOneCharacterOfText;
+begin
+  var F := FieldFor([]);
+  Assert.AreEqual('C', String(F.FieldType));
+  Assert.AreEqual(1, Integer(F.FieldLength));
+end;
+
+Procedure TDBFFieldBuilderTests.Null_AddsNothing;
+begin
+  var F := FieldFor([Null, True, Unassigned]);
+  Assert.AreEqual('L', String(F.FieldType));
+end;
+
+Procedure TDBFFieldBuilderTests.Booleans_AreLogical;
+begin
+  var F := FieldFor([True, False]);
+  Assert.AreEqual('L', String(F.FieldType));
+  Assert.AreEqual(1, Integer(F.FieldLength));
+end;
+
+Procedure TDBFFieldBuilderTests.Dates_AreDates;
+begin
+  var F := FieldFor([EncodeDate(2026, 10, 1)]);
+  Assert.AreEqual('D', String(F.FieldType));
+  Assert.AreEqual(8, Integer(F.FieldLength));
+end;
+
+Procedure TDBFFieldBuilderTests.Integers_AreNumericWithoutDecimals_SizedToTheLongest;
+// Minus 1234 takes five characters
+begin
+  var F := FieldFor([3, -1234]);
+  Assert.AreEqual('N', String(F.FieldType));
+  Assert.AreEqual(5, Integer(F.FieldLength));
+  Assert.AreEqual(0, Integer(F.DecimalCount));
+end;
+
+Procedure TDBFFieldBuilderTests.IntegersAndFloats_AreNumericWithDecimals;
+// Two digits, the point, and six decimals
+begin
+  var F := FieldFor([3, 52.2]);
+  Assert.AreEqual('N', String(F.FieldType));
+  Assert.AreEqual(9, Integer(F.FieldLength));
+  Assert.AreEqual(6, Integer(F.DecimalCount));
+end;
+
+Procedure TDBFFieldBuilderTests.Strings_AreText_SizedToTheLongest;
+begin
+  var F := FieldFor(['Ede', 'Amersfoort']);
+  Assert.AreEqual('C', String(F.FieldType));
+  Assert.AreEqual(10, Integer(F.FieldLength));
+end;
+
+Procedure TDBFFieldBuilderTests.NumbersAndStrings_AreText;
+begin
+  var F := FieldFor([1234567, 'Amersfoort']);
+  Assert.AreEqual('C', String(F.FieldType));
+  Assert.AreEqual(10, Integer(F.FieldLength));
+end;
+
+Procedure TDBFFieldBuilderTests.Field_WritesAndReadsTheValuesBack;
+// The number with the most decimals keeps six of them
+var
+  V: TArray<Variant>;
+begin
+  var F := FieldFor([52.2, -1234567.891]);
+  var W := TDBFWriter.Create(FTempFile, [F]);
+  try
+    W.AppendRecord([Variant(52.2)]);
+    W.AppendRecord([Variant(-1234567.891)]);
+  finally
+    W.Free;
+  end;
+  var R := TDBFReader.Create(FTempFile);
+  try
+    R.NextRecord;
+    V := R.GetValues;
+    Assert.AreEqual(52.2, Double(V[0]), 1e-9);
+    R.NextRecord;
+    V := R.GetValues;
+    Assert.AreEqual(-1234567.891, Double(V[0]), 1e-9);
+  finally
+    R.Free;
+  end;
+end;
+
+Procedure TDBFFieldBuilderTests.ValidName_UpperCasesAndReplacesOtherCharacters;
+begin
+  Assert.AreEqual('ROAD_NAME', FBuilder.ValidName('road name', []));
+  Assert.AreEqual('ORDER', FBuilder.ValidName('order', []));
+end;
+
+Procedure TDBFFieldBuilderTests.ValidName_IsAtMostTenCharacters;
+begin
+  Assert.AreEqual('A_VERY_LON', FBuilder.ValidName('a very long field name', []));
+end;
+
+Procedure TDBFFieldBuilderTests.ValidName_EmptyGetsAName;
+begin
+  Assert.AreEqual('FIELD', FBuilder.ValidName('', []));
+end;
+
+Procedure TDBFFieldBuilderTests.ValidName_TakenGetsANumber;
+// The number replaces the end of a name that is already ten characters long
+begin
+  Assert.AreEqual('ROAD_NAME2', FBuilder.ValidName('road name', ['ROAD_NAME']));
+  Assert.AreEqual('ROAD_NAME3', FBuilder.ValidName('road name', ['ROAD_NAME', 'ROAD_NAME2']));
+  Assert.AreEqual('A_VERY_LO2', FBuilder.ValidName('a very long field name', ['A_VERY_LON']));
+end;
+
 initialization
   TDUnitX.RegisterTestFixture(TDBFFieldTests);
   TDUnitX.RegisterTestFixture(TDBFWriterTests);
   TDUnitX.RegisterTestFixture(TDBFReaderTests);
   TDUnitX.RegisterTestFixture(TDBFRoundTripTests);
   TDUnitX.RegisterTestFixture(TDBFEncodingTests);
+  TDUnitX.RegisterTestFixture(TDBFFieldBuilderTests);
 
 end.
