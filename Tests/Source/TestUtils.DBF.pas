@@ -48,6 +48,9 @@ Type
     [Test] Procedure TestWriterDuplicateField;
     [Test] Procedure TestWriterTruncateAllowed;
     [Test] Procedure TestWriterTruncateDisallowed;
+    [Test] Procedure TestWriterNumericTruncateDecimals;
+    [Test] Procedure TestWriterNumericTruncateDecimalPoint;
+    [Test] Procedure TestWriterNumericTruncateIntegerPart;
   end;
 
   [TestFixture]
@@ -332,6 +335,54 @@ begin
   try
     Assert.WillRaiseAny(
       procedure begin W.AppendRecord([Variant('Hello World')]) end);
+  finally
+    W.Free;
+  end;
+end;
+
+Procedure TDBFWriterTests.TestWriterNumericTruncateDecimals;
+begin
+  var W := TDBFWriter.Create(FTempFile,
+    [TDBFField.Create('VAL','N',5,3,{Truncate=}true)]);
+  try
+    W.AppendRecord([Variant(12.3456)]);  // 12.346 -> 12.35
+  finally
+    W.Free;
+  end;
+  var R := TDBFReader.Create(FTempFile);
+  try
+    R.NextRecord;
+    Assert.AreEqual(12.35, Double(R[0]), 1E-9);
+  finally
+    R.Free;
+  end;
+end;
+
+Procedure TDBFWriterTests.TestWriterNumericTruncateDecimalPoint;
+begin
+  var W := TDBFWriter.Create(FTempFile,
+    [TDBFField.Create('VAL','N',5,2,{Truncate=}true)]);
+  try
+    W.AppendRecord([Variant(12345.6)]);  // 12345.60 -> 12346
+  finally
+    W.Free;
+  end;
+  var R := TDBFReader.Create(FTempFile);
+  try
+    R.NextRecord;
+    Assert.AreEqual(12346.0, Double(R[0]), 1E-9);
+  finally
+    R.Free;
+  end;
+end;
+
+Procedure TDBFWriterTests.TestWriterNumericTruncateIntegerPart;
+begin
+  var W := TDBFWriter.Create(FTempFile,
+    [TDBFField.Create('VAL','N',5,2,{Truncate=}true)]);
+  try
+    Assert.WillRaiseAny(
+      Procedure begin W.AppendRecord([Variant(123456.7)]) end);
   finally
     W.Free;
   end;

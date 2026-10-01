@@ -842,7 +842,7 @@ end;
 
 Function TDBFWriter.NormalizeNumericText(const Field: Integer; const Value: Float64): String;
 begin
-  var NDecimals := FFields[Field].FDecimalCount;
+  var NDecimals: Integer := FFields[Field].FDecimalCount;
   repeat
     Result := Format('%.*f',[NDecimals,Value]);
     // Remove excess decimals
