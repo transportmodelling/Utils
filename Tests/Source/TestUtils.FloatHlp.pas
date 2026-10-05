@@ -11,11 +11,13 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 uses
-  SysUtils, DUnitX.TestFramework, FloatHlp;
+  SysUtils, Math, DUnitX.TestFramework, FloatHlp;
 
 Type
   [TestFixture]
   TFloat64HelperTests = class
+  private
+    Function Outcome(const F: TFunc<Float64>): String;
   public
     // Round: banker's rounding (half rounds to even)
     [Test] Procedure TestRound_HalfToEven_0_5;
@@ -32,6 +34,17 @@ Type
     // MultipliedBy / DividedBy (functional, original unchanged)
     [Test] Procedure TestMultipliedBy_OriginalUnchanged;
     [Test] Procedure TestDividedBy_OriginalUnchanged;
+    // Exponentiate (function and helper method)
+    [Test] Procedure TestExponentiate_Zero;
+    [Test] Procedure TestExponentiate_One;
+    [Test] Procedure TestExponentiate_MatchesSystemExp;
+    [Test] Procedure TestExponentiate_OnExpression;
+    [Test] Procedure TestExponentiate_HelperSameAsFunction;
+    // Outside [-708,709] Exponentiate passes the argument on to System.Exp
+    [Test] Procedure TestExponentiate_Overflow_SameAsSystemExp;
+    [Test] Procedure TestExponentiate_Subnormal_SameAsSystemExp;
+    [Test] Procedure TestExponentiate_Underflow_SameAsSystemExp;
+    [Test] Procedure TestExponentiate_NaN;
     // ToString (no args)
     [Test] Procedure TestToString_Default;
     // ToString(Format)
@@ -126,6 +139,79 @@ begin
   var R := V.DividedBy(4.0);
   Assert.AreEqual(2.0, R, 1e-12);
   Assert.AreEqual(8.0, V, 1e-12, 'Original must not change');
+end;
+
+Function TFloat64HelperTests.Outcome(const F: TFunc<Float64>): String;
+// The result as text, or the class of the exception raised
+begin
+  try
+    Result := FloatToStr(F());
+  except
+    on E: Exception do Result := E.ClassName;
+  end;
+end;
+
+Procedure TFloat64HelperTests.TestExponentiate_Zero;
+begin
+  Assert.AreEqual(1.0, Exponentiate(0.0), 0.0);
+end;
+
+Procedure TFloat64HelperTests.TestExponentiate_One;
+begin
+  Assert.AreEqual(2.718281828459045, Exponentiate(1.0), 1e-15);
+end;
+
+Procedure TFloat64HelperTests.TestExponentiate_MatchesSystemExp;
+// Max 3 ulp from the correctly rounded result, System.Exp max 1 ulp: within 4 ulp of each other
+begin
+  var MaxRelDiff: Float64 := 0;
+  for var I := 0 to 1000000 do
+  begin
+    var X: Float64 := -707 + 1415*I/1000000;
+    var RelDiff := Abs(Exponentiate(X) - System.Exp(X))/System.Exp(X);
+    if RelDiff > MaxRelDiff then MaxRelDiff := RelDiff;
+  end;
+  Assert.IsTrue(MaxRelDiff <= 1e-15, 'Max relative difference ' + FloatToStr(MaxRelDiff));
+end;
+
+Procedure TFloat64HelperTests.TestExponentiate_OnExpression;
+// A real-valued expression has type Extended; the function accepts it like any Float64
+begin
+  var A: Float64 := -4.0;
+  var B: Float64 := 5.0;
+  Assert.AreEqual(System.Exp(A*B), Exponentiate(A*B), 1e-15*System.Exp(A*B));
+end;
+
+Procedure TFloat64HelperTests.TestExponentiate_HelperSameAsFunction;
+begin
+  for var I := 0 to 1000 do
+  begin
+    var V: Float64 := -800 + 1600*I/1000;
+    Assert.AreEqual(Outcome(function: Float64 begin Result := Exponentiate(V) end),
+                    Outcome(function: Float64 begin Result := V.Exponentiate end));
+  end;
+end;
+
+Procedure TFloat64HelperTests.TestExponentiate_Overflow_SameAsSystemExp;
+begin
+  Assert.AreEqual(Outcome(function: Float64 begin Result := System.Exp(800.0) end),
+                  Outcome(function: Float64 begin Result := Exponentiate(800.0) end));
+end;
+
+Procedure TFloat64HelperTests.TestExponentiate_Subnormal_SameAsSystemExp;
+begin
+  Assert.AreEqual(System.Exp(-720.0), Exponentiate(-720.0), 0.0);
+end;
+
+Procedure TFloat64HelperTests.TestExponentiate_Underflow_SameAsSystemExp;
+begin
+  Assert.AreEqual(Outcome(function: Float64 begin Result := System.Exp(-800.0) end),
+                  Outcome(function: Float64 begin Result := Exponentiate(-800.0) end));
+end;
+
+Procedure TFloat64HelperTests.TestExponentiate_NaN;
+begin
+  Assert.IsTrue(IsNan(Exponentiate(NaN)));
 end;
 
 Procedure TFloat64HelperTests.TestToString_Default;

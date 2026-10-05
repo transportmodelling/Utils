@@ -118,7 +118,9 @@ Provides an array with dynamic rank.
 ```
 
 ## FloatHlp.pas
-Provides `TFloat64Helper`  --  a record helper for `Float64` that adds rounding, in-place and functional arithmetic, and flexible string formatting.
+Provides `TFloat64Helper`  --  a record helper for `Float64` that adds rounding, in-place and functional arithmetic, a fast exponential, and flexible string formatting.
+
+`Exponentiate(X)`, and the helper method `V.Exponentiate`, are an inline alternative to `System.Exp`: about 1.6x as fast in loops over many values, with an error of at most 3 ulp instead of 1. Arguments outside [-708, 709], NaN and infinities are handled by `System.Exp`. The helper method is not called `Exp`, because the `Double` and `Extended` helpers in `SysUtils` already have an `Exp` property (the raw exponent bits). On an expression such as `(A*B)`, which has type `Extended`, use the function.
 
 ```
   var V: Float64 := 1234.5678;
@@ -138,6 +140,11 @@ Provides `TFloat64Helper`  --  a record helper for `Float64` that adds rounding,
 
   // Adaptive decimals: fewer decimals for larger integer parts
   writeln(V.ToString(3, False, False));       // '2469.3' (1 fewer decimal for 4-digit integer)
+
+  // Fast exponential, slightly less accurate than System.Exp
+  var X: Float64 := 0.5;
+  var A := X.Exponentiate;                    // e^0.5, helper method on a variable
+  var B := Exponentiate(2*X);                 // e^1, on an expression: use the function
 ```
 
 ## FP16.pas

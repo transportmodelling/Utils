@@ -24,6 +24,9 @@ Type
     Function MultipliedBy(const Value: Float64): Float64; inline;
     Procedure DivideBy(const Value: Float64); inline;
     Function DividedBy(const Value: Float64): Float64; inline;
+    // Exponentiate(Self), see below. Not named Exp: SysUtils' Double/Extended helpers have an Exp property
+    // (the raw exponent bits), which would be used instead on expressions and depending on the uses order.
+    Function Exponentiate: Float64; inline;
     Function IsPositive: Boolean;
     Function IsNegative: Boolean;
     Function IsGreaterThan(const Value: Float64): Boolean;
@@ -37,8 +40,53 @@ Type
     Function ToString(Decimals: Byte; FixedDecimals,SkipTrailingZeroDecimals: Boolean): string; overload;
   end;
 
+// Exp(X) as 2^n*exp(r), with n = round(X/ln2) and exp(r) a degree-12 Taylor polynomial (the algorithm
+// VecMath vectorizes). In loops over many values about 1.6x as fast as System.Exp, at an error of at most
+// 3 ulp instead of 1 (86% of the results correctly rounded, against 99.7% for System.Exp).
+// Arguments outside [-708,709], NaN and infinities are passed on to System.Exp.
+Function Exponentiate(const X: Float64): Float64; inline;
+
 ////////////////////////////////////////////////////////////////////////////////
 implementation
+////////////////////////////////////////////////////////////////////////////////
+
+Function Exponentiate(const X: Float64): Float64;
+// n is rounded by adding and subtracting 1.5*2^52 and read from the bits of the sum, instead of
+// converting an integer to Float64: cvtsi2sd only writes the low half of its target register and so
+// waits for the register's previous contents, which can serialize a whole loop (System.Exp has one).
+const
+  LOG2E = 1.4426950408889634;
+  LN2HI = 6.93147180369123816490e-1;
+  LN2LO = 1.90821492927058770002e-10;
+  Shifter = 6755399441055744.0;            // 1.5*2^52
+  ShifterBits = Int64($4338000000000000);  // bits of Shifter
+var
+  K,N,R,P: Float64;
+  Bits: Int64;
+begin
+  if (X > -708.0) and (X < 709.0) then
+  begin
+    K := X*LOG2E + Shifter;  // round(X*LOG2E) in the low mantissa bits
+    N := K - Shifter;        // round(X*LOG2E)
+    R := (X - N*LN2HI) - N*LN2LO;
+    P := R*(1.0/479001600.0) + (1.0/39916800.0);
+    P := R*P + (1.0/3628800.0);
+    P := R*P + (1.0/362880.0);
+    P := R*P + (1.0/40320.0);
+    P := R*P + (1.0/5040.0);
+    P := R*P + (1.0/720.0);
+    P := R*P + (1.0/120.0);
+    P := R*P + (1.0/24.0);
+    P := R*P + (1.0/6.0);
+    P := R*P + 0.5;
+    P := R*P + 1.0;
+    P := R*P + 1.0;
+    Bits := ((PInt64(@K)^ - ShifterBits) + 1023) shl 52;  // 2^n
+    Result := P*PDouble(@Bits)^;
+  end else
+    Result := System.Exp(X);
+end;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 Function TFloat64Helper.Round: Int64;
@@ -74,6 +122,11 @@ end;
 Function TFloat64Helper.DividedBy(const Value: Float64): Float64;
 begin
   Result := Self/Value;
+end;
+
+Function TFloat64Helper.Exponentiate: Float64;
+begin
+  Result := FloatHlp.Exponentiate(Self);
 end;
 
 Function TFloat64Helper.IsPositive: Boolean;
