@@ -268,7 +268,7 @@ end;
 
 Procedure TWeightedDraw.Accumulate;
 begin
-  var Total := 0.0;
+  var Total: Float64 := 0.0;
   if Length(Cumulative) < FWeightCount then SetLength(Cumulative,Length(FWeights));
   LastPositive := -1;
   for var Option := 0 to FWeightCount-1 do

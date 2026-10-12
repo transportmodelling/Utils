@@ -115,8 +115,8 @@ Procedure CheckUnitInterval(const Generator: TRandomNumberGenerator);
 begin
   const Draws = 100000;
   var Count := 0;
-  var Mean := 0.0;
-  var SumSqrDev := 0.0; // Sum of squared deviations from the mean
+  var Mean: Float64 := 0.0;
+  var SumSqrDev: Float64 := 0.0; // Sum of squared deviations from the mean
   for var Draw := 1 to Draws do
   begin
     var x: Float64 := Generator.Next;
