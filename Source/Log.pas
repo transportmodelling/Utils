@@ -42,6 +42,7 @@ Type
       StartTime: TDateTime;
       Console: Boolean;
       ConsoleWidth: Integer;
+      ThreadCount: Integer; // Thread count of the stop line; 0 leaves it out
       LogStream: TFileStream;
       LogWriter: TStreamWriter;
       InputFiles,OutputFiles: array of TFileInfo;
@@ -74,6 +75,7 @@ Type
     Procedure Log(const FileLabel,FileName: String); overload;
     Procedure LogFileContent(const FileName: String);
     Procedure SetLogFileInfo(LogInfo: Boolean);
+    Procedure LogNThreads(NThreads: Integer);
     Procedure InputFile(const FileLabel,FileName: String);
     Procedure OutputFile(const FileLabel,FileName: String);
     Procedure Flush;
@@ -294,8 +296,13 @@ begin
   // Log stop time
   var StopTime := Now;
   var RunTime := TRunTime.Create(StartTime,StopTime);
+  var StopLine := 'STOP ' + DateTimeToStr(StopTime) + ' (Run time: ' + RunTime.ToString;
   Log;
-  Log('STOP ' + DateTimeToStr(StopTime) + ' (Run time: ' + RunTime.ToString+ ')');
+  case ThreadCount of
+      0: Log(StopLine + ')');
+      1: Log(StopLine + '; 1 thread)');
+    else Log(StopLine + '; ' + ThreadCount.ToString + ' threads)');
+  end;
 end;
 
 Procedure TLogFile.Log(const Line: String = ''; const LineFeed: Boolean = true);
@@ -393,6 +400,15 @@ end;
 Procedure TLogFile.SetLogFileInfo(LogInfo: Boolean);
 begin
   LogFileInfo := LogInfo;
+end;
+
+Procedure TLogFile.LogNThreads(NThreads: Integer);
+// Adds the number of threads the session runs to the stop line
+begin
+  if NThreads > 0 then
+    ThreadCount := NThreads
+  else
+    raise Exception.Create('Invalid number of threads');
 end;
 
 Procedure TLogFile.InputFile(const FileLabel,FileName: String);
