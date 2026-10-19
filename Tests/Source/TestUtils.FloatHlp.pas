@@ -301,6 +301,17 @@ begin
     Result := FormatFloat('0.' + StringOfChar('0',Decimals),Value);
 end;
 
+Function Expected(const Value: Float64; Decimals: Byte; SkipTrailingZeroDecimals: Boolean): String;
+// The reference text, except that a value that rounds to zero is written like zero (FormatFloat writes
+// '0.000...' with either mask, and no sign)
+begin
+  Result := Reference(Value,Decimals,SkipTrailingZeroDecimals);
+  var RoundsToZero := true;
+  for var Chr in Result do
+  if (Chr <> '0') and (Chr <> '-') and (Chr <> FormatSettings.DecimalSeparator) then RoundsToZero := false;
+  if RoundsToZero then Result := Reference(0,Decimals,SkipTrailingZeroDecimals);
+end;
+
 Function Adjacent(const Value: Float64; const Steps: Integer): Float64;
 // The double Steps representable values further from zero (or closer to zero for negative Steps)
 begin
@@ -313,7 +324,7 @@ Procedure CheckSameAsReference(const Value: Float64);
 begin
   for var Decimals := 0 to 17 do
   for var SkipTrailingZeroDecimals := false to true do
-  Assert.AreEqual(Reference(Value,Decimals,SkipTrailingZeroDecimals),Value.ToString(Decimals,SkipTrailingZeroDecimals),
+  Assert.AreEqual(Expected(Value,Decimals,SkipTrailingZeroDecimals),Value.ToString(Decimals,SkipTrailingZeroDecimals),
                   'Value ' + FloatToStr(Value) + ' (' + Value.ToString('0.00000000000000000E+0') + '), ' +
                   Decimals.ToString + ' decimals, skip trailing zeros ' + BoolToStr(SkipTrailingZeroDecimals,true));
 end;
@@ -344,11 +355,15 @@ begin
   Assert.AreEqual('0.12346',V.ToString(5,true));
   V := 0.1234549999999996;
   Assert.AreEqual('0.12345',V.ToString(5,true));
-  // A nonzero value that rounds to zero gets all its zero decimals, even when trailing zeros are skipped
+  // A nonzero value that rounds to zero is written like zero, without a sign (FormatFloat gives '0.00000')
   V := 0.0000026;
-  Assert.AreEqual('0.00000',V.ToString(5,true));
+  Assert.AreEqual('0',V.ToString(5,true));
+  Assert.AreEqual('0.00000',V.ToString(5,false));
   V := -0.0000026;
-  Assert.AreEqual('0.00000',V.ToString(5,true));
+  Assert.AreEqual('0',V.ToString(5,true));
+  Assert.AreEqual('0.00000',V.ToString(5,false));
+  V := -0.4;
+  Assert.AreEqual('0',V.ToString(0,false));
 end;
 
 Procedure TFloat64HelperTests.TestToString_Decimals_SpecialValues;
@@ -481,9 +496,9 @@ begin
       Inc(HideDecimals);
       Threshold := 10*Threshold;
     end;
-    Assert.AreEqual(Reference(V,5-HideDecimals,true),V.ToString(5,false,true),'Value ' + FloatToStr(V));
-    Assert.AreEqual(Reference(V,5-HideDecimals,false),V.ToString(5,false,false),'Value ' + FloatToStr(V));
-    Assert.AreEqual(Reference(V,5,true),V.ToString(5,true,true),'Value ' + FloatToStr(V));
+    Assert.AreEqual(Expected(V,5-HideDecimals,true),V.ToString(5,false,true),'Value ' + FloatToStr(V));
+    Assert.AreEqual(Expected(V,5-HideDecimals,false),V.ToString(5,false,false),'Value ' + FloatToStr(V));
+    Assert.AreEqual(Expected(V,5,true),V.ToString(5,true,true),'Value ' + FloatToStr(V));
   end;
 end;
 

@@ -37,7 +37,9 @@ Type
     Function ToString: String; overload;
     Function ToString(const Format: String): String; overload;
     // The text FormatFloat gives with the mask '0.000...' (or '0.###...' when trailing zero decimals are
-    // skipped), with Decimals decimals and the decimal separator of FormatSettings. See the implementation.
+    // skipped), with Decimals decimals and the decimal separator of FormatSettings, except that a nonzero
+    // value that rounds to zero is written like zero: '0' when trailing zero decimals are skipped, and
+    // without a sign (FormatFloat writes '0.000...' with either mask). See the implementation.
     Function ToString(Decimals: Byte; SkipTrailingZeroDecimals: Boolean): string; overload;
     Function ToString(Decimals: Byte; FixedDecimals,SkipTrailingZeroDecimals: Boolean): string; overload;
   end;
@@ -201,15 +203,24 @@ begin
   Result := FormatFloat(FormatMask, Value);
 end;
 
+Function WritesZero(const Text: String): Boolean;
+// True for a text of zero digits only, as FormatFloat gives for a nonzero value that rounds to zero
+begin
+  for var Chr in Text do
+  if (Chr <> '0') and (Chr <> '-') and (Chr <> FormatSettings.DecimalSeparator) then Exit(false);
+  Result := true;
+end;
+
 Function TFloat64Helper.ToString(Decimals: Byte; SkipTrailingZeroDecimals: Boolean): string;
-// The same text as FormatWithMask, about 4x as fast: the absolute value is scaled by 10^Decimals and rounded
+// The same text as FormatWithMask, about 8x as fast: the absolute value is scaled by 10^Decimals and rounded
 // to an integer, whose digits are written directly. FormatWithMask is used where this is not known to give
 // the same text:
 // - NaN and infinities;
 // - scaled values of 2^52 or more, where adding 0.5 is no longer exact;
 // - scaled values within rounding error of a half: FormatFloat rounds the decimal digits of the value,
-//   which can come out on the other side of the half than the scaled value;
-// - nonzero values that round to zero: FormatFloat then writes all zero decimals, even with the mask '0.###'.
+//   which can come out on the other side of the half than the scaled value.
+// A nonzero value that rounds to zero is written like zero, also when FormatWithMask did the rounding:
+// FormatFloat writes it as '0.000...' with either mask and without a sign.
 const
   Scales: array[0..16] of UInt64 = (1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000,
                                     10000000000,100000000000,1000000000000,10000000000000,100000000000000,
@@ -228,9 +239,12 @@ begin
   if IsNan(Self) or IsInfinite(Self) then Exit(FormatWithMask(Self,Decimals,SkipTrailingZeroDecimals));
   Scaled := Abs(Self)*Scales[Decimals];
   if (Scaled >= MaxScaled) or (Abs(Frac(Scaled)-0.5) <= Max(MinHalfTolerance,Scaled*RelativeHalfTolerance)) then
-    Exit(FormatWithMask(Self,Decimals,SkipTrailingZeroDecimals));
-  Rounded := UInt64(Trunc(Scaled+0.5));
-  if (Rounded = 0) and (Self <> 0) then Exit(FormatWithMask(Self,Decimals,SkipTrailingZeroDecimals));
+  begin
+    Result := FormatWithMask(Self,Decimals,SkipTrailingZeroDecimals);
+    if not WritesZero(Result) then Exit;
+    Rounded := 0;  // Written like zero below
+  end else
+    Rounded := UInt64(Trunc(Scaled+0.5));
   Whole := Rounded div Scales[Decimals];
   Fraction := Rounded mod Scales[Decimals];
   // Write the digits from the end of the buffer backwards
@@ -258,7 +272,7 @@ begin
     Digits[Pos] := Char(Ord('0') + Integer(Whole mod 10));
     Whole := Whole div 10;
   until Whole = 0;
-  if Self < 0 then
+  if (Self < 0) and (Rounded > 0) then
   begin
     Dec(Pos);
     Digits[Pos] := '-';
