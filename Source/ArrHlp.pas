@@ -58,6 +58,7 @@ Type
     Function ToStrings: TArray<String>; overload;
     Function ToStrings(const Format: String): TArray<String>; overload;
     Procedure Initialize(Value: Float64);
+    Procedure Zeroize;
     Procedure Assign(const Values: array of Float64); overload;
     Procedure Assign(const Values: array of String); overload;
     Procedure Assign(const Values: String; const Separator: Char = ','); overload;
@@ -281,6 +282,12 @@ end;
 Procedure TFloat64ArrayHelper.Initialize(Value: Float64);
 begin
   for var Index := 0 to Length-1 do Self[Index] := Value;
+end;
+
+Procedure TFloat64ArrayHelper.Zeroize;
+// Sets all values to zero, with the block fill of the run time library
+begin
+  if Length > 0 then FillChar(Self[0],Length*SizeOf(Float64),0);
 end;
 
 Procedure TFloat64ArrayHelper.Assign(const Values: array of Float64);

@@ -55,6 +55,8 @@ Type
     [Test]
     Procedure TestFloatInitialize;
     [Test]
+    Procedure TestFloatZeroize;
+    [Test]
     Procedure TestFloatAssignFromArray;
     [Test]
     Procedure TestFloatAssignFromStrings;
@@ -309,6 +311,20 @@ begin
   Assert.AreEqual(0.5, Arr[0], 1e-12);
   Assert.AreEqual(0.5, Arr[1], 1e-12);
   Assert.AreEqual(0.5, Arr[2], 1e-12);
+end;
+
+Procedure TArrayHelperTests.TestFloatZeroize;
+Var
+  Arr,Empty: TArray<Float64>;
+begin
+  Arr := TArray<Float64>.Create([1.0, -2.5, 3.0e10]);
+  Arr.Zeroize;
+  Assert.AreEqual(3, Arr.Length);
+  Assert.AreEqual(0.0, Arr[0]);
+  Assert.AreEqual(0.0, Arr[1]);
+  Assert.AreEqual(0.0, Arr[2]);
+  Empty.Zeroize;
+  Assert.AreEqual(0, Empty.Length);
 end;
 
 Procedure TArrayHelperTests.TestFloatAssignFromArray;
