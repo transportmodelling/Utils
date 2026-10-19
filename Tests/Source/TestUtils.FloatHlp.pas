@@ -58,6 +58,15 @@ Type
     [Test] Procedure TestToString_Adaptive_SmallNumber;
     [Test] Procedure TestToString_Adaptive_LargeNumber;
     [Test] Procedure TestToString_Adaptive_FixedOverride;
+    // ToString(Decimals, SkipTrailingZeroDecimals) gives the text of FormatFloat with the masks it replaced
+    [Test] Procedure TestToString_Decimals_LiteralCases;
+    [Test] Procedure TestToString_Decimals_SpecialValues;
+    [Test] Procedure TestToString_Decimals_TinyValues;
+    [Test] Procedure TestToString_Decimals_Midpoints;
+    [Test] Procedure TestToString_Decimals_RandomValues;
+    [Test] Procedure TestToString_Decimals_LargeValues;
+    [Test] Procedure TestToString_Decimals_DecimalSeparator;
+    [Test] Procedure TestToString_Adaptive_RandomValues;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -276,6 +285,206 @@ begin
   var V: Float64 := 100.0;
   // FixedDecimals=true -> no adaptation, same as ToString(3, False)
   Assert.AreEqual('100.000', V.ToString(3, True, False));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+// ToString(Decimals, SkipTrailingZeroDecimals)
+////////////////////////////////////////////////////////////////////////////////
+
+Function Reference(const Value: Float64; Decimals: Byte; SkipTrailingZeroDecimals: Boolean): String;
+// The implementation that ToString(Decimals,SkipTrailingZeroDecimals) replaced
+begin
+  if Decimals > 16 then Decimals := 16;
+  if SkipTrailingZeroDecimals then
+    Result := FormatFloat('0.' + StringOfChar('#',Decimals),Value)
+  else
+    Result := FormatFloat('0.' + StringOfChar('0',Decimals),Value);
+end;
+
+Function Adjacent(const Value: Float64; const Steps: Integer): Float64;
+// The double Steps representable values further from zero (or closer to zero for negative Steps)
+begin
+  Result := Value;
+  PInt64(@Result)^ := PInt64(@Result)^ + Steps;
+end;
+
+Procedure CheckSameAsReference(const Value: Float64);
+// For every number of decimals, with and without trailing zero decimals
+begin
+  for var Decimals := 0 to 17 do
+  for var SkipTrailingZeroDecimals := false to true do
+  Assert.AreEqual(Reference(Value,Decimals,SkipTrailingZeroDecimals),Value.ToString(Decimals,SkipTrailingZeroDecimals),
+                  'Value ' + FloatToStr(Value) + ' (' + Value.ToString('0.00000000000000000E+0') + '), ' +
+                  Decimals.ToString + ' decimals, skip trailing zeros ' + BoolToStr(SkipTrailingZeroDecimals,true));
+end;
+
+Procedure TFloat64HelperTests.TestToString_Decimals_LiteralCases;
+// Texts verified against FormatFloat
+begin
+  var V: Float64 := 0;
+  Assert.AreEqual('0',V.ToString(3,true));
+  Assert.AreEqual('0.000',V.ToString(3,false));
+  V := -1.5;
+  Assert.AreEqual('-1.50',V.ToString(2,false));
+  Assert.AreEqual('-1.5',V.ToString(2,true));
+  V := 2.5;
+  Assert.AreEqual('2.5',V.ToString(5,true));
+  Assert.AreEqual('2.50000',V.ToString(5,false));
+  V := 1234567.891;
+  Assert.AreEqual('1234567.891',V.ToString(3,false));
+  Assert.AreEqual('1234567.9',V.ToString(1,true));
+  Assert.AreEqual('1234568',V.ToString(0,true));
+  // The decimal digits of the value are rounded half away from zero
+  V := 0.000125;
+  Assert.AreEqual('0.00013',V.ToString(5,true));
+  V := -0.000005;
+  Assert.AreEqual('-0.00001',V.ToString(5,true));
+  // The double of 0.123455 is just above the half and rounds up; a value just below it rounds down
+  V := 0.123455;
+  Assert.AreEqual('0.12346',V.ToString(5,true));
+  V := 0.1234549999999996;
+  Assert.AreEqual('0.12345',V.ToString(5,true));
+  // A nonzero value that rounds to zero gets all its zero decimals, even when trailing zeros are skipped
+  V := 0.0000026;
+  Assert.AreEqual('0.00000',V.ToString(5,true));
+  V := -0.0000026;
+  Assert.AreEqual('0.00000',V.ToString(5,true));
+end;
+
+Procedure TFloat64HelperTests.TestToString_Decimals_SpecialValues;
+begin
+  var Zero: Float64 := 0;
+  CheckSameAsReference(Zero);
+  CheckSameAsReference(-Zero);
+  CheckSameAsReference(NaN);
+  CheckSameAsReference(Infinity);
+  CheckSameAsReference(NegInfinity);
+  CheckSameAsReference(MaxDouble);
+  CheckSameAsReference(-MaxDouble);
+  CheckSameAsReference(MinDouble);
+  CheckSameAsReference(4.9E-324);  // Smallest subnormal
+  CheckSameAsReference(1);
+  CheckSameAsReference(-1);
+  CheckSameAsReference(0.5);
+  CheckSameAsReference(-0.5);
+  CheckSameAsReference(0.1);
+  CheckSameAsReference(0.3);
+  CheckSameAsReference(1/3);
+  CheckSameAsReference(2/3);
+  CheckSameAsReference(Pi);
+  CheckSameAsReference(-Exp(1));
+end;
+
+Procedure TFloat64HelperTests.TestToString_Decimals_TinyValues;
+// Values that round to zero at some or all numbers of decimals
+begin
+  for var Exponent := -1 downto -30 do
+  for var Mantissa in [1.0,2.6,4.9,5.0,5.1,9.9] do
+  begin
+    var V: Float64 := Mantissa*IntPower(10,Exponent);
+    CheckSameAsReference(V);
+    CheckSameAsReference(-V);
+    CheckSameAsReference(Adjacent(V,1));
+    CheckSameAsReference(Adjacent(V,-1));
+  end;
+end;
+
+Procedure TFloat64HelperTests.TestToString_Decimals_Midpoints;
+// Decimal halves at each number of decimals, and the doubles next to them
+begin
+  RandSeed := 20261019;
+  for var Decimals := 0 to 10 do
+  begin
+    var Scale: Float64 := IntPower(10,Decimals);
+    for var I := 1 to 2000 do
+    begin
+      var V: Float64 := (Random(10000000) + 0.5)/Scale;
+      CheckSameAsReference(V);
+      CheckSameAsReference(-V);
+      CheckSameAsReference(Adjacent(V,1));
+      CheckSameAsReference(Adjacent(V,-1));
+      CheckSameAsReference(Adjacent(-V,1));
+      CheckSameAsReference(Adjacent(-V,-1));
+    end;
+  end;
+end;
+
+Procedure TFloat64HelperTests.TestToString_Decimals_RandomValues;
+// Magnitudes from 1E-10 to 1E10, both signs, and values with a few decimals as they occur in model output
+begin
+  RandSeed := 20261019;
+  for var I := 1 to 20000 do
+  begin
+    var V: Float64 := (2*Random-1)*Power(10,20*Random-10);
+    CheckSameAsReference(V);
+  end;
+  for var Decimals := 0 to 8 do
+  begin
+    var Scale: Float64 := IntPower(10,Decimals);
+    for var I := 1 to 2000 do
+    CheckSameAsReference((Random(20000001)-10000000)/Scale);
+  end;
+end;
+
+Procedure TFloat64HelperTests.TestToString_Decimals_LargeValues;
+// Around and beyond 2^52, where the scaled value no longer has a fraction bit
+begin
+  var TwoPow52: Float64 := 4503599627370496.0;
+  for var Decimals := 0 to 17 do
+  begin
+    var Scale: Float64 := IntPower(10,Decimals);
+    for var Steps := -3 to 3 do
+    begin
+      CheckSameAsReference(Adjacent(TwoPow52/Scale,Steps));
+      CheckSameAsReference(Adjacent(-TwoPow52/Scale,Steps));
+      CheckSameAsReference(Adjacent(2*TwoPow52/Scale,Steps));
+    end;
+  end;
+  CheckSameAsReference(1E15);
+  CheckSameAsReference(1E16);
+  CheckSameAsReference(1E17);
+  CheckSameAsReference(123456789012345678.0);
+  CheckSameAsReference(1E300);
+  CheckSameAsReference(-1E300);
+end;
+
+Procedure TFloat64HelperTests.TestToString_Decimals_DecimalSeparator;
+// The decimal separator of FormatSettings is used, like FormatFloat does
+Var
+  Separator: Char;
+begin
+  Separator := FormatSettings.DecimalSeparator;
+  try
+    FormatSettings.DecimalSeparator := ',';
+    var V: Float64 := 1.5;
+    Assert.AreEqual('1,50',V.ToString(2,false));
+    Assert.AreEqual('1,5',V.ToString(2,true));
+    Assert.AreEqual('2',V.ToString(0,false));
+    RandSeed := 20261019;
+    for var I := 1 to 1000 do CheckSameAsReference((2*Random-1)*Power(10,12*Random-6));
+  finally
+    FormatSettings.DecimalSeparator := Separator;
+  end;
+end;
+
+Procedure TFloat64HelperTests.TestToString_Adaptive_RandomValues;
+// The adaptive overload hides one decimal per integer digit, and then formats like the fixed overload
+begin
+  RandSeed := 20261019;
+  for var I := 1 to 5000 do
+  begin
+    var V: Float64 := (2*Random-1)*Power(10,16*Random-8);
+    var HideDecimals := 0;
+    var Threshold: Float64 := 1;
+    while (Abs(V) >= Threshold) and (HideDecimals < 5) do
+    begin
+      Inc(HideDecimals);
+      Threshold := 10*Threshold;
+    end;
+    Assert.AreEqual(Reference(V,5-HideDecimals,true),V.ToString(5,false,true),'Value ' + FloatToStr(V));
+    Assert.AreEqual(Reference(V,5-HideDecimals,false),V.ToString(5,false,false),'Value ' + FloatToStr(V));
+    Assert.AreEqual(Reference(V,5,true),V.ToString(5,true,true),'Value ' + FloatToStr(V));
+  end;
 end;
 
 initialization
