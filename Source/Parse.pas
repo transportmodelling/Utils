@@ -60,6 +60,7 @@ Type
     Function GetInt(Token: Integer): Integer; overload; inline;
     Function GetInt64(Token: Integer): Int64; overload; inline;
     Function GetFloat(Token: Integer): Float64; overload; inline;
+    Function IsSeparator(const Character: WideChar): Boolean;
   public
     Class Operator Initialize(out Tokenizer: TStringParser);
   public
@@ -84,6 +85,13 @@ Type
     Procedure Clear;
     Procedure Assign(const Line: String); overload;
     Procedure Assign(const Line: String; Quote: Char); overload;
+    // Reads the next token of Line into Token, starting at Position (1 before the first call), with the
+    // separators and ExcludeEmpty setting of the parser; false when the line has no more tokens. The tokens
+    // are the ones Assign gives, but Assign splits the whole line into an array of strings, while ReadToken
+    // only scans up to the next separator and copies that one token. When the leading fields decide whether
+    // a line is needed at all, such as a year or a zone number, the lines that are not needed cost a short
+    // scan instead of a full split, which makes filtering a large file on those fields much cheaper.
+    Function ReadToken(const Line: String; var Position: Integer; out Token: TToken): Boolean;
     Procedure ReadLine(var TextFile: TextFile); overload;
     Procedure ReadLine(const TextReader: TTextReader); overload;
     Procedure ReadLine(const TextReader: TTextReader; Quote: Char); overload;
@@ -314,6 +322,15 @@ begin
   Result := FTokens[Token].ToDouble;
 end;
 
+Function TStringParser.IsSeparator(const Character: WideChar): Boolean;
+Var
+  Separator: NativeInt;
+begin
+  Result := false;
+  for Separator := 0 to High(FSeparators) do
+  if Character = FSeparators[Separator] then Result := true;
+end;
+
 Procedure TStringParser.SetSeparators(const Separators: array of Char);
 begin
   FTokens := nil;
@@ -447,6 +464,30 @@ Procedure TStringParser.Assign(const Line: String; Quote: Char);
 begin
   FTokens := Line.Split(FSeparators,Quote,Quote,SplitOptions);
   if Count > 0 then FToken := 0 else FToken := -1;
+end;
+
+Function TStringParser.ReadToken(const Line: String; var Position: Integer; out Token: TToken): Boolean;
+Var
+  Start: Integer;
+  Len: NativeInt;
+begin
+  Result := false;
+  // An empty line has no tokens, as with Split
+  Len := Length(Line);
+  if Len > 0 then
+  begin
+    if Position < 1 then Position := 1;
+    // The position after the last separator still holds a token, an empty one when the line ends there.
+    // With ExcludeEmpty, empty tokens are skipped.
+    while (not Result) and (Position <= Len+1) do
+    begin
+      Start := Position;
+      while (Position <= Len) and (not IsSeparator(Line[Position])) do Inc(Position);
+      Token.FValue := Copy(Line,Start,Position-Start);
+      Inc(Position);  // Skip the separator
+      Result := (Token.FValue <> '') or (SplitOptions = TStringSplitOptions.None);
+    end;
+  end;
 end;
 
 Procedure TStringParser.ReadLine(var TextFile: TextFile);

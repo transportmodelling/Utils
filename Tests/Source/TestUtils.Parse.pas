@@ -81,6 +81,11 @@ Type
     [Test] procedure TestExtractNotFound;
     // Clear
     [Test] procedure TestClear;
+    // ReadToken: the tokens of Assign, read one at a time
+    [Test] procedure TestReadTokenSameAsAssign;
+    [Test] procedure TestReadTokenEmptyLine;
+    [Test] procedure TestReadTokenPastEnd;
+    [Test] procedure TestReadTokenFirstFieldFilter;
     // Assign with quote
     [Test] procedure TestAssignWithQuote;
     // IndexOf
@@ -418,6 +423,82 @@ begin
   P.TrimTokens;
   Assert.AreEqual('hello', P.Str[0]);
   Assert.AreEqual('world', P.Str[1]);
+end;
+
+procedure TStringParserTests.TestReadTokenSameAsAssign;
+// For every delimiter preset, the sequence ReadToken gives equals the tokens of Assign,
+// including empty tokens where the preset keeps them and leading/trailing separators
+const
+  // '|' stands for the delimiter; Space also separates on tabs
+  Lines: array[0..11] of String = ('a|b|c','a||b','|a|','a|','|','||','a','|a','ab|cd|','1|2.5|x','a'#9'b',' a | b ');
+begin
+  for var Delimiter := Low(TDelimiter) to High(TDelimiter) do
+  for var Sample in Lines do
+  begin
+    var Line := Sample.Replace('|',Delimiter.Delimiter);
+    var P := TStringParser.Create(Delimiter,Line);
+    var Position := 1;
+    var Token: TToken;
+    var Context := Delimiter.ToString + ' [' + Line.Replace(#9,'\t') + ']';
+    for var Index := 0 to P.Count-1 do
+    begin
+      Assert.IsTrue(P.ReadToken(Line,Position,Token),Context + ' token ' + Index.ToString + ' missing');
+      Assert.AreEqual(P.Str[Index],Token.Value,Context + ' token ' + Index.ToString);
+    end;
+    Assert.IsFalse(P.ReadToken(Line,Position,Token),Context + ' has more tokens than Assign');
+  end;
+end;
+
+procedure TStringParserTests.TestReadTokenEmptyLine;
+begin
+  var P := TStringParser.Create(Comma);
+  var Position := 1;
+  var Token: TToken;
+  Assert.IsFalse(P.ReadToken('',Position,Token));
+  // Only empty tokens, excluded by the Space preset
+  P := TStringParser.Create(Space);
+  Position := 1;
+  Assert.IsFalse(P.ReadToken('   ',Position,Token));
+end;
+
+procedure TStringParserTests.TestReadTokenPastEnd;
+begin
+  var P := TStringParser.Create(Semicolon);
+  var Position := 1;
+  var Token: TToken;
+  Assert.IsTrue(P.ReadToken('a;b',Position,Token));
+  Assert.IsTrue(P.ReadToken('a;b',Position,Token));
+  Assert.AreEqual('b',Token.Value);
+  // Stays at the end
+  Assert.IsFalse(P.ReadToken('a;b',Position,Token));
+  Assert.IsFalse(P.ReadToken('a;b',Position,Token));
+  // A position before the start is taken as the start
+  Position := 0;
+  Assert.IsTrue(P.ReadToken('a;b',Position,Token));
+  Assert.AreEqual('a',Token.Value);
+end;
+
+procedure TStringParserTests.TestReadTokenFirstFieldFilter;
+// The intended use: decide on the first field, and split only the lines that are needed
+const
+  Lines: array[0..3] of String = ('2021;14;1;9.5','2022;15;2;1.25',' 2022;16;1;3','2023;17;2;4');
+begin
+  var P := TStringParser.Create(Semicolon);
+  var Selected := 0;
+  var Sum: Float64 := 0;
+  for var Line in Lines do
+  begin
+    var Position := 1;
+    var Token: TToken;
+    if P.ReadToken(Line,Position,Token) and (Token.ToInt = 2022) then
+    begin
+      P.Assign(Line);
+      Inc(Selected);
+      Sum := Sum + P.Float[3];
+    end;
+  end;
+  Assert.AreEqual(2,Selected);
+  Assert.AreEqual(4.25,Sum,1E-12);
 end;
 
 procedure TStringParserTests.TestExtractByIndex;
