@@ -46,6 +46,7 @@ Type
       LogStream: TFileStream;
       LogWriter: TStreamWriter;
       InputFiles,OutputFiles: array of TFileInfo;
+    Procedure SetConsoleWidth;
     Procedure OnAppend(Sender: TObject);
     Function  ShortenPath(const Path: string): string;
     Function  FileProperties(const FileName: string): string;
@@ -143,17 +144,11 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 Constructor TLogFile.Create(const OnLog: TLogEvent = nil);
-var
-  CBI: TConsoleScreenBufferInfo;
 begin
   SetLogFileInfo(true);
   LogEvent := OnLog;
   Console := IsConsole;
-  if Console then
-  begin
-    GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE),CBI);
-    ConsoleWidth := CBI.dwSize.X;
-  end;
+  if Console then SetConsoleWidth;
   Started := true;
   StartTime := Now;
   Log('START ' + DateTimeToStr(StartTime));
@@ -177,19 +172,12 @@ Constructor TLogFile.Create(const LogFileName: String;
                             const Append: Boolean = false;
                             const OnAppend: TNotifyEvent = nil;
                             const OnLog: TLogEvent = nil);
-var
-  CBI: TConsoleScreenBufferInfo;
 begin
   inherited Create;
   SetLogFileInfo(true);
   LogEvent := OnLog;
-  // Get console witdth
   Console := IsConsole and Echo;
-  if Console then
-  begin
-    GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE),CBI);
-    ConsoleWidth := CBI.dwSize.X;
-  end;
+  if Console then SetConsoleWidth;
   // Open file
   if FileExists(LogFileName) and Append then
   begin
@@ -210,6 +198,18 @@ begin
   Log('Executable: ' + FileInfo(ParamStr(0),true));
   Log('Computer: ' + GetEnvironmentVariable('COMPUTERNAME'));
  end;
+
+Procedure TLogFile.SetConsoleWidth;
+// Lines are cut at the width of the console screen buffer. Output that is
+// redirected to a file or pipe has no screen buffer, so its lines are written whole.
+var
+  CBI: TConsoleScreenBufferInfo;
+begin
+  if GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE),CBI) then
+    ConsoleWidth := CBI.dwSize.X
+  else
+    ConsoleWidth := MaxInt;
+end;
 
 Procedure TLogFile.OnAppend(Sender: TObject);
 begin
