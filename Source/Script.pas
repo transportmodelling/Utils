@@ -111,6 +111,8 @@ Type
     PendingCommand: String;
     PendingArguments: TKeyValuePairs;
     Function InterpretCommands(UnhandledCommand: Boolean): Boolean;
+    Function SkipCommands: Boolean;
+    Function ExecuteRun(UnhandledCommand: Boolean): Boolean;
   strict protected
     Property Initialized: Boolean read FInitialized;
     Property Parameters: TKeyValuePairs read FParameters;
@@ -130,6 +132,11 @@ Type
     // sections that raised an exception. Descendants can override this method to
     // destroy the objects holding the section state.
     Procedure FinalizeRun; virtual;
+    // HandleException is called for an exception raised while interpreting or
+    // executing a script section. The base class raises it again, which ends the
+    // execution of the script. Descendants that handle the exception instead
+    // continue with the next script section; the remaining commands of a section
+    // whose interpretation failed are skipped.
     Procedure HandleException(const E: Exception); virtual;
   public
     Constructor Create;
@@ -403,9 +410,6 @@ begin
 end;
 
 Procedure TScriptInterpreter.HandleException(const E: Exception);
-// Called for exceptions raised while interpreting or executing a script section.
-// The base class re-raises the exception; descendants can override this method
-// to log the exception and continue with the next script section.
 begin
   raise ExceptClass(E.ClassType).Create(E.Message);
 end;
@@ -461,6 +465,56 @@ begin
   Result := true;
 end;
 
+Function TScriptInterpreter.SkipCommands: Boolean;
+// Reads the remaining commands of a script section whose interpretation failed,
+// up to the init-command of the next section, which is saved as pending command.
+// The result indicates whether an init-command has been read. Reader errors
+// within the skipped commands are passed to HandleException.
+Var
+  Command: String;
+  Arguments: TKeyValuePairs;
+begin
+  Result := false;
+  var Reading := true;
+  while Reading do
+  try
+    Reading := ScriptReader.ReadCommand(Command,Arguments);
+    if Reading and SameText(Command,'init') then
+    begin
+      PendingCommand := Command;
+      PendingArguments := Arguments;
+      Result := true;
+      Reading := false;
+    end;
+  except
+    on E: Exception do HandleException(E);
+  end;
+end;
+
+Function TScriptInterpreter.ExecuteRun(UnhandledCommand: Boolean): Boolean;
+// Interprets and executes a script section. The result indicates whether the
+// init-command of the next section has been read.
+begin
+  Result := false;
+  var Interpreted := false;
+  try
+    try
+      InitializeRun;
+      Result := not InterpretCommands(UnhandledCommand);
+      Interpreted := true;
+      RunCompleted;
+    except
+      on E: Exception do
+      begin
+        HandleException(E);
+        if not Interpreted then Result := SkipCommands;
+      end;
+    end;
+  finally
+    FinalizeRun;
+  end;
+end;
+
 Procedure TScriptInterpreter.Execute(const ScriptFileName: String);
 Var
   ScriptParameters: TKeyValuePairs;
@@ -476,17 +530,7 @@ begin
   try
     var UnhandledCommand := false;
     repeat
-      try
-        try
-          InitializeRun;
-          UnhandledCommand := not InterpretCommands(UnhandledCommand);
-          RunCompleted;
-        except
-          on E: Exception do HandleException(E);
-        end;
-      finally
-        FinalizeRun;
-      end;
+      UnhandledCommand := ExecuteRun(UnhandledCommand);
     until not UnhandledCommand;
   finally
     FreeAndNil(ScriptReader);

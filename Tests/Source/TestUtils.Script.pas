@@ -29,10 +29,19 @@ Type
     Procedure RunCompleted; override;
   end;
 
+  TTolerantScriptInterpreter = Class(TTestScriptInterpreter)
+  // Records the messages of the exceptions instead of raising them
+  public
+    Errors: TArray<String>;
+  strict protected
+    Procedure HandleException(const E: Exception); override;
+  end;
+
   [TestFixture]
   TScriptTests = class
   private
     Interpreter: TTestScriptInterpreter;
+    TolerantInterpreter: TTolerantScriptInterpreter;
     ScriptFiles: TArray<String>;
     Function WriteScript(const Lines: array of String): String;
   public
@@ -45,6 +54,11 @@ Type
     [Test] Procedure Execute_InitAndCommands_ExecutesSingleRun;
     [Test] Procedure Execute_CommandBeforeInit_RaisesException;
     [Test] Procedure Execute_Reinit_ExecutesMultipleRuns;
+
+    // Errors
+    [Test] Procedure Execute_ErrorInFirstRun_ExecutesNextRun;
+    [Test] Procedure Execute_ErrorInMiddleRun_SkipsItsRemainingCommands;
+    [Test] Procedure Execute_ErrorInLastRun_EndsExecution;
 
     // Include
     [Test] Procedure Execute_Include_InsertsLines;
@@ -114,14 +128,23 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
+Procedure TTolerantScriptInterpreter.HandleException(const E: Exception);
+begin
+  Errors := Errors + [E.Message];
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
 Procedure TScriptTests.Setup;
 begin
   Interpreter := TTestScriptInterpreter.Create;
+  TolerantInterpreter := TTolerantScriptInterpreter.Create;
 end;
 
 Procedure TScriptTests.TearDown;
 begin
   Interpreter.Free;
+  TolerantInterpreter.Free;
   for var ScriptFile in ScriptFiles do TFile.Delete(ScriptFile);
   ScriptFiles := nil;
 end;
@@ -169,6 +192,37 @@ begin
   Assert.AreEqual(2,Integer(Length(Interpreter.Runs)));
   Assert.AreEqual('1',Interpreter.Runs[0]);
   Assert.AreEqual('2',Interpreter.Runs[1]);
+end;
+
+// Errors
+
+Procedure TScriptTests.Execute_ErrorInFirstRun_ExecutesNextRun;
+begin
+  var ScriptFile := WriteScript(['init value=A','unknown','set value=1','init value=B','set value=2']);
+  TolerantInterpreter.Execute(ScriptFile);
+  Assert.AreEqual('A,B',String.Join(',',TolerantInterpreter.InitValues));
+  Assert.AreEqual('2',String.Join('|',TolerantInterpreter.Runs));
+  Assert.AreEqual('Invalid command at line 2',String.Join('|',TolerantInterpreter.Errors));
+end;
+
+Procedure TScriptTests.Execute_ErrorInMiddleRun_SkipsItsRemainingCommands;
+begin
+  var ScriptFile := WriteScript(['init value=A','set value=1',
+                                 'init value=B','unknown','set value=2',
+                                 'init value=C','set value=3']);
+  TolerantInterpreter.Execute(ScriptFile);
+  Assert.AreEqual('A,B,C',String.Join(',',TolerantInterpreter.InitValues));
+  Assert.AreEqual('1|3',String.Join('|',TolerantInterpreter.Runs));
+  Assert.AreEqual('Invalid command at line 4',String.Join('|',TolerantInterpreter.Errors));
+end;
+
+Procedure TScriptTests.Execute_ErrorInLastRun_EndsExecution;
+begin
+  var ScriptFile := WriteScript(['init value=A','set value=1','init value=B','unknown','set value=2']);
+  TolerantInterpreter.Execute(ScriptFile);
+  Assert.AreEqual('A,B',String.Join(',',TolerantInterpreter.InitValues));
+  Assert.AreEqual('1',String.Join('|',TolerantInterpreter.Runs));
+  Assert.AreEqual('Invalid command at line 4',String.Join('|',TolerantInterpreter.Errors));
 end;
 
 // Include
