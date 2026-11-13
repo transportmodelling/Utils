@@ -98,7 +98,7 @@ Type
     [Test] Procedure TestRoundTripCurrencyField;
     [Test] Procedure TestRoundTripDateTimeField;
     [Test] Procedure TestRoundTripDateTimeFieldNull;
-    [Test] Procedure TestNullInABinaryNumberIsRefused;
+    [Test] Procedure TestRoundTripNullInBinaryFields;
   end;
 
   [TestFixture]
@@ -107,8 +107,10 @@ Type
     FTempFile: String;
     FMemoFields: TArray<TDBFField>;
     Procedure WriteDescriptor(const Writer: TBinaryWriter; const Name: String;
-                              const FieldType: Char; const FieldLength: Byte);
+                              const FieldType: Char; const FieldLength: Byte;
+                              const FieldFlags: Byte = 0);
     Procedure WriteDBase3FileWithMemoField;
+    Procedure WriteFoxProFileWithNullFlags;
   public
     [Setup]    Procedure Setup;
     [TearDown] Procedure TearDown;
@@ -117,6 +119,8 @@ Type
     [Test] Procedure TheRecordStartsWhereTheHeaderSays;
     [Test] Procedure TypeBInADBase3FileIsAMemoReference;
     [Test] Procedure AMemoFieldCannotBeWritten;
+    [Test] Procedure TheNullFlagsOfAFoxProFileAreRead;
+    [Test] Procedure EveryFieldOfAFoxProFileCanHoldNull;
   end;
 
   [TestFixture]
@@ -704,13 +708,40 @@ begin
   Assert.IsTrue(VarIsNull(V[0]), 'Null date and time should read back as Null');
 end;
 
-Procedure TDBFRoundTripTests.TestNullInABinaryNumberIsRefused;
-// A binary number has no value left over to say it holds none, so zero bytes
-// would read back as the number zero
+Procedure TDBFRoundTripTests.TestRoundTripNullInBinaryFields;
+// A binary number has no value left over to say it holds none, so its bit in
+// the null flags of the record says it. The record behind it keeps its values.
 begin
-  var V: TArray<Variant>;
-  Assert.WillRaiseAny(
-    procedure begin WriteAndRead([TDBFField.Create('DBL','O',8,0)], [Null], V) end);
+  var Fields: TArray<TDBFField> := [
+    TDBFField.Create('WHOLE','I',4,0),
+    TDBFField.Create('DBL','O',8,0),
+    TDBFField.Create('DBL2','B',8,0),
+    TDBFField.Create('AMOUNT','Y',8,0),
+    TDBFField.Create('MOMENT','T',8,0)];
+  var Moment := EncodeDate(2026,11,13);
+
+  var W := TDBFWriter.Create(FTempFile, Fields);
+  try
+    W.AppendRecord([Null, Null, Null, Null, Null]);
+    W.AppendRecord([Variant(7), Variant(2.5), Variant(0.5), Variant(1.25), Variant(Moment)]);
+  finally
+    W.Free;
+  end;
+
+  var R := TDBFReader.Create(FTempFile);
+  try
+    R.NextRecord;
+    for var Field := 0 to R.FieldCount-1 do
+    Assert.IsTrue(VarIsNull(R[Field]), R.FieldNames[Field] + ' should hold nothing');
+    R.NextRecord;
+    Assert.AreEqual(7,              Integer(R[0]));
+    Assert.AreEqual(2.5,            Double(R[1]), 0.0);
+    Assert.AreEqual(0.5,            Double(R[2]), 0.0);
+    Assert.AreEqual(1.25,           Double(R[3]), 0.0);
+    Assert.AreEqual(Double(Moment), Double(R[4]), 0.0);
+  finally
+    R.Free;
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -726,7 +757,8 @@ begin
 end;
 
 Procedure TDBFDialectTests.WriteDescriptor(const Writer: TBinaryWriter; const Name: String;
-                                           const FieldType: Char; const FieldLength: Byte);
+                                           const FieldType: Char; const FieldLength: Byte;
+                                           const FieldFlags: Byte = 0);
 begin
   var NameBytes := TEncoding.ASCII.GetBytes(Name);
   SetLength(NameBytes,11);
@@ -735,7 +767,38 @@ begin
   Writer.Write(Cardinal(0));  // Reserved
   Writer.Write(FieldLength);
   Writer.Write(Byte(0));      // Decimal count
-  for var Reserved := 1 to 14 do Writer.Write(Byte(0));
+  Writer.Write(FieldFlags);
+  for var Reserved := 1 to 13 do Writer.Write(Byte(0));
+end;
+
+Procedure TDBFDialectTests.WriteFoxProFileWithNullFlags;
+// A Visual FoxPro file whose text field can hold null, with the hidden
+// _NullFlags field behind it, and one record whose text field holds nothing
+// although its bytes say otherwise
+begin
+  var Stream := TFileStream.Create(FTempFile,fmCreate);
+  var Writer := TBinaryWriter.Create(Stream);
+  try
+    Writer.Write(Byte($30));             // Version: Visual FoxPro
+    Writer.Write(Byte(126));             // Last update
+    Writer.Write(Byte(1));
+    Writer.Write(Byte(1));
+    Writer.Write(Integer(1));            // Record count
+    Writer.Write(Word(3*32+1+263));      // Header size
+    Writer.Write(Word(1+5+1));           // Record size
+    for var Offset := 12 to 31 do Writer.Write(Byte(0));
+    WriteDescriptor(Writer,'TEXT','C',5,$02);        // The field can hold null
+    WriteDescriptor(Writer,'_NullFlags','0',1,$05);  // A system field, binary
+    Writer.Write(Byte(13));              // Header terminator
+    for var Backlink := 1 to 263 do Writer.Write(Byte(0));
+    Writer.Write(Byte(Ord(' ')));        // Undeleted record
+    Writer.Write(TEncoding.ASCII.GetBytes('Hello'));
+    Writer.Write(Byte(1));               // The bit of the text field is set
+    Writer.Write(Byte(26));
+  finally
+    Writer.Free;
+    Stream.Free;
+  end;
 end;
 
 Procedure TDBFDialectTests.WriteDBase3FileWithMemoField;
@@ -818,9 +881,12 @@ begin
   end;
   var FileBytes := TFile.ReadAllBytes(FTempFile);
   var HeaderSize: Integer := FileBytes[8] + 256*FileBytes[9];
-  // 32 bytes of table header, one field descriptor of 32, the header
-  // terminator and the backlink area of 263
-  Assert.AreEqual(328, HeaderSize);
+  // 32 bytes of table header, a field descriptor of 32 for the field and one
+  // for the hidden field holding the null bits, the header terminator and the
+  // backlink area of 263
+  Assert.AreEqual(360, HeaderSize);
+  // The record holds its deletion marker, the value and the null bits
+  Assert.AreEqual(10, Integer(FileBytes[10] + 256*FileBytes[11]));
   // The record starts with its deletion marker
   Assert.AreEqual(Integer(Ord(' ')), Integer(FileBytes[HeaderSize]));
   var Value: Double;
@@ -862,6 +928,54 @@ begin
       W.Free;
     end);
   if FileExists(FTempFile+'.copy') then DeleteFile(FTempFile+'.copy');
+end;
+
+Procedure TDBFDialectTests.EveryFieldOfAFoxProFileCanHoldNull;
+// A text field of a Visual FoxPro file gets a null bit of its own too, so a
+// tool reading the file sees a null value as one and not as empty text
+begin
+  var W := TDBFWriter.Create(FTempFile,[TDBFField.Create('TEXT','C',5,0),
+                                        TDBFField.Create('DBL','B',8,0)]);
+  try
+    W.AppendRecord([Null, Variant(2.5)]);
+  finally
+    W.Free;
+  end;
+  var FileBytes := TFile.ReadAllBytes(FTempFile);
+  // The flags byte of a descriptor, at offset 18, says what the field is: one
+  // that can hold null, or the hidden system field holding the null bits
+  Assert.AreEqual(2, Integer(FileBytes[32+18]), 'Flags of the text field');
+  Assert.AreEqual(2, Integer(FileBytes[64+18]), 'Flags of the double field');
+  Assert.AreEqual(5, Integer(FileBytes[96+18]), 'Flags of the hidden field');
+  // Behind the deletion marker and the two values, the bit of the text field
+  // is set and the bit of the double is not
+  var HeaderSize := FileBytes[8] + 256*FileBytes[9];
+  Assert.AreEqual(1, Integer(FileBytes[HeaderSize+1+5+8]));
+  var R := TDBFReader.Create(FTempFile);
+  try
+    Assert.AreEqual(2, R.FieldCount);
+    Assert.IsTrue(R.NextRecord,'Record should exist');
+    Assert.IsTrue(VarIsNull(R[0]),'The text field holds nothing');
+    Assert.AreEqual(2.5, Double(R[1]), 0.0);
+  finally
+    R.Free;
+  end;
+end;
+
+Procedure TDBFDialectTests.TheNullFlagsOfAFoxProFileAreRead;
+begin
+  WriteFoxProFileWithNullFlags;
+  var R := TDBFReader.Create(FTempFile);
+  try
+    // The hidden field holding the null bits is no field of the table
+    Assert.AreEqual(1, R.FieldCount);
+    Assert.AreEqual('TEXT', R.FieldNames[0]);
+    Assert.IsTrue(R.NextRecord,'Record should exist');
+    // The bytes of the value say Hello, but its null bit says it holds nothing
+    Assert.IsTrue(VarIsNull(R[0]),'The flagged value holds nothing');
+  finally
+    R.Free;
+  end;
 end;
 
 

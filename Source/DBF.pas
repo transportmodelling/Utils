@@ -32,8 +32,10 @@ Type
   //   Y      currency, binary (Visual FoxPro)
   //   T      date and time, binary (Visual FoxPro)
   // A file holding any binary field is written as a Visual FoxPro one. Of the
-  // two doubles, B is the one other tools are likeliest to read. A binary
-  // field other than T cannot hold a null value.
+  // two doubles, B is the one other tools are likeliest to read. Every type
+  // can hold a null value: in a Visual FoxPro file every field has a bit of
+  // its own in the hidden _NullFlags field to say so, and in a dBase III file
+  // a text value says so with the bytes of the value itself.
   TDBFField = record
   private
     FFieldName: String;
@@ -93,7 +95,13 @@ Type
     FileStream: TBufferedFileStream;
     FormatSettings: TFormatSettings;
     FDialect: TDBFDialect;
+    // The bit each field has in the null flags of a record, or -1 for none,
+    // the flags of the record at hand, and their length in bytes
+    NullFlagBits: TArray<Integer>;
+    NullFlags: TBytes;
+    NullFlagsLength: Integer;
     Function BinaryFieldValue(const Field: Integer): Boolean;
+    Function HasNullFlag(const Field: Integer): Boolean;
     Function GetFieldNames(Field: Integer): String;
     Function GetFieldTypes(Field: Integer): Char;
     Function GetFieldLength(Field: Integer): Byte;
@@ -127,6 +135,9 @@ Type
     FRecordIndex: Integer;
     FileReader: TBinaryReader;
     Version: Byte;
+    // The number of fields read before the hidden field holding the null
+    // flags, or -1 when the file has no such field
+    NullFlagsIndex: Integer;
     FHeaderCodePage: Integer;
     FEncoding: TEncoding;
     OwnsEncoding: Boolean;
@@ -138,6 +149,9 @@ Type
     Procedure ReadTableHeader;
     Procedure InitEncoding(const Encoding: TEncoding);
     Procedure ReadFieldDescriptors;
+    Function  NullFlagsField(const FieldType: Char; const FieldName: String): Boolean;
+    Procedure ReadNullFlags;
+    Procedure ApplyNullFlags;
     Procedure ReadBuffer(const Count: Integer; const Offset: Integer = 0);
     Function  DecodeBuffer(const Count: Integer): String;
     Procedure ReadFieldValue(const Field: Integer);
@@ -174,9 +188,12 @@ Type
   private
     FileWriter: TBinaryWriter;
     Function FieldsDialect: TDBFDialect;
+    Procedure AssignNullFlagBits;
     Function GetRecordSize(const Fields: array of TDBFField): Word;
     Procedure WriteTableHeader(const RecordSize: Word);
-    Procedure WriteFieldDescriptor(const Field: TDBFField; const Displacement: Word);
+    Procedure WriteFieldDescriptor(const FieldName: String; const FieldType: Char;
+                                   const FieldLength,DecimalCount,FieldFlags: Byte;
+                                   const Displacement: Word);
     Procedure WriteFieldValue(const Field: Integer);
     Procedure WriteNullField(const Field: Integer);
     Procedure WriteCharacterField(const Field: Integer);
@@ -206,6 +223,13 @@ implementation
 Const
   // The Julian day number of December 30 1899, which is the zero of a TDateTime
   JulianDayOffset = 2415019;
+  // The flags a Visual FoxPro field descriptor holds
+  SystemFieldFlag = $01;
+  NullableFieldFlag = $02;
+  BinaryFieldFlag = $04;
+  // The hidden field a Visual FoxPro file holds the null bits of a record in
+  NullFlagsFieldName = '_NullFlags';
+  NullFlagsFieldType = '0';
 
 Constructor TDBFField.Create(const FieldName: String; const FieldType: Char;
                              const FieldLength,DecimalCount: Byte;
@@ -407,6 +431,13 @@ begin
   end;
 end;
 
+Function TDBFFile.HasNullFlag(const Field: Integer): Boolean;
+// Whether the field has a bit of its own to say its value holds nothing
+begin
+  Result := (Field < Length(NullFlagBits)) and (NullFlagBits[Field] >= 0)
+            and (NullFlagBits[Field] div 8 < NullFlagsLength);
+end;
+
 Function TDBFFile.GetFieldLength(Field: Integer): Byte;
 begin
   Result := FFields[Field].FieldLength;
@@ -467,6 +498,7 @@ begin
   inherited Create;
   FRecordIndex := -1;
   FFileName := FileName;
+  NullFlagsIndex := -1;
   FileStream := TBufferedFileStream.Create(FileName,fmOpenRead or fmShareDenyWrite,4096);
   FileReader := nil;
   // Only reads bytes; the text is decoded in DecodeBuffer
@@ -593,24 +625,79 @@ Const
 begin
   // The first byte of a descriptor is the first of the field name
   var First := FileReader.ReadByte;
+  var NullBits := 0;
   while First <> HeaderTerminator do
   begin
-    if Length(FFields) <= FFieldCount then SetLength(FFields,FFieldCount+16);
+    if Length(FFields) <= FFieldCount then
+    begin
+      SetLength(FFields,FFieldCount+16);
+      SetLength(NullFlagBits,FFieldCount+16);
+    end;
     ReadBuffer(10,1);
     Buffer[0] := First;
     // The name ends at the first #0
     var NameLength := 0;
     while (NameLength < 11) and (Buffer[NameLength] <> 0) do Inc(NameLength);
-    FFields[FFieldCount].FFieldName := DecodeBuffer(NameLength);
-    FFields[FFieldCount].FFieldType := Char(FileReader.ReadByte);
+    var FieldName := DecodeBuffer(NameLength);
+    var FieldType := Char(FileReader.ReadByte);
     SkipBytes(4); // Reserved
-    FFields[FFieldCount].FFieldLength := FileReader.ReadByte;
-    FFields[FFieldCount].FDecimalCount := FileReader.ReadByte;
-    SkipBytes(14); // Reserved
-    Inc(FFieldCount);
+    var FieldLength := FileReader.ReadByte;
+    var DecimalCount := FileReader.ReadByte;
+    var FieldFlags := FileReader.ReadByte;
+    SkipBytes(13); // Reserved
+    if NullFlagsField(FieldType,FieldName) then
+    begin
+      // The hidden field is no field of the table: the values whose bit it
+      // sets are read as null instead
+      NullFlagsIndex := FFieldCount;
+      NullFlagsLength := FieldLength;
+      SetLength(NullFlags,NullFlagsLength);
+    end else
+    begin
+      FFields[FFieldCount].FFieldName := FieldName;
+      FFields[FFieldCount].FFieldType := FieldType;
+      FFields[FFieldCount].FFieldLength := FieldLength;
+      FFields[FFieldCount].FDecimalCount := DecimalCount;
+      // The fields that can hold null take the bits in the order they come
+      if FieldFlags and NullableFieldFlag <> 0 then
+      begin
+        NullFlagBits[FFieldCount] := NullBits;
+        Inc(NullBits);
+      end else
+        NullFlagBits[FFieldCount] := -1;
+      Inc(FFieldCount);
+    end;
     First := FileReader.ReadByte;
   end;
   SetLength(FFields,FFieldCount);
+  SetLength(NullFlagBits,FFieldCount);
+end;
+
+Function TDBFReader.NullFlagsField(const FieldType: Char; const FieldName: String): Boolean;
+// The hidden field a Visual FoxPro file holds the null bits of a record in
+begin
+  Result := (FDialect = dbVisualFoxPro) and (FieldType = NullFlagsFieldType)
+            and SameText(FieldName,NullFlagsFieldName);
+end;
+
+Procedure TDBFReader.ReadNullFlags;
+begin
+  if NullFlagsLength > 0 then
+  begin
+    ReadBuffer(NullFlagsLength);
+    Move(Buffer[0],NullFlags[0],NullFlagsLength);
+  end;
+end;
+
+Procedure TDBFReader.ApplyNullFlags;
+begin
+  for var Field := 0 to FFieldCount-1 do
+  if HasNullFlag(Field) then
+  begin
+    var Bit := NullFlagBits[Field];
+    if NullFlags[Bit div 8] and (1 shl (Bit mod 8)) <> 0 then
+      FFields[Field].FieldValue := Null;
+  end;
 end;
 
 Procedure TDBFReader.ReadBuffer(const Count: Integer; const Offset: Integer = 0);
@@ -759,7 +846,15 @@ begin
     Result := true;
     repeat
       DeletedRecord := (FileReader.ReadByte = Ord('*'));
-      for var Field := 0 to FFieldCount-1 do ReadFieldValue(Field);
+      for var Field := 0 to FFieldCount-1 do
+      begin
+        // The hidden field holding the null flags sits in the record where
+        // its descriptor says, which is behind the other fields as a rule
+        if Field = NullFlagsIndex then ReadNullFlags;
+        ReadFieldValue(Field);
+      end;
+      if NullFlagsIndex = FFieldCount then ReadNullFlags;
+      if NullFlagsIndex >= 0 then ApplyNullFlags;
     until not DeletedRecord;
     Inc(FRecordIndex);
   end else
@@ -799,6 +894,7 @@ begin
   FFieldCount := Length(Fields);
   FFields := TArrayBuilder<TDBFField>.Create(Fields);
   FDialect := FieldsDialect;
+  AssignNullFlagBits;
   RecordSize := GetRecordSize(Fields);
   FileStream := TBufferedFileStream.Create(FileName,fmCreate or fmShareDenyWrite,4096);
   FileWriter := TBinaryWriter.Create(FileStream,TEncoding.ANSI);
@@ -806,9 +902,17 @@ begin
   var Displacement: Word := 1; // The deletion marker comes before the fields
   for var Field := 0 to FFieldCount-1 do
   begin
-    WriteFieldDescriptor(FFields[Field],Displacement);
+    var FieldFlags: Byte := 0;
+    if HasNullFlag(Field) then FieldFlags := NullableFieldFlag;
+    WriteFieldDescriptor(FFields[Field].FFieldName,FFields[Field].FFieldType,
+                         FFields[Field].FFieldLength,FFields[Field].FDecimalCount,
+                         FieldFlags,Displacement);
     Inc(Displacement,FFields[Field].FFieldLength);
   end;
+  // The hidden field holding the null bits comes behind the fields themselves
+  if NullFlagsLength > 0 then
+  WriteFieldDescriptor(NullFlagsFieldName,NullFlagsFieldType,NullFlagsLength,0,
+                       SystemFieldFlag or BinaryFieldFlag,Displacement);
   FileWriter.Write(#13); // Header terminator
   // The backlink area of a Visual FoxPro file, which names the database
   // container the table belongs to; it belongs to none, so it stays empty
@@ -823,6 +927,25 @@ begin
   Result := dbDBase3;
   for var Field := 0 to FFieldCount-1 do
   if CharInSet(FFields[Field].FFieldType,['B','I','O','Y','T']) then Exit(dbVisualFoxPro);
+end;
+
+Procedure TDBFWriter.AssignNullFlagBits;
+// In a Visual FoxPro file every field gets a bit of its own in the hidden
+// _NullFlags field to say its value holds nothing, which is how such a file
+// tells, for a text value as much as for a binary one. A dBase III file has
+// no such field, and a text value says it there with its own bytes.
+begin
+  SetLength(NullFlagBits,FFieldCount);
+  if FDialect = dbVisualFoxPro then
+  begin
+    for var Field := 0 to FFieldCount-1 do NullFlagBits[Field] := Field;
+    NullFlagsLength := (FFieldCount+7) div 8;
+  end else
+  begin
+    for var Field := 0 to FFieldCount-1 do NullFlagBits[Field] := -1;
+    NullFlagsLength := 0;
+  end;
+  SetLength(NullFlags,NullFlagsLength);
 end;
 
 Constructor TDBFWriter.Create(const FileName: String; const DBFFile: TDBFFile);
@@ -840,6 +963,8 @@ begin
     Inc(Result,Fields[Field].FFieldLength);
   end else
     raise Exception.Create('Duplicate Field ' + Fields[field].FFieldName);
+  // The hidden field holding the null bits is part of the record too
+  Inc(Result,NullFlagsLength);
 end;
 
 Procedure TDBFWriter.WriteTableHeader(const RecordSize: Word);
@@ -861,26 +986,30 @@ begin
   // The table header, the field descriptors, the header terminator and, for a
   // Visual FoxPro file, the backlink area that follows them
   HeaderSize := (FFieldCount+1)*32 + 1;
+  if NullFlagsLength > 0 then Inc(HeaderSize,32);
   if FDialect = dbVisualFoxPro then Inc(HeaderSize,263);
   FileWriter.Write(HeaderSize);
   FileWriter.Write(RecordSize);
   for var Skip := 1 to 20 do FileWriter.Write(#0);
 end;
 
-Procedure TDBFWriter.WriteFieldDescriptor(const Field: TDBFField; const Displacement: Word);
+Procedure TDBFWriter.WriteFieldDescriptor(const FieldName: String; const FieldType: Char;
+                                          const FieldLength,DecimalCount,FieldFlags: Byte;
+                                          const Displacement: Word);
 begin
-  var Name := Field.FFieldName;
+  var Name := FieldName;
   while Length(Name) < 11 do Name := Name + #0;
   FileWriter.Write(Name.ToCharArray);
-  FileWriter.Write(Field.FFieldType);
+  FileWriter.Write(FieldType);
   if FDialect = dbVisualFoxPro then
     // Where the field starts in the record, which Visual FoxPro reads here
     FileWriter.Write(Cardinal(Displacement))
   else
     for var Skip := 1 to 4 do FileWriter.Write(#0); // Reserved
-  FileWriter.Write(Field.FFieldLength);
-  FileWriter.Write(Field.FDecimalCount);
-  for var Skip := 1 to 14 do FileWriter.Write(#0); // Reserved
+  FileWriter.Write(FieldLength);
+  FileWriter.Write(DecimalCount);
+  FileWriter.Write(FieldFlags);
+  for var Skip := 1 to 13 do FileWriter.Write(#0); // Reserved
 end;
 
 Procedure TDBFWriter.WriteFieldValue(const Field: Integer);
@@ -907,14 +1036,14 @@ end;
 
 Procedure TDBFWriter.WriteNullField(const Field: Integer);
 begin
-  // A text field holding nothing but zero bytes reads back as null, and so
-  // does a date and time field holding two zero integers. A binary number has
-  // no value left over to say it holds none, so zero bytes would read back as
-  // the number zero: refuse the value instead of writing a wrong one.
-  if BinaryFieldValue(Field) and (FFields[Field].FFieldType <> 'T') then
-    raise Exception.Create('A field of type ' + FFields[Field].FFieldType +
-                           ' cannot hold a null value (field=' +
-                           FFields[Field].FFieldName + ')');
+  // The bit of the field in the null flags of the record says its value holds
+  // nothing, in a file that has them. A text field reads back as null anyway
+  // when it holds nothing but zero bytes, which is what is written here.
+  if HasNullFlag(Field) then
+  begin
+    var Bit := NullFlagBits[Field];
+    NullFlags[Bit div 8] := Byte(NullFlags[Bit div 8] or (1 shl (Bit mod 8)));
+  end;
   for var Chr := 1 to FFields[Field].FieldLength do FileWriter.Write(#0);
 end;
 
@@ -1025,11 +1154,15 @@ end;
 Procedure TDBFWriter.AppendRecord;
 begin
   FileWriter.Write(' '); // Undeleted record
+  if NullFlagsLength > 0 then FillChar(NullFlags[0],NullFlagsLength,0);
   for var Field := 0 to FFieldCount-1 do
   begin
     WriteFieldValue(Field);
     FFields[Field].FieldValue := Null;
   end;
+  // The null bits of the values just written come behind them, where the
+  // descriptor of the hidden field says they are
+  if NullFlagsLength > 0 then FileWriter.Write(NullFlags);
   Inc(FRecordCount);
 end;
 
