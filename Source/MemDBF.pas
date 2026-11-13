@@ -72,7 +72,21 @@ begin
              if Field.DecimalCount = 0 then
                FTable.FieldDefs.Add(Field.FieldName,ftInteger)
              else
+               FTable.FieldDefs.Add(Field.FieldName,ftFloat);
+        'I': FTable.FieldDefs.Add(Field.FieldName,ftInteger);
+        'O': FTable.FieldDefs.Add(Field.FieldName,ftFloat);
+        'Y': FTable.FieldDefs.Add(Field.FieldName,ftCurrency);
+        'T': FTable.FieldDefs.Add(Field.FieldName,ftDateTime);
+        // Type B is a double in Visual FoxPro, but a memo block reference,
+        // which the reader does not read, in dBase III and IV
+        'B': if DBFReader.Dialect = dbVisualFoxPro then
                FTable.FieldDefs.Add(Field.FieldName,ftFloat)
+             else
+               raise Exception.Create('Unsupported field type B (field=' + Field.FieldName + ')');
+        // Every field needs a definition, because the values are read into
+        // the table by their position
+        else raise Exception.Create('Unsupported field type ' + Field.FieldType +
+                                    ' (field=' + Field.FieldName + ')');
       end;
       FTable.CreateDataSet;
       // Read data

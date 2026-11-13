@@ -235,7 +235,7 @@ Provides `TKeyValuePairsHelper`  --  a record helper for `TKeyValuePairs` (an al
 ```
 
 ## MemDBF.pas
-Provides `TMemDBF`  --  loads a `.dbf` file into a `TFDMemTable` for in-memory editing using the full FireDAC dataset API, then writes it back out via `DBF.pas`. Requires FireDAC.
+Provides `TMemDBF`  --  loads a `.dbf` file into a `TFDMemTable` for in-memory editing using the full FireDAC dataset API, then writes it back out via `DBF.pas`. Requires FireDAC. Every field of the file needs a column in the table, because the values are read in by position, so a field of a type that has no counterpart, such as a memo field, raises an exception instead of being left out.
 
 Two constructors:
 - `Create(FileName)`  --  creates and owns an internal `TFDMemTable`.
