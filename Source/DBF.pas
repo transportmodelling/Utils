@@ -15,6 +15,25 @@ Uses
   Classes, SysUtils, Math, Variants, Generics.Collections, ArrBld;
 
 Type
+  // The dialect a file is written in. It decides the version byte in the
+  // header, and the meaning of the field types whose letter differs in
+  // meaning between dialects.
+  TDBFDialect = (dbDBase3,dbDBase4,dbVisualFoxPro);
+
+  // The field types this unit handles:
+  //   C      text
+  //   D      date, as 8 characters
+  //   L      logical, as 1 character
+  //   F,N    number, as characters
+  //   I      32-bit integer, binary
+  //   O      double, binary (dBase 7)
+  //   B      double, binary (Visual FoxPro); a memo block reference, which
+  //          this unit does not read, in dBase III and IV
+  //   Y      currency, binary (Visual FoxPro)
+  //   T      date and time, binary (Visual FoxPro)
+  // A file holding any binary field is written as a Visual FoxPro one. Of the
+  // two doubles, B is the one other tools are likeliest to read. A binary
+  // field other than T cannot hold a null value.
   TDBFField = record
   private
     FFieldName: String;
@@ -73,6 +92,8 @@ Type
     FFields: TArray<TDBFField>;
     FileStream: TBufferedFileStream;
     FormatSettings: TFormatSettings;
+    FDialect: TDBFDialect;
+    Function BinaryFieldValue(const Field: Integer): Boolean;
     Function GetFieldNames(Field: Integer): String;
     Function GetFieldTypes(Field: Integer): Char;
     Function GetFieldLength(Field: Integer): Byte;
@@ -88,6 +109,9 @@ Type
     Function GetPairs: TArray<TPair<String,Variant>>; overload;
   public
     Property FileName: String read FFileName;
+    // The dialect of the file: the one its version byte declares when reading,
+    // and the one its field types ask for when writing
+    Property Dialect: TDBFDialect read FDialect;
     Property FieldCount: Integer read FFieldCount;
     Property RecordCount: Integer read FRecordCount;
     Property FieldNames[Field: Integer]: String read GetFieldNames;
@@ -110,12 +134,16 @@ Type
     Function LanguageDriverCodePage(const LanguageDriver: Byte): Integer;
     Function UTF8Length(const Bytes: TBytes; const Count: Integer; out DecodeCount: Integer): Boolean;
     Procedure SkipBytes(const Count: Integer);
+    Function VersionDialect(const Version: Byte): TDBFDialect;
     Procedure ReadTableHeader;
     Procedure InitEncoding(const Encoding: TEncoding);
     Procedure ReadFieldDescriptors;
     Procedure ReadBuffer(const Count: Integer; const Offset: Integer = 0);
     Function  DecodeBuffer(const Count: Integer): String;
     Procedure ReadFieldValue(const Field: Integer);
+    Function  ReadBinaryFieldValue(const Field: Integer): Variant;
+    Function  ReadCurrencyFieldValue: Variant;
+    Function  ReadDateTimeFieldValue: Variant;
     Function  ReadTextFieldValue(const Field: Integer; out Asterisks,Nullify: Boolean): String;
     Function  ParseTextFieldValue(const Field: Integer; const FieldValue: String; const Asterisks,Nullify: Boolean): Variant;
     Function  ParseDateFieldValue(const FieldValue: String): Variant;
@@ -145,9 +173,10 @@ Type
   TDBFWriter = Class(TDBFFile)
   private
     FileWriter: TBinaryWriter;
+    Function FieldsDialect: TDBFDialect;
     Function GetRecordSize(const Fields: array of TDBFField): Word;
     Procedure WriteTableHeader(const RecordSize: Word);
-    Procedure WriteFieldDescriptor(const Field: TDBFField);
+    Procedure WriteFieldDescriptor(const Field: TDBFField; const Displacement: Word);
     Procedure WriteFieldValue(const Field: Integer);
     Procedure WriteNullField(const Field: Integer);
     Procedure WriteCharacterField(const Field: Integer);
@@ -156,6 +185,8 @@ Type
     Procedure WriteNumericField(const Field: Integer);
     Procedure WriteIntegerField(const Field: Integer);
     Procedure WriteDoubleField(const Field: Integer);
+    Procedure WriteCurrencyField(const Field: Integer);
+    Procedure WriteDateTimeField(const Field: Integer);
     Function NormalizeNumericText(const Field: Integer; const Value: Float64): String;
     Procedure SetFieldValues(Field: Integer; Value: Variant);
   public
@@ -171,6 +202,10 @@ Type
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
+
+Const
+  // The Julian day number of December 30 1899, which is the zero of a TDateTime
+  JulianDayOffset = 2415019;
 
 Constructor TDBFField.Create(const FieldName: String; const FieldType: Char;
                              const FieldLength,DecimalCount: Byte;
@@ -202,7 +237,7 @@ begin
     'L': ValidateExactFieldLength(Value,1);
     'F','N': ValidateNumericFieldLength(Value);
     'I': ValidateExactFieldLength(Value,4);
-    'O': ValidateExactFieldLength(Value,8);
+    'B','O','Y','T': ValidateExactFieldLength(Value,8);
   end;
 end;
 
@@ -228,7 +263,7 @@ begin
     FDecimalCount := 0;
     case Value of
       'C','F','N': FFieldLength := 10;
-      'D','O': FFieldLength := 8;
+      'D','B','O','Y','T': FFieldLength := 8;
       'L': FFieldLength := 1;
       'I': FFieldLength := 4;
       else raise Exception.Create('Unsupported Field Type ' + Value);
@@ -265,6 +300,13 @@ end;
 Procedure TDBFField.Validate;
 begin
   if (FFieldName = '') or (FFieldType = #0) then raise Exception.Create('Uninitialized DBF Field');
+  // A field read from a file carries the length the file gave it, which for a
+  // binary type tells a double apart from a type of the same letter and
+  // another meaning, such as a memo block reference in a dBase III or IV file
+  case FFieldType of
+    'I': ValidateExactFieldLength(FFieldLength,4);
+    'B','O','Y','T': ValidateExactFieldLength(FFieldLength,8);
+  end;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -353,6 +395,18 @@ begin
   Result := FFields[Field].FFieldType;
 end;
 
+Function TDBFFile.BinaryFieldValue(const Field: Integer): Boolean;
+// Whether the field holds its value as a binary number instead of as text.
+// Type B is a double in Visual FoxPro, but a memo block reference in dBase
+// III and IV, so what it is depends on the dialect.
+begin
+  case FFields[Field].FFieldType of
+    'I','O','Y','T': Result := true;
+    'B': Result := (FDialect = dbVisualFoxPro);
+    else Result := false;
+  end;
+end;
+
 Function TDBFFile.GetFieldLength(Field: Integer): Byte;
 begin
   Result := FFields[Field].FieldLength;
@@ -420,7 +474,8 @@ begin
   ReadTableHeader;
   InitEncoding(Encoding);
   ReadFieldDescriptors;
-  if Version in [48,49,50] then SkipBytes(263); // Read Visual FoxPro header;
+  // The backlink area a Visual FoxPro file has after the field descriptors
+  if FDialect = dbVisualFoxPro then SkipBytes(263);
 end;
 
 Function TDBFReader.LanguageDriverCodePage(const LanguageDriver: Byte): Integer;
@@ -503,10 +558,22 @@ begin
   for var i := 1 to Count do FileReader.ReadByte;
 end;
 
+Function TDBFReader.VersionDialect(const Version: Byte): TDBFDialect;
+// The dialect the version byte in the header declares. Anything not listed is
+// taken for dBase III, in which the ambiguous field types are the older ones.
+begin
+  case Version of
+    $30,$31,$32: Result := dbVisualFoxPro;
+    $43,$63,$8B,$8C,$BB,$CB: Result := dbDBase4;
+    else Result := dbDBase3;
+  end;
+end;
+
 Procedure TDBFReader.ReadTableHeader;
 begin
   Version := FileReader.ReadByte;
   if Version = 4 then raise Exception.Create('dBase level 7 files not supported');
+  FDialect := VersionDialect(Version);
   SkipBytes(3); // Last update date
   FRecordCount := FileReader.ReadInteger;
   SkipBytes(2); // Position of first data record
@@ -571,17 +638,48 @@ Var
   Asterisks,Nullify: Boolean;
 begin
   try
-    case FFields[Field].FFieldType of
-      'I': FFields[Field].FieldValue := FileReader.ReadInt32;
-      'O': FFields[Field].FieldValue := FileReader.ReadDouble;
-      else
-        begin
-          var FieldValue := ReadTextFieldValue(Field,Asterisks,Nullify);
-          FFields[Field].FieldValue := ParseTextFieldValue(Field,FieldValue,Asterisks,Nullify);
-        end;
+    if BinaryFieldValue(Field) then
+      FFields[Field].FieldValue := ReadBinaryFieldValue(Field)
+    else
+    begin
+      var FieldValue := ReadTextFieldValue(Field,Asterisks,Nullify);
+      FFields[Field].FieldValue := ParseTextFieldValue(Field,FieldValue,Asterisks,Nullify);
     end;
   except
     raise Exception.Create('Error reading dbf-field ' + FFields[Field].FieldName);
+  end;
+end;
+
+Function TDBFReader.ReadBinaryFieldValue(const Field: Integer): Variant;
+begin
+  case FFields[Field].FFieldType of
+    'I': Result := FileReader.ReadInt32;
+    'B','O': Result := FileReader.ReadDouble;
+    'Y': Result := ReadCurrencyFieldValue;
+    'T': Result := ReadDateTimeFieldValue;
+    else raise Exception.Create('Unsupported field type');
+  end;
+end;
+
+Function TDBFReader.ReadCurrencyFieldValue: Variant;
+// A currency value is a 64-bit integer counting ten-thousandths, which is how
+// a Currency holds its value too
+begin
+  var Value: Currency;
+  PInt64(@Value)^ := FileReader.ReadInt64;
+  Result := Value;
+end;
+
+Function TDBFReader.ReadDateTimeFieldValue: Variant;
+// A date and time value is the Julian day number followed by the number of
+// milliseconds since midnight, each a 32-bit integer. Both zero is no value.
+begin
+  var Days := FileReader.ReadInt32;
+  var MSecs := FileReader.ReadInt32;
+  if (Days = 0) and (MSecs = 0) then Result := Null else
+  begin
+    var Value: TDateTime := (Days-JulianDayOffset) + MSecs/MSecsPerDay;
+    Result := Value;
   end;
 end;
 
@@ -700,12 +798,31 @@ begin
   Completed := false;
   FFieldCount := Length(Fields);
   FFields := TArrayBuilder<TDBFField>.Create(Fields);
+  FDialect := FieldsDialect;
   RecordSize := GetRecordSize(Fields);
   FileStream := TBufferedFileStream.Create(FileName,fmCreate or fmShareDenyWrite,4096);
   FileWriter := TBinaryWriter.Create(FileStream,TEncoding.ANSI);
   WriteTableHeader(RecordSize);
-  for var Field := 0 to FFieldCount-1 do WriteFieldDescriptor(FFields[Field]);
+  var Displacement: Word := 1; // The deletion marker comes before the fields
+  for var Field := 0 to FFieldCount-1 do
+  begin
+    WriteFieldDescriptor(FFields[Field],Displacement);
+    Inc(Displacement,FFields[Field].FFieldLength);
+  end;
   FileWriter.Write(#13); // Header terminator
+  // The backlink area of a Visual FoxPro file, which names the database
+  // container the table belongs to; it belongs to none, so it stays empty
+  if FDialect = dbVisualFoxPro then
+  for var Skip := 1 to 263 do FileWriter.Write(#0);
+end;
+
+Function TDBFWriter.FieldsDialect: TDBFDialect;
+// A binary field type is a Visual FoxPro one, and the header must say so for
+// other tools to read the file as one
+begin
+  Result := dbDBase3;
+  for var Field := 0 to FFieldCount-1 do
+  if CharInSet(FFields[Field].FFieldType,['B','I','O','Y','T']) then Exit(dbVisualFoxPro);
 end;
 
 Constructor TDBFWriter.Create(const FileName: String; const DBFFile: TDBFFile);
@@ -731,7 +848,8 @@ Var
   HeaderSize: Word;
   Year,Month,Day: Word;
 begin
-  FileWriter.Write(#3); // Version
+  if FDialect = dbVisualFoxPro then B := $30 else B := $03;
+  FileWriter.Write(B); // Version
   DecodeDate(Now,Year,Month,Day);
   B := Year-1900; // Year
   FileWriter.Write(B);
@@ -740,19 +858,26 @@ begin
   B := Day; // Day
   FileWriter.Write(B);
   FileWriter.Write(RecordCount);
+  // The table header, the field descriptors, the header terminator and, for a
+  // Visual FoxPro file, the backlink area that follows them
   HeaderSize := (FFieldCount+1)*32 + 1;
+  if FDialect = dbVisualFoxPro then Inc(HeaderSize,263);
   FileWriter.Write(HeaderSize);
   FileWriter.Write(RecordSize);
   for var Skip := 1 to 20 do FileWriter.Write(#0);
 end;
 
-Procedure TDBFWriter.WriteFieldDescriptor(const Field: TDBFField);
+Procedure TDBFWriter.WriteFieldDescriptor(const Field: TDBFField; const Displacement: Word);
 begin
   var Name := Field.FFieldName;
   while Length(Name) < 11 do Name := Name + #0;
   FileWriter.Write(Name.ToCharArray);
   FileWriter.Write(Field.FFieldType);
-  for var Skip := 1 to 4 do FileWriter.Write(#0); // Reserved
+  if FDialect = dbVisualFoxPro then
+    // Where the field starts in the record, which Visual FoxPro reads here
+    FileWriter.Write(Cardinal(Displacement))
+  else
+    for var Skip := 1 to 4 do FileWriter.Write(#0); // Reserved
   FileWriter.Write(Field.FFieldLength);
   FileWriter.Write(Field.FDecimalCount);
   for var Skip := 1 to 14 do FileWriter.Write(#0); // Reserved
@@ -768,7 +893,9 @@ begin
       'L': WriteLogicalField(Field);
       'F','N': WriteNumericField(Field);
       'I': WriteIntegerField(Field);
-      'O': WriteDoubleField(Field);
+      'B','O': WriteDoubleField(Field);
+      'Y': WriteCurrencyField(Field);
+      'T': WriteDateTimeField(Field);
       else raise Exception.Create('Unsupported field type');
     end;
   except
@@ -780,6 +907,14 @@ end;
 
 Procedure TDBFWriter.WriteNullField(const Field: Integer);
 begin
+  // A text field holding nothing but zero bytes reads back as null, and so
+  // does a date and time field holding two zero integers. A binary number has
+  // no value left over to say it holds none, so zero bytes would read back as
+  // the number zero: refuse the value instead of writing a wrong one.
+  if BinaryFieldValue(Field) and (FFields[Field].FFieldType <> 'T') then
+    raise Exception.Create('A field of type ' + FFields[Field].FFieldType +
+                           ' cannot hold a null value (field=' +
+                           FFields[Field].FFieldName + ')');
   for var Chr := 1 to FFields[Field].FieldLength do FileWriter.Write(#0);
 end;
 
@@ -838,6 +973,26 @@ Procedure TDBFWriter.WriteDoubleField(const Field: Integer);
 begin
   var Value: Float64 := FFields[Field].FieldValue;
   FileWriter.Write(Value);
+end;
+
+Procedure TDBFWriter.WriteCurrencyField(const Field: Integer);
+begin
+  var Value: Currency := FFields[Field].FieldValue;
+  FileWriter.Write(PInt64(@Value)^);
+end;
+
+Procedure TDBFWriter.WriteDateTimeField(const Field: Integer);
+begin
+  var Value: TDateTime := FFields[Field].FieldValue;
+  var Days: Integer := Floor(Value);
+  var MSecs: Integer := Round((Value-Days)*MSecsPerDay);
+  if MSecs = MSecsPerDay then
+  begin
+    Inc(Days);
+    MSecs := 0;
+  end;
+  FileWriter.Write(Days+JulianDayOffset);
+  FileWriter.Write(MSecs);
 end;
 
 Function TDBFWriter.NormalizeNumericText(const Field: Integer; const Value: Float64): String;

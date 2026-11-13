@@ -91,6 +91,32 @@ Type
     [Test] Procedure TestRoundTripLogicalField;
     [Test] Procedure TestRoundTripNullField;
     [Test] Procedure TestRoundTripMultipleRecords;
+    // Round-trip per binary field type
+    [Test] Procedure TestRoundTripIntegerField;
+    [Test] Procedure TestRoundTripDoubleFieldTypeO;
+    [Test] Procedure TestRoundTripDoubleFieldTypeB;
+    [Test] Procedure TestRoundTripCurrencyField;
+    [Test] Procedure TestRoundTripDateTimeField;
+    [Test] Procedure TestRoundTripDateTimeFieldNull;
+    [Test] Procedure TestNullInABinaryNumberIsRefused;
+  end;
+
+  [TestFixture]
+  TDBFDialectTests = class
+  private
+    FTempFile: String;
+    FMemoFields: TArray<TDBFField>;
+    Procedure WriteDescriptor(const Writer: TBinaryWriter; const Name: String;
+                              const FieldType: Char; const FieldLength: Byte);
+    Procedure WriteDBase3FileWithMemoField;
+  public
+    [Setup]    Procedure Setup;
+    [TearDown] Procedure TearDown;
+    [Test] Procedure TextFieldsOnlyWriteADBase3Header;
+    [Test] Procedure ABinaryFieldWritesAVisualFoxProHeader;
+    [Test] Procedure TheRecordStartsWhereTheHeaderSays;
+    [Test] Procedure TypeBInADBase3FileIsAMemoReference;
+    [Test] Procedure AMemoFieldCannotBeWritten;
   end;
 
   [TestFixture]
@@ -628,6 +654,216 @@ begin
     R.Free;
   end;
 end;
+
+Procedure TDBFRoundTripTests.TestRoundTripIntegerField;
+begin
+  var V: TArray<Variant>;
+  WriteAndRead([TDBFField.Create('WHOLE','I',4,0)], [Variant(-2147483647)], V);
+  Assert.AreEqual(-2147483647, Integer(V[0]));
+end;
+
+Procedure TDBFRoundTripTests.TestRoundTripDoubleFieldTypeO;
+// A binary double keeps every digit of the value, where a numeric field holds
+// only the decimals it has room for
+begin
+  var V: TArray<Variant>;
+  WriteAndRead([TDBFField.Create('DBL','O',8,0)], [Variant(1/3)], V);
+  Assert.AreEqual(1/3, Double(V[0]), 0.0);
+end;
+
+Procedure TDBFRoundTripTests.TestRoundTripDoubleFieldTypeB;
+begin
+  var V: TArray<Variant>;
+  WriteAndRead([TDBFField.Create('DBL','B',8,0)], [Variant(-1234567.891234567)], V);
+  Assert.AreEqual(-1234567.891234567, Double(V[0]), 0.0);
+end;
+
+Procedure TDBFRoundTripTests.TestRoundTripCurrencyField;
+begin
+  var V: TArray<Variant>;
+  var Amount: Currency := 1234.5678;
+  WriteAndRead([TDBFField.Create('AMOUNT','Y',8,0)], [Variant(Amount)], V);
+  Assert.AreEqual(Double(Amount), Double(V[0]), 0.0);
+end;
+
+Procedure TDBFRoundTripTests.TestRoundTripDateTimeField;
+begin
+  var V: TArray<Variant>;
+  var Moment := EncodeDate(2026,11,13) + EncodeTime(14,35,42,123);
+  WriteAndRead([TDBFField.Create('MOMENT','T',8,0)], [Variant(Moment)], V);
+  Assert.AreEqual(varDate, Integer(VarType(V[0])), 'A date and time value');
+  // The value is held to the millisecond
+  Assert.AreEqual(Double(Moment), Double(V[0]), 0.5/MSecsPerDay);
+end;
+
+Procedure TDBFRoundTripTests.TestRoundTripDateTimeFieldNull;
+// Both integers of a date and time value zero means it holds no value
+begin
+  var V: TArray<Variant>;
+  WriteAndRead([TDBFField.Create('MOMENT','T',8,0)], [Null], V);
+  Assert.IsTrue(VarIsNull(V[0]), 'Null date and time should read back as Null');
+end;
+
+Procedure TDBFRoundTripTests.TestNullInABinaryNumberIsRefused;
+// A binary number has no value left over to say it holds none, so zero bytes
+// would read back as the number zero
+begin
+  var V: TArray<Variant>;
+  Assert.WillRaiseAny(
+    procedure begin WriteAndRead([TDBFField.Create('DBL','O',8,0)], [Null], V) end);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Procedure TDBFDialectTests.Setup;
+begin
+  FTempFile := TPath.GetTempFileName;
+end;
+
+Procedure TDBFDialectTests.TearDown;
+begin
+  if FileExists(FTempFile) then DeleteFile(FTempFile);
+end;
+
+Procedure TDBFDialectTests.WriteDescriptor(const Writer: TBinaryWriter; const Name: String;
+                                           const FieldType: Char; const FieldLength: Byte);
+begin
+  var NameBytes := TEncoding.ASCII.GetBytes(Name);
+  SetLength(NameBytes,11);
+  Writer.Write(NameBytes);
+  Writer.Write(Byte(Ord(FieldType)));
+  Writer.Write(Cardinal(0));  // Reserved
+  Writer.Write(FieldLength);
+  Writer.Write(Byte(0));      // Decimal count
+  for var Reserved := 1 to 14 do Writer.Write(Byte(0));
+end;
+
+Procedure TDBFDialectTests.WriteDBase3FileWithMemoField;
+// A dBase III file whose B field holds the number of a block in a memo file,
+// as ten characters, followed by a text field
+begin
+  var Stream := TFileStream.Create(FTempFile,fmCreate);
+  var Writer := TBinaryWriter.Create(Stream);
+  try
+    Writer.Write(Byte(3));         // Version: dBase III
+    Writer.Write(Byte(126));       // Last update
+    Writer.Write(Byte(1));
+    Writer.Write(Byte(1));
+    Writer.Write(Integer(1));      // Record count
+    Writer.Write(Word(3*32+1));    // Header size
+    Writer.Write(Word(1+10+5));    // Record size
+    for var Offset := 12 to 31 do Writer.Write(Byte(0));
+    WriteDescriptor(Writer,'MEMO','B',10);
+    WriteDescriptor(Writer,'TEXT','C',5);
+    Writer.Write(Byte(13));        // Header terminator
+    Writer.Write(Byte(Ord(' ')));  // Undeleted record
+    Writer.Write(TEncoding.ASCII.GetBytes('         7'));
+    Writer.Write(TEncoding.ASCII.GetBytes('Hello'));
+    Writer.Write(Byte(26));
+  finally
+    Writer.Free;
+    Stream.Free;
+  end;
+end;
+
+Procedure TDBFDialectTests.TextFieldsOnlyWriteADBase3Header;
+begin
+  var W := TDBFWriter.Create(FTempFile,[TDBFField.Create('TEXT','C',5,0)]);
+  try
+    Assert.IsTrue(W.Dialect = dbDBase3,'Dialect of the writer');
+    W.AppendRecord([Variant('Hello')]);
+  finally
+    W.Free;
+  end;
+  Assert.AreEqual(3, Integer(TFile.ReadAllBytes(FTempFile)[0]), 'Version byte');
+  var R := TDBFReader.Create(FTempFile);
+  try
+    Assert.IsTrue(R.Dialect = dbDBase3,'Dialect of the reader');
+  finally
+    R.Free;
+  end;
+end;
+
+Procedure TDBFDialectTests.ABinaryFieldWritesAVisualFoxProHeader;
+// A binary field type is a Visual FoxPro one, so the header has to say the
+// file is one for other tools to read it
+begin
+  var W := TDBFWriter.Create(FTempFile,[TDBFField.Create('DBL','B',8,0)]);
+  try
+    Assert.IsTrue(W.Dialect = dbVisualFoxPro,'Dialect of the writer');
+    W.AppendRecord([Variant(2.5)]);
+  finally
+    W.Free;
+  end;
+  Assert.AreEqual($30, Integer(TFile.ReadAllBytes(FTempFile)[0]), 'Version byte');
+  var R := TDBFReader.Create(FTempFile);
+  try
+    Assert.IsTrue(R.Dialect = dbVisualFoxPro,'Dialect of the reader');
+    Assert.IsTrue(R.NextRecord,'Record should exist');
+    Assert.AreEqual(2.5, Double(R[0]), 0.0);
+  finally
+    R.Free;
+  end;
+end;
+
+Procedure TDBFDialectTests.TheRecordStartsWhereTheHeaderSays;
+// The backlink area a Visual FoxPro file has after the field descriptors is
+// part of the header, so the header size has to count it
+begin
+  var W := TDBFWriter.Create(FTempFile,[TDBFField.Create('DBL','B',8,0)]);
+  try
+    W.AppendRecord([Variant(2.5)]);
+  finally
+    W.Free;
+  end;
+  var FileBytes := TFile.ReadAllBytes(FTempFile);
+  var HeaderSize: Integer := FileBytes[8] + 256*FileBytes[9];
+  // 32 bytes of table header, one field descriptor of 32, the header
+  // terminator and the backlink area of 263
+  Assert.AreEqual(328, HeaderSize);
+  // The record starts with its deletion marker
+  Assert.AreEqual(Integer(Ord(' ')), Integer(FileBytes[HeaderSize]));
+  var Value: Double;
+  Move(FileBytes[HeaderSize+1],Value,8);
+  Assert.AreEqual(2.5, Value, 0.0, 'The value right behind it');
+end;
+
+Procedure TDBFDialectTests.TypeBInADBase3FileIsAMemoReference;
+begin
+  WriteDBase3FileWithMemoField;
+  var R := TDBFReader.Create(FTempFile);
+  try
+    Assert.IsTrue(R.Dialect = dbDBase3,'Dialect of the reader');
+    Assert.IsTrue(R.NextRecord,'Record should exist');
+    // The memo file is not read, so the field holds no value. Its ten bytes
+    // must not be taken for a double, which would read the next field wrong.
+    Assert.IsTrue(VarIsNull(R[0]),'A memo field holds no value');
+    Assert.AreEqual('Hello', String(R[1]));
+  finally
+    R.Free;
+  end;
+end;
+
+Procedure TDBFDialectTests.AMemoFieldCannotBeWritten;
+// Writing back the fields of a dBase III file whose B field is a memo
+// reference would write it as a double: its length says it is not one
+begin
+  WriteDBase3FileWithMemoField;
+  var R := TDBFReader.Create(FTempFile);
+  try
+    FMemoFields := R.GetFields;
+  finally
+    R.Free;
+  end;
+  Assert.WillRaiseAny(
+    procedure
+    begin
+      var W := TDBFWriter.Create(FTempFile+'.copy',FMemoFields);
+      W.Free;
+    end);
+  if FileExists(FTempFile+'.copy') then DeleteFile(FTempFile+'.copy');
+end;
+
 
 ////////////////////////////////////////////////////////////////////////////////
 

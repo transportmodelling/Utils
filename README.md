@@ -67,11 +67,13 @@ Provides `TBaseDirectory`  --  a record that wraps a base directory path and off
 ## DBF.pas
 Provides low-level dBase (.dbf) file reading and writing. Three types are involved:
 
-- `TDBFField`  --  describes a single field: name, type (`C`/`D`/`L`/`N`/`F`), length and decimal count.
+- `TDBFField`  --  describes a single field: name, type, length and decimal count. The types held as text are `C`, `D`, `L`, `N` and `F`; the ones held as binary values are `I` (32-bit integer), `O` and `B` (double), `Y` (currency) and `T` (date and time).
 - `TDBFReader`  --  opens an existing file and reads its records forward-only; field values can be accessed by index or by name.
 - `TDBFWriter`  --  creates a new file from a field schema (or from an existing reader's schema) and appends records one at a time.
 
 Memo fields are not supported (they read back as `Null`).
+
+The binary types are Visual FoxPro ones, so a file holding any of them is written as a Visual FoxPro file, and one holding none as a dBase III file; `Dialect` reports which dialect a file is. The dialect also decides what type `B` means: a double in Visual FoxPro, but a reference to a memo block in dBase III and IV. Of the two doubles, `B` is the one other tools are likeliest to read. A binary number has no value left over to say it holds none, so writing `Null` to one raises an exception; a `T` field does hold `Null`.
 
 The reader decodes text in the encoding passed to its constructor, or else in the code page of the language driver in the header. When neither gives one, each text value is read as UTF-8 if it is valid UTF-8, and in the system's ANSI code page otherwise. An encoding declared outside the file, such as an ESRI shapefile's `.cpg`, is for the caller to pass in; `HeaderCodePage` reports what the header declares, so the caller can see whether the two disagree. The writer writes text in the system's ANSI code page.
 
