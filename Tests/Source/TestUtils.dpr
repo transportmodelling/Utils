@@ -17,6 +17,7 @@ uses
   TestUtils.ArrBld in 'TestUtils.ArrBld.pas',
   TestUtils.ArrHlp in 'TestUtils.ArrHlp.pas',
   TestUtils.ArrVal in 'TestUtils.ArrVal.pas',
+  TestUtils.ColData in 'TestUtils.ColData.pas',
   TestUtils.BaseDir in 'TestUtils.BaseDir.pas',
   TestUtils.DBF in 'TestUtils.DBF.pas',
   TestUtils.DynArr in 'TestUtils.DynArr.pas',
