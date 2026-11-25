@@ -31,6 +31,13 @@ Type
     Function Delimiter: TDelimiter; override;
   end;
 
+  TFactorRow = Class(TColumnarData)
+  strict protected
+    Procedure IterateColumns; override;
+  public
+    Count,Factor: Float64;
+  end;
+
   [TestFixture]
   TColumnarDataTests = Class
   private
@@ -43,6 +50,8 @@ Type
     [TearDown] Procedure TearDown;
     [Test] Procedure ReaderMapsTheColumnsByPosition;
     [Test] Procedure WriterWritesTheDeclaredDecimals;
+    [Test] Procedure WriterSkipsTrailingZeroDecimals;
+    [Test] Procedure WriterWritesRealsWithoutDecimalsInFull;
     [Test] Procedure WriterWritesTheHeader;
     [Test] Procedure WrittenRowsReadBack;
     [Test] Procedure RowClassSetsTheDelimiter;
@@ -71,6 +80,14 @@ end;
 Function TSemicolonZoneRow.Delimiter: TDelimiter;
 begin
   Result := Semicolon;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Procedure TFactorRow.IterateColumns;
+begin
+  Column('Count',Count,1,true);
+  Column('Factor',Factor);
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -142,6 +159,55 @@ begin
   var Lines := TFile.ReadAllLines(FileName);
   Assert.AreEqual<Integer>(1,Length(Lines),'One line');
   Assert.AreEqual('3'#9'120'#9'2450.46',Lines[0],'Integers as they are, reals rounded');
+end;
+
+Procedure TColumnarDataTests.WriterSkipsTrailingZeroDecimals;
+Const
+  Counts: array[0..5] of Float64 = (437.0,436.96,12.34,0.25,-0.04,0.0);
+  Expected: array[0..5] of String = ('437','437','12.3','0.3','0','0');
+begin
+  var Writer := TColumnarDataWriter<TFactorRow>.Create(FileName,false);
+  try
+    for var Index := 0 to High(Counts) do
+    begin
+      Writer.Data.Count := Counts[Index];
+      Writer.Write;
+    end;
+  finally
+    Writer.Free;
+  end;
+  var Lines := TFile.ReadAllLines(FileName);
+  for var Index := 0 to High(Counts) do
+  Assert.AreEqual(Expected[Index]+#9'0',Lines[Index],'Count ' + Expected[Index]);
+end;
+
+Procedure TColumnarDataTests.WriterWritesRealsWithoutDecimalsInFull;
+Const
+  Factors: array[0..2] of Float64 = (0.209376618194576,-0.000149736735588604,3.0);
+  Expected: array[0..2] of String = ('0.209376618194576','-0.000149736735588604','3');
+begin
+  var Writer := TColumnarDataWriter<TFactorRow>.Create(FileName,true);
+  try
+    for var Index := 0 to High(Factors) do
+    begin
+      Writer.Data.Factor := Factors[Index];
+      Writer.Write;
+    end;
+  finally
+    Writer.Free;
+  end;
+  var Lines := TFile.ReadAllLines(FileName);
+  var Reader := TColumnarDataReader<TFactorRow>.Create(FileName,hdStrict);
+  try
+    for var Index := 0 to High(Factors) do
+    begin
+      Assert.AreEqual('0'#9+Expected[Index],Lines[Index+1],'Text of factor ' + Expected[Index]);
+      Assert.IsTrue(Reader.Read,'Factor ' + Expected[Index] + ' reads');
+      Assert.IsTrue(Reader.Data.Factor = Factors[Index],'Factor ' + Expected[Index] + ' reads back');
+    end;
+  finally
+    Reader.Free;
+  end;
 end;
 
 Procedure TColumnarDataTests.WriterWritesTheHeader;

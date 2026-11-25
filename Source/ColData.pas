@@ -31,7 +31,9 @@ Type
   // Receives the columns of a row in the order IterateColumns declares them
   protected
     Procedure Column(const Header: String; var Value: Integer); overload; virtual; abstract;
-    Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte); overload; virtual; abstract;
+    Procedure Column(const Header: String; var Value: Float64); overload; virtual; abstract;
+    Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte;
+                     const SkipTrailingZeroDecimals: Boolean); overload; virtual; abstract;
   end;
 
   TColumnarData = Class abstract
@@ -39,9 +41,15 @@ Type
     Handler: TColumnarDataHandler;
     Procedure Iterate(const ColumnHandler: TColumnarDataHandler);
   strict protected
-    // The columns of the row, called by IterateColumns in file order
+    // The columns of the row, called by IterateColumns in file order. A real
+    // without decimals is written as FloatToStr writes it, at 15 significant
+    // digits. A real with decimals is rounded to them, and written without its
+    // trailing zero decimals when asked; a value that rounds to zero is then
+    // written as 0.
     Procedure Column(const Header: String; var Value: Integer); overload;
-    Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte); overload;
+    Procedure Column(const Header: String; var Value: Float64); overload;
+    Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte;
+                     const SkipTrailingZeroDecimals: Boolean = false); overload;
     Procedure IterateColumns; virtual; abstract;
   public
     // The separator of the columns, a tab unless a row class overrides it
@@ -55,7 +63,9 @@ Type
     Function GetHeaders(Index: Integer): String; inline;
   protected
     Procedure Column(const Header: String; var Value: Integer); overload; override;
-    Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte); overload; override;
+    Procedure Column(const Header: String; var Value: Float64); overload; override;
+    Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte;
+                     const SkipTrailingZeroDecimals: Boolean); overload; override;
   public
     Constructor Create(const Data: TColumnarData);
     Function Count: Integer; inline;
@@ -100,7 +110,9 @@ Type
     Procedure ReadColumns;
   protected
     Procedure Column(const Header: String; var Value: Integer); overload; override;
-    Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte); overload; override;
+    Procedure Column(const Header: String; var Value: Float64); overload; override;
+    Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte;
+                     const SkipTrailingZeroDecimals: Boolean); overload; override;
   public
     Constructor Create(const FileName: String; const Header: TColumnarDataHeader);
     Function Read: Boolean;
@@ -114,9 +126,12 @@ Type
     Line: TStringBuilder;
     Separator: Char;
     Procedure Append(const Value: String);
+    Function WithoutTrailingZeroDecimals(const Value: Float64; const NDecimals: Byte): String;
   protected
     Procedure Column(const Header: String; var Value: Integer); overload; override;
-    Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte); overload; override;
+    Procedure Column(const Header: String; var Value: Float64); overload; override;
+    Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte;
+                     const SkipTrailingZeroDecimals: Boolean); overload; override;
   public
     Constructor Create(const FileName: String; const Header: Boolean);
     Procedure Write;
@@ -138,9 +153,15 @@ begin
   Handler.Column(Header,Value);
 end;
 
-Procedure TColumnarData.Column(const Header: String; var Value: Float64; const NDecimals: Byte);
+Procedure TColumnarData.Column(const Header: String; var Value: Float64);
 begin
-  Handler.Column(Header,Value,NDecimals);
+  Handler.Column(Header,Value);
+end;
+
+Procedure TColumnarData.Column(const Header: String; var Value: Float64; const NDecimals: Byte;
+                               const SkipTrailingZeroDecimals: Boolean);
+begin
+  Handler.Column(Header,Value,NDecimals,SkipTrailingZeroDecimals);
 end;
 
 Function TColumnarData.Delimiter: TDelimiter;
@@ -166,7 +187,13 @@ begin
   FHeaders := FHeaders + [Header];
 end;
 
-Procedure TColumnarDataHeaders.Column(const Header: String; var Value: Float64; const NDecimals: Byte);
+Procedure TColumnarDataHeaders.Column(const Header: String; var Value: Float64);
+begin
+  FHeaders := FHeaders + [Header];
+end;
+
+Procedure TColumnarDataHeaders.Column(const Header: String; var Value: Float64; const NDecimals: Byte;
+                                      const SkipTrailingZeroDecimals: Boolean);
 begin
   FHeaders := FHeaders + [Header];
 end;
@@ -292,7 +319,13 @@ begin
   Value := Parser.Int[NextPosition];
 end;
 
-Procedure TColumnarDataReader<DataType>.Column(const Header: String; var Value: Float64; const NDecimals: Byte);
+Procedure TColumnarDataReader<DataType>.Column(const Header: String; var Value: Float64);
+begin
+  Value := StrToFloat(Parser.Str[NextPosition],Settings);
+end;
+
+Procedure TColumnarDataReader<DataType>.Column(const Header: String; var Value: Float64; const NDecimals: Byte;
+                                               const SkipTrailingZeroDecimals: Boolean);
 begin
   Value := StrToFloat(Parser.Str[NextPosition],Settings);
 end;
@@ -343,14 +376,33 @@ begin
   Inc(ColumnIndex);
 end;
 
+Function TColumnarDataWriter<DataType>.WithoutTrailingZeroDecimals(const Value: Float64; const NDecimals: Byte): String;
+// FormatFloat with the mask '0.###...', except for a nonzero value that rounds
+// to zero: FormatFloat writes it as '0.0...', this as '0'
+begin
+  var Mask: String := '0';
+  if NDecimals > 0 then Mask := Mask + '.' + StringOfChar('#',NDecimals);
+  Result := FormatFloat(Mask,Value,Settings);
+  if StrToFloat(Result,Settings) = 0 then Result := '0';
+end;
+
 Procedure TColumnarDataWriter<DataType>.Column(const Header: String; var Value: Integer);
 begin
   Append(Value.ToString);
 end;
 
-Procedure TColumnarDataWriter<DataType>.Column(const Header: String; var Value: Float64; const NDecimals: Byte);
+Procedure TColumnarDataWriter<DataType>.Column(const Header: String; var Value: Float64);
 begin
-  Append(FloatToStrF(Value,ffFixed,15,NDecimals,Settings));
+  Append(FloatToStr(Value,Settings));
+end;
+
+Procedure TColumnarDataWriter<DataType>.Column(const Header: String; var Value: Float64; const NDecimals: Byte;
+                                               const SkipTrailingZeroDecimals: Boolean);
+begin
+  if SkipTrailingZeroDecimals then
+    Append(WithoutTrailingZeroDecimals(Value,NDecimals))
+  else
+    Append(FloatToStrF(Value,ffFixed,15,NDecimals,Settings));
 end;
 
 Procedure TColumnarDataWriter<DataType>.Write;
