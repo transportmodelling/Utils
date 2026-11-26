@@ -34,6 +34,9 @@ Type
   // hdStrict: a header line names exactly the declared columns, in their order
   TColumnarDataHeader = (hdNone,hdFree,hdStrict);
 
+  // Raised by a row class for a row whose values do not fit together
+  EInvalidColumnarData = Class(Exception);
+
   TColumnarDataHandler = Class abstract
   // Receives the columns of a row in the order IterateColumns declares them
   protected
@@ -62,6 +65,12 @@ Type
     Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte;
                      const SkipTrailingZeroDecimals: Boolean = false); overload;
     Procedure IterateColumns; virtual; abstract;
+  protected
+    // Checks the values of the row together, after it is read and before it is
+    // written, and raises EInvalidColumnarData for a row that is not valid. The
+    // reader and the writer add the line and the file to the message, so a
+    // file the writer writes holds no row its reader refuses.
+    Procedure Validate; virtual;
   public
     // The separator of the columns, a tab unless a row class overrides it
     Function Delimiter: TDelimiter; virtual;
@@ -97,6 +106,7 @@ Type
     // Fetched once: TFormatSettings.Invariant fills a new record on every call
     Settings: TFormatSettings;
     Function LineError(const Message: String): Exception;
+    Procedure ValidateData;
   public
     Constructor Create(const FileName: String);
     Destructor Destroy; override;
@@ -186,6 +196,10 @@ begin
   Handler.Column(Header,Value,NDecimals,SkipTrailingZeroDecimals);
 end;
 
+Procedure TColumnarData.Validate;
+begin
+end;
+
 Function TColumnarData.Delimiter: TDelimiter;
 begin
   Result := Tab;
@@ -250,6 +264,15 @@ Function TColumnarDataFile<DataType>.LineError(const Message: String): Exception
 begin
   Result := Exception.Create(Message + ' at line ' + FLineCount.ToString +
                              ' of ' + ExtractFileName(FFileName));
+end;
+
+Procedure TColumnarDataFile<DataType>.ValidateData;
+begin
+  try
+    FData.Validate;
+  except
+    on E: EInvalidColumnarData do raise LineError(E.Message);
+  end;
 end;
 
 Destructor TColumnarDataFile<DataType>.Destroy;
@@ -339,6 +362,7 @@ begin
   except
     on E: EConvertError do raise LineError(E.Message);
   end;
+  ValidateData;
 end;
 
 Procedure TColumnarDataReader<DataType>.Column(const Header: String; var Value: Integer);
@@ -463,6 +487,7 @@ end;
 Procedure TColumnarDataWriter<DataType>.Write;
 begin
   Inc(FLineCount);
+  ValidateData;
   ColumnIndex := 0;
   Line.Clear;
   FData.Iterate(Self);

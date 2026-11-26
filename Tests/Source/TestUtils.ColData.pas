@@ -13,7 +13,8 @@ interface
 // ColData tests: the reader maps the columns by position or by header, the
 // writer writes the declared decimals, written rows read back unchanged, a row
 // class sets the delimiter, a string reads back whole and the writer refuses
-// one the reader would split or drop, and a malformed line names its line and
+// one the reader would split or drop, the reader and the writer refuse a row
+// its row class does not validate, and a malformed line names its line and
 // file.
 
 Uses
@@ -31,6 +32,12 @@ Type
   TSemicolonZoneRow = Class(TZoneRow)
   public
     Function Delimiter: TDelimiter; override;
+  end;
+
+  TInhabitedZoneRow = Class(TZoneRow)
+  // A zone with households has an income
+  protected
+    Procedure Validate; override;
   end;
 
   TNamedZoneRow = Class(TZoneRow)
@@ -74,6 +81,8 @@ Type
     [Test] Procedure StringWithTheDelimiterRaises;
     [Test] Procedure SpaceDelimitedStringWithATabRaises;
     [Test] Procedure SpaceDelimitedEmptyStringRaises;
+    [Test] Procedure ReaderRaisesForAnInvalidRow;
+    [Test] Procedure WriterRaisesForAnInvalidRow;
     [Test] Procedure WrongColumnCountNamesTheLine;
     [Test] Procedure InvalidNumberNamesTheLine;
     [Test] Procedure EmptyLineInsideTheFileRaises;
@@ -99,6 +108,16 @@ end;
 Function TSemicolonZoneRow.Delimiter: TDelimiter;
 begin
   Result := Semicolon;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Procedure TInhabitedZoneRow.Validate;
+begin
+  if (Households = 0) or (Income > 0) then
+    inherited Validate
+  else
+    raise EInvalidColumnarData.Create('Zone ' + Zone.ToString + ' has households but no income');
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -355,6 +374,45 @@ Procedure TColumnarDataTests.SpaceDelimitedEmptyStringRaises;
 begin
   Assert.IsTrue(NameWriteError<TSpaceNamedZoneRow>('').StartsWith('Column Name is empty'),'The space delimiter drops empty columns');
   Assert.AreEqual('',NameWriteError<TNamedZoneRow>(''),'The tab delimiter keeps them');
+end;
+
+Procedure TColumnarDataTests.ReaderRaisesForAnInvalidRow;
+begin
+  WriteLines(['3'#9'120'#9'2450.5','4'#9'0'#9'0','5'#9'80'#9'0']);
+  var Error := '';
+  var Reader := TColumnarDataReader<TInhabitedZoneRow>.Create(FileName,hdNone);
+  try
+    Assert.IsTrue(Reader.Read,'A zone with households and income');
+    Assert.IsTrue(Reader.Read,'A zone without households or income');
+    try
+      Reader.Read;
+    except
+      on E: Exception do Error := E.Message;
+    end;
+  finally
+    Reader.Free;
+  end;
+  Assert.IsTrue(Error.StartsWith('Zone 5 has households but no income'),'The message of the row class');
+  Assert.IsTrue(LineOf(Error,3),'The line and file');
+end;
+
+Procedure TColumnarDataTests.WriterRaisesForAnInvalidRow;
+begin
+  var Error := '';
+  var Writer := TColumnarDataWriter<TInhabitedZoneRow>.Create(FileName,true);
+  try
+    Writer.Data.Zone := 5;
+    Writer.Data.Households := 80;
+    try
+      Writer.Write;
+    except
+      on E: Exception do Error := E.Message;
+    end;
+  finally
+    Writer.Free;
+  end;
+  Assert.IsTrue(LineOf(Error,2),'The line after the header');
+  Assert.AreEqual<Integer>(1,Length(TFile.ReadAllLines(FileName)),'Only the header is written');
 end;
 
 Procedure TColumnarDataTests.WrongColumnCountNamesTheLine;
