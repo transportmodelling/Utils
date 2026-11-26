@@ -67,6 +67,8 @@ Type
     [Test] Procedure TestToString_Decimals_LargeValues;
     [Test] Procedure TestToString_Decimals_DecimalSeparator;
     [Test] Procedure TestToString_Adaptive_RandomValues;
+    // ToString(Format) writes a float in full, or rounded as its format states
+    [Test] Procedure TestToString_TextFormat;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -500,6 +502,16 @@ begin
     Assert.AreEqual(Expected(V,5-HideDecimals,false),V.ToString(5,false,false),'Value ' + FloatToStr(V));
     Assert.AreEqual(Expected(V,5,true),V.ToString(5,true,true),'Value ' + FloatToStr(V));
   end;
+end;
+
+Procedure TFloat64HelperTests.TestToString_TextFormat;
+begin
+  var V: Float64 := 1/3;
+  Assert.AreEqual(FloatToStr(V),V.ToString(Default(TFloatText)),'In full');
+  V := 2.5;
+  Assert.AreEqual(V.ToString(3,false),V.ToString(TFloatText.Create(3,false)),'Fixed decimals');
+  Assert.AreEqual('2.500',V.ToString(TFloatText.Create(3,false)),'Three decimals');
+  Assert.AreEqual('2.5',V.ToString(TFloatText.Create(3,true)),'Without trailing zero decimals');
 end;
 
 initialization

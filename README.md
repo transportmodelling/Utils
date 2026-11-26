@@ -213,6 +213,10 @@ Provides `TFloat64Helper`  --  a record helper for `Float64` that adds rounding,
   // Adaptive decimals: fewer decimals for larger integer parts
   writeln(V.ToString(3, False, False));       // '2469.3' (1 fewer decimal for 4-digit integer)
 
+  // A format as a value: in full by default, or rounded to a number of decimals
+  var Format := TFloatText.Create(2, True);   // at most 2 decimals, no trailing zeros
+  writeln(V.ToString(Format));                // '2469.34'
+
   // Fast exponential, slightly less accurate than System.Exp
   var X: Float64 := 0.5;
   var A := X.Exponentiate;                    // e^0.5, helper method on a variable

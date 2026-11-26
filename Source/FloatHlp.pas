@@ -15,6 +15,16 @@ Uses
   SysUtils, Math;
 
 Type
+  // The text of a float. A float that is not rounded is written as ToString writes it. A rounded float is
+  // written with its number of decimals, or without its trailing zero decimals, as
+  // ToString(Decimals,SkipTrailingZeroDecimals) writes it.
+  TFloatText = record
+    Rounded: Boolean;
+    Decimals: Byte;
+    SkipTrailingZeroDecimals: Boolean;
+    Constructor Create(const NDecimals: Byte; const SkipTrailingZeros: Boolean);
+  end;
+
   TFloat64Helper = record helper for Float64
   public
     Function Round: Int64;
@@ -42,6 +52,7 @@ Type
     // without a sign (FormatFloat writes '0.000...' with either mask). See the implementation.
     Function ToString(Decimals: Byte; SkipTrailingZeroDecimals: Boolean): string; overload;
     Function ToString(Decimals: Byte; FixedDecimals,SkipTrailingZeroDecimals: Boolean): string; overload;
+    Function ToString(const Format: TFloatText): String; overload;
   end;
 
 // Exp(X) as 2^n*exp(r), with n = round(X/ln2) and exp(r) a degree-12 Taylor polynomial (the algorithm
@@ -89,6 +100,15 @@ begin
     Result := P*PDouble(@Bits)^;
   end else
     Result := System.Exp(X);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Constructor TFloatText.Create(const NDecimals: Byte; const SkipTrailingZeros: Boolean);
+begin
+  Rounded := true;
+  Decimals := NDecimals;
+  SkipTrailingZeroDecimals := SkipTrailingZeros;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -297,6 +317,14 @@ begin
     end;
     Result := ToString(Decimals-HideDecimals,SkipTrailingZeroDecimals);
   end;
+end;
+
+Function TFloat64Helper.ToString(const Format: TFloatText): String;
+begin
+  if Format.Rounded then
+    Result := ToString(Format.Decimals,Format.SkipTrailingZeroDecimals)
+  else
+    Result := ToString;
 end;
 
 end.
