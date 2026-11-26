@@ -26,7 +26,7 @@ interface
 //   line from it.
 
 Uses
-  SysUtils, Classes, Parse;
+  SysUtils, Classes, Parse, FloatHlp;
 
 Type
   // The header line of a file, as its row class states it
@@ -45,9 +45,8 @@ Type
   protected
     Procedure Column(const Header: String; var Value: Integer); overload; virtual; abstract;
     Procedure Column(const Header: String; var Value: String); overload; virtual; abstract;
-    Procedure Column(const Header: String; var Value: Float64); overload; virtual; abstract;
-    Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte;
-                     const SkipTrailingZeroDecimals: Boolean); overload; virtual; abstract;
+    Procedure Column(const Header: String; var Value: Float64;
+                     const Format: TFloatText); overload; virtual; abstract;
   end;
 
   TColumnarData = Class abstract
@@ -93,9 +92,7 @@ Type
   protected
     Procedure Column(const Header: String; var Value: Integer); overload; override;
     Procedure Column(const Header: String; var Value: String); overload; override;
-    Procedure Column(const Header: String; var Value: Float64); overload; override;
-    Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte;
-                     const SkipTrailingZeroDecimals: Boolean); overload; override;
+    Procedure Column(const Header: String; var Value: Float64; const Format: TFloatText); overload; override;
   public
     Constructor Create(const Data: TColumnarData);
     Function Count: Integer; inline;
@@ -109,6 +106,7 @@ Type
     FData: DataType;
     FFileName: String;
     FLineCount: Integer;
+    Procedure Open; virtual; abstract;
   strict protected
     Headers: TColumnarDataHeaders;
     ColumnIndex: Integer;
@@ -117,6 +115,7 @@ Type
     Function LineError(const Message: String): Exception;
     Procedure ValidateData;
   public
+    // Creates the row and opens the file
     Constructor Create(const FileName: String);
     Destructor Destroy; override;
   public
@@ -132,7 +131,9 @@ Type
     Parser: TStringParser;
     NColumns: Integer;
     Positions: TArray<Integer>;
+    Procedure Open; override;
     Procedure ReadHeader;
+    Procedure MapByHeaderLine;
     Procedure MapByPosition;
     Procedure MapByName;
     Function IndexOfHeader(const Header: String): Integer;
@@ -142,11 +143,8 @@ Type
   protected
     Procedure Column(const Header: String; var Value: Integer); overload; override;
     Procedure Column(const Header: String; var Value: String); overload; override;
-    Procedure Column(const Header: String; var Value: Float64); overload; override;
-    Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte;
-                     const SkipTrailingZeroDecimals: Boolean); overload; override;
+    Procedure Column(const Header: String; var Value: Float64; const Format: TFloatText); overload; override;
   public
-    Constructor Create(const FileName: String);
     Function Read: Boolean;
     Destructor Destroy; override;
   end;
@@ -159,17 +157,15 @@ Type
     Separator: Char;
     StringBreaks: TArray<Char>;
     DropsEmptyColumns: Boolean;
+    Procedure Open; override;
     Procedure TakeStringRules;
     Procedure Append(const Value: String);
     Function WithoutTrailingZeroDecimals(const Value: Float64; const NDecimals: Byte): String;
   protected
     Procedure Column(const Header: String; var Value: Integer); overload; override;
     Procedure Column(const Header: String; var Value: String); overload; override;
-    Procedure Column(const Header: String; var Value: Float64); overload; override;
-    Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte;
-                     const SkipTrailingZeroDecimals: Boolean); overload; override;
+    Procedure Column(const Header: String; var Value: Float64; const Format: TFloatText); overload; override;
   public
-    Constructor Create(const FileName: String);
     Procedure Write;
     Destructor Destroy; override;
   end;
@@ -201,13 +197,13 @@ end;
 
 Procedure TColumnarData.Column(const Header: String; var Value: Float64);
 begin
-  Handler.Column(Header,Value);
+  Handler.Column(Header,Value,Default(TFloatText));
 end;
 
 Procedure TColumnarData.Column(const Header: String; var Value: Float64; const NDecimals: Byte;
                                const SkipTrailingZeroDecimals: Boolean);
 begin
-  Handler.Column(Header,Value,NDecimals,SkipTrailingZeroDecimals);
+  Handler.Column(Header,Value,TFloatText.Create(NDecimals,SkipTrailingZeroDecimals));
 end;
 
 Procedure TColumnarData.Validate;
@@ -247,13 +243,7 @@ begin
   FHeaders := FHeaders + [Header];
 end;
 
-Procedure TColumnarDataHeaders.Column(const Header: String; var Value: Float64);
-begin
-  FHeaders := FHeaders + [Header];
-end;
-
-Procedure TColumnarDataHeaders.Column(const Header: String; var Value: Float64; const NDecimals: Byte;
-                                      const SkipTrailingZeroDecimals: Boolean);
+Procedure TColumnarDataHeaders.Column(const Header: String; var Value: Float64; const Format: TFloatText);
 begin
   FHeaders := FHeaders + [Header];
 end;
@@ -277,6 +267,7 @@ begin
   FData := DataType.Create;
   Headers := TColumnarDataHeaders.Create(FData);
   Settings := TFormatSettings.Invariant;
+  Open;
 end;
 
 Function TColumnarDataFile<DataType>.LineError(const Message: String): Exception;
@@ -303,30 +294,33 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Constructor TColumnarDataReader<DataType>.Create(const FileName: String);
+Procedure TColumnarDataReader<DataType>.Open;
 begin
-  inherited Create(FileName);
   Parser := TStringParser.Create(FData.Delimiter);
-  Reader := TStreamReader.Create(FileName,TEncoding.ANSI,true,65536);
+  Reader := TStreamReader.Create(FFileName,TEncoding.ANSI,true,65536);
   ReadHeader;
 end;
 
 Procedure TColumnarDataReader<DataType>.ReadHeader;
 begin
-  var Header := FData.Header;
-  if Header = hdNone then
+  if FData.Header = hdNone then
     MapByPosition
   else
   begin
     Parser.ReadLine(Reader);
     Inc(FLineCount);
-    if Header = hdFree then
-      MapByName
-    else if SameHeaders then
-      MapByPosition
-    else
-      raise LineError('Invalid header');
+    MapByHeaderLine;
   end;
+end;
+
+Procedure TColumnarDataReader<DataType>.MapByHeaderLine;
+begin
+  if FData.Header = hdFree then
+    MapByName
+  else if SameHeaders then
+    MapByPosition
+  else
+    raise LineError('Invalid header');
 end;
 
 Procedure TColumnarDataReader<DataType>.MapByPosition;
@@ -395,13 +389,7 @@ begin
   Value := Parser.Str[NextPosition];
 end;
 
-Procedure TColumnarDataReader<DataType>.Column(const Header: String; var Value: Float64);
-begin
-  Value := StrToFloat(Parser.Str[NextPosition],Settings);
-end;
-
-Procedure TColumnarDataReader<DataType>.Column(const Header: String; var Value: Float64; const NDecimals: Byte;
-                                               const SkipTrailingZeroDecimals: Boolean);
+Procedure TColumnarDataReader<DataType>.Column(const Header: String; var Value: Float64; const Format: TFloatText);
 begin
   Value := StrToFloat(Parser.Str[NextPosition],Settings);
 end;
@@ -418,8 +406,7 @@ begin
     else if (Parser.Count = 0) and Reader.EndOfStream then
       Result := false
     else
-      raise LineError(NColumns.ToString + ' columns expected, ' +
-                      Parser.Count.ToString + ' found');
+      raise LineError(NColumns.ToString + ' columns expected, ' + Parser.Count.ToString + ' found');
   end;
 end;
 
@@ -431,13 +418,12 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Constructor TColumnarDataWriter<DataType>.Create(const FileName: String);
+Procedure TColumnarDataWriter<DataType>.Open;
 begin
-  inherited Create(FileName);
   Separator := FData.Delimiter.Delimiter;
   TakeStringRules;
   Line := TStringBuilder.Create;
-  Writer := TStreamWriter.Create(FileName,false,TEncoding.ANSI,65536);
+  Writer := TStreamWriter.Create(FFileName,false,TEncoding.ANSI,65536);
   Writer.AutoFlush := false;
   if FData.Header <> hdNone then
   begin
@@ -490,18 +476,14 @@ begin
     raise LineError('Column ' + Header + ' holds a separator or a line break');
 end;
 
-Procedure TColumnarDataWriter<DataType>.Column(const Header: String; var Value: Float64);
+Procedure TColumnarDataWriter<DataType>.Column(const Header: String; var Value: Float64; const Format: TFloatText);
 begin
-  Append(FloatToStr(Value,Settings));
-end;
-
-Procedure TColumnarDataWriter<DataType>.Column(const Header: String; var Value: Float64; const NDecimals: Byte;
-                                               const SkipTrailingZeroDecimals: Boolean);
-begin
-  if SkipTrailingZeroDecimals then
-    Append(WithoutTrailingZeroDecimals(Value,NDecimals))
+  if not Format.Rounded then
+    Append(FloatToStr(Value,Settings))
+  else if Format.SkipTrailingZeroDecimals then
+    Append(WithoutTrailingZeroDecimals(Value,Format.Decimals))
   else
-    Append(FloatToStrF(Value,ffFixed,15,NDecimals,Settings));
+    Append(FloatToStrF(Value,ffFixed,15,Format.Decimals,Settings));
 end;
 
 Procedure TColumnarDataWriter<DataType>.Write;
