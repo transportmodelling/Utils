@@ -38,6 +38,7 @@ Type
   // Receives the columns of a row in the order IterateColumns declares them
   protected
     Procedure Column(const Header: String; var Value: Integer); overload; virtual; abstract;
+    Procedure Column(const Header: String; var Value: String); overload; virtual; abstract;
     Procedure Column(const Header: String; var Value: Float64); overload; virtual; abstract;
     Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte;
                      const SkipTrailingZeroDecimals: Boolean); overload; virtual; abstract;
@@ -52,8 +53,11 @@ Type
     // without decimals is written as FloatToStr writes it, at 15 significant
     // digits. A real with decimals is rounded to them, and written without its
     // trailing zero decimals when asked; a value that rounds to zero is then
-    // written as 0.
+    // written as 0. A string is written as it is, and may hold no separator
+    // of the delimiter and no line break; with a space delimiter, which also
+    // splits on tabs and drops empty columns, it may not be empty either.
     Procedure Column(const Header: String; var Value: Integer); overload;
+    Procedure Column(const Header: String; var Value: String); overload;
     Procedure Column(const Header: String; var Value: Float64); overload;
     Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte;
                      const SkipTrailingZeroDecimals: Boolean = false); overload;
@@ -70,6 +74,7 @@ Type
     Function GetHeaders(Index: Integer): String; inline;
   protected
     Procedure Column(const Header: String; var Value: Integer); overload; override;
+    Procedure Column(const Header: String; var Value: String); overload; override;
     Procedure Column(const Header: String; var Value: Float64); overload; override;
     Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte;
                      const SkipTrailingZeroDecimals: Boolean); overload; override;
@@ -117,6 +122,7 @@ Type
     Procedure ReadColumns;
   protected
     Procedure Column(const Header: String; var Value: Integer); overload; override;
+    Procedure Column(const Header: String; var Value: String); overload; override;
     Procedure Column(const Header: String; var Value: Float64); overload; override;
     Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte;
                      const SkipTrailingZeroDecimals: Boolean); overload; override;
@@ -132,10 +138,14 @@ Type
     Writer: TStreamWriter;
     Line: TStringBuilder;
     Separator: Char;
+    StringBreaks: TArray<Char>;
+    DropsEmptyColumns: Boolean;
+    Procedure TakeStringRules;
     Procedure Append(const Value: String);
     Function WithoutTrailingZeroDecimals(const Value: Float64; const NDecimals: Byte): String;
   protected
     Procedure Column(const Header: String; var Value: Integer); overload; override;
+    Procedure Column(const Header: String; var Value: String); overload; override;
     Procedure Column(const Header: String; var Value: Float64); overload; override;
     Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte;
                      const SkipTrailingZeroDecimals: Boolean); overload; override;
@@ -156,6 +166,11 @@ begin
 end;
 
 Procedure TColumnarData.Column(const Header: String; var Value: Integer);
+begin
+  Handler.Column(Header,Value);
+end;
+
+Procedure TColumnarData.Column(const Header: String; var Value: String);
 begin
   Handler.Column(Header,Value);
 end;
@@ -190,6 +205,11 @@ begin
 end;
 
 Procedure TColumnarDataHeaders.Column(const Header: String; var Value: Integer);
+begin
+  FHeaders := FHeaders + [Header];
+end;
+
+Procedure TColumnarDataHeaders.Column(const Header: String; var Value: String);
 begin
   FHeaders := FHeaders + [Header];
 end;
@@ -326,6 +346,11 @@ begin
   Value := Parser.Int[NextPosition];
 end;
 
+Procedure TColumnarDataReader<DataType>.Column(const Header: String; var Value: String);
+begin
+  Value := Parser.Str[NextPosition];
+end;
+
 Procedure TColumnarDataReader<DataType>.Column(const Header: String; var Value: Float64);
 begin
   Value := StrToFloat(Parser.Str[NextPosition],Settings);
@@ -366,6 +391,7 @@ Constructor TColumnarDataWriter<DataType>.Create(const FileName: String; const H
 begin
   inherited Create(FileName);
   Separator := FData.Delimiter.Delimiter;
+  TakeStringRules;
   Line := TStringBuilder.Create;
   Writer := TStreamWriter.Create(FileName,false,TEncoding.ANSI,65536);
   Writer.AutoFlush := false;
@@ -374,6 +400,16 @@ begin
     Writer.WriteLine(Headers.HeaderLine(Separator));
     Inc(FLineCount);
   end;
+end;
+
+Procedure TColumnarDataWriter<DataType>.TakeStringRules;
+// A string column ends at any separator of the parser that reads the line back
+// and at a line break, and that parser may drop an empty column
+begin
+  var Parser := TStringParser.Create(FData.Delimiter);
+  StringBreaks := [#13,#10];
+  for var Index := 0 to Parser.SeparatorCount-1 do StringBreaks := StringBreaks + [Parser.GetSeparators(Index)];
+  DropsEmptyColumns := Parser.ExcludeEmpty;
 end;
 
 Procedure TColumnarDataWriter<DataType>.Append(const Value: String);
@@ -398,6 +434,18 @@ begin
   Append(Value.ToString);
 end;
 
+Procedure TColumnarDataWriter<DataType>.Column(const Header: String; var Value: String);
+// A string the reader would split or drop would shift the columns of the line
+begin
+  if Value.IndexOfAny(StringBreaks) < 0 then
+    if (Value <> '') or not DropsEmptyColumns then
+      Append(Value)
+    else
+      raise LineError('Column ' + Header + ' is empty, which the delimiter does not allow')
+  else
+    raise LineError('Column ' + Header + ' holds a separator or a line break');
+end;
+
 Procedure TColumnarDataWriter<DataType>.Column(const Header: String; var Value: Float64);
 begin
   Append(FloatToStr(Value,Settings));
@@ -414,11 +462,11 @@ end;
 
 Procedure TColumnarDataWriter<DataType>.Write;
 begin
+  Inc(FLineCount);
   ColumnIndex := 0;
   Line.Clear;
   FData.Iterate(Self);
   Writer.WriteLine(Line.ToString);
-  Inc(FLineCount);
 end;
 
 Destructor TColumnarDataWriter<DataType>.Destroy;

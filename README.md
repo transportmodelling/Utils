@@ -72,7 +72,7 @@ Provides reading and writing of columnar text files  --  one row per line, the c
 
 Four types are involved:
 
-- `TColumnarData`  --  abstract base class of a row class. A column holds an `Integer` or a `Float64`. A real is written in full (at 15 significant digits), or rounded to a number of decimals, optionally without its trailing zero decimals. The delimiter is a tab, unless the row class overrides `Delimiter`.
+- `TColumnarData`  --  abstract base class of a row class. A column holds an `Integer`, a `Float64` or a `String`. A real is written in full (at 15 significant digits), or rounded to a number of decimals, optionally without its trailing zero decimals. A string is written as it is; the writer raises an exception for one the reader would split or drop, which would shift the columns of the line: a string holding a separator or a line break (a space delimiter also separates on tabs) and, with a space delimiter, an empty string. The delimiter is a tab, unless the row class overrides `Delimiter`.
 - `TColumnarDataReader<T>`  --  reads a file forward-only into its `Data` row; `Read` returns `False` at the end of the file. The header policy is passed to the constructor: `hdNone` for a file without a header line, `hdFree` to find each declared column by its header and pass over the other columns of the file, `hdStrict` to require exactly the declared headers, in their order. A line with another number of columns, or a value that does not convert, raises an exception that names the line and the file.
 - `TColumnarDataWriter<T>`  --  writes its `Data` row as the next line on each call to `Write`, with or without a header line.
 - `TColumnarDataHeaders`  --  the headers of the columns of a row class.

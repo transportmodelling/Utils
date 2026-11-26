@@ -12,7 +12,9 @@ interface
 
 // ColData tests: the reader maps the columns by position or by header, the
 // writer writes the declared decimals, written rows read back unchanged, a row
-// class sets the delimiter, and a malformed line names its line and file.
+// class sets the delimiter, a string reads back whole and the writer refuses
+// one the reader would split or drop, and a malformed line names its line and
+// file.
 
 Uses
   SysUtils, Classes, IOUtils, DUnitX.TestFramework, Parse, ColData;
@@ -31,6 +33,18 @@ Type
     Function Delimiter: TDelimiter; override;
   end;
 
+  TNamedZoneRow = Class(TZoneRow)
+  strict protected
+    Procedure IterateColumns; override;
+  public
+    Name: String;
+  end;
+
+  TSpaceNamedZoneRow = Class(TNamedZoneRow)
+  public
+    Function Delimiter: TDelimiter; override;
+  end;
+
   TFactorRow = Class(TColumnarData)
   strict protected
     Procedure IterateColumns; override;
@@ -45,6 +59,7 @@ Type
     Procedure WriteLines(const Lines: TArray<String>);
     Function ReadError(const Header: TColumnarDataHeader): String;
     Function LineOf(const Error: String; const Line: Integer): Boolean;
+    Function NameWriteError<RowType: TNamedZoneRow, constructor>(const Name: String): String;
   public
     [Setup] Procedure Setup;
     [TearDown] Procedure TearDown;
@@ -55,6 +70,10 @@ Type
     [Test] Procedure WriterWritesTheHeader;
     [Test] Procedure WrittenRowsReadBack;
     [Test] Procedure RowClassSetsTheDelimiter;
+    [Test] Procedure StringsReadBackWhole;
+    [Test] Procedure StringWithTheDelimiterRaises;
+    [Test] Procedure SpaceDelimitedStringWithATabRaises;
+    [Test] Procedure SpaceDelimitedEmptyStringRaises;
     [Test] Procedure WrongColumnCountNamesTheLine;
     [Test] Procedure InvalidNumberNamesTheLine;
     [Test] Procedure EmptyLineInsideTheFileRaises;
@@ -80,6 +99,21 @@ end;
 Function TSemicolonZoneRow.Delimiter: TDelimiter;
 begin
   Result := Semicolon;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Procedure TNamedZoneRow.IterateColumns;
+begin
+  inherited IterateColumns;
+  Column('Name',Name);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Function TSpaceNamedZoneRow.Delimiter: TDelimiter;
+begin
+  Result := Space;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -115,6 +149,22 @@ end;
 Function TColumnarDataTests.LineOf(const Error: String; const Line: Integer): Boolean;
 begin
   Result := Error.EndsWith(' at line ' + Line.ToString + ' of ' + ExtractFileName(FileName));
+end;
+
+Function TColumnarDataTests.NameWriteError<RowType>(const Name: String): String;
+begin
+  Result := '';
+  var Writer := TColumnarDataWriter<RowType>.Create(FileName,true);
+  try
+    Writer.Data.Name := Name;
+    try
+      Writer.Write;
+    except
+      on E: Exception do Result := E.Message;
+    end;
+  finally
+    Writer.Free;
+  end;
 end;
 
 Procedure TColumnarDataTests.Setup;
@@ -266,6 +316,45 @@ begin
   finally
     Reader.Free;
   end;
+end;
+
+Procedure TColumnarDataTests.StringsReadBackWhole;
+begin
+  var Writer := TColumnarDataWriter<TNamedZoneRow>.Create(FileName,true);
+  try
+    Writer.Data.Zone := 3;
+    Writer.Data.Name := 'Den Haag Centraal';
+    Writer.Write;
+  finally
+    Writer.Free;
+  end;
+  Assert.AreEqual('3'#9'0'#9'0.00'#9'Den Haag Centraal',TFile.ReadAllLines(FileName)[1],'The string as it is');
+  var Reader := TColumnarDataReader<TNamedZoneRow>.Create(FileName,hdStrict);
+  try
+    Assert.IsTrue(Reader.Read,'The line reads');
+    Assert.AreEqual('Den Haag Centraal',Reader.Data.Name,'With its spaces');
+  finally
+    Reader.Free;
+  end;
+end;
+
+Procedure TColumnarDataTests.StringWithTheDelimiterRaises;
+begin
+  var Error := NameWriteError<TNamedZoneRow>('Den Haag'#9'Centraal');
+  Assert.IsTrue(Error.StartsWith('Column Name holds a separator'),'The column');
+  Assert.IsTrue(LineOf(Error,2),'The line being written and the file');
+end;
+
+Procedure TColumnarDataTests.SpaceDelimitedStringWithATabRaises;
+begin
+  var Error := NameWriteError<TSpaceNamedZoneRow>('Den'#9'Haag');
+  Assert.IsTrue(Error.StartsWith('Column Name holds a separator'),'The space delimiter also splits on tabs');
+end;
+
+Procedure TColumnarDataTests.SpaceDelimitedEmptyStringRaises;
+begin
+  Assert.IsTrue(NameWriteError<TSpaceNamedZoneRow>('').StartsWith('Column Name is empty'),'The space delimiter drops empty columns');
+  Assert.AreEqual('',NameWriteError<TNamedZoneRow>(''),'The tab delimiter keeps them');
 end;
 
 Procedure TColumnarDataTests.WrongColumnCountNamesTheLine;
