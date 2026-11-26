@@ -69,6 +69,7 @@ Type
     [Test] Procedure TestToString_Adaptive_RandomValues;
     // ToString(Format) writes a float in full, or rounded as its format states
     [Test] Procedure TestToString_TextFormat;
+    [Test] Procedure TestToString_TextFormat_DecimalSeparator;
   end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -512,6 +513,20 @@ begin
   Assert.AreEqual(V.ToString(3,false),V.ToString(TFloatText.Create(3,false)),'Fixed decimals');
   Assert.AreEqual('2.500',V.ToString(TFloatText.Create(3,false)),'Three decimals');
   Assert.AreEqual('2.5',V.ToString(TFloatText.Create(3,true)),'Without trailing zero decimals');
+end;
+
+Procedure TFloat64HelperTests.TestToString_TextFormat_DecimalSeparator;
+// A decimal separator of its own replaces the one of FormatSettings, which stays as it is
+begin
+  var V: Float64 := -2.5;
+  Assert.AreEqual('-2,500',V.ToString(TFloatText.Create(3,false),','),'Fixed decimals');
+  Assert.AreEqual('-2,5',V.ToString(TFloatText.Create(3,true),','),'Without trailing zero decimals');
+  Assert.AreEqual(V.ToString(3,false),V.ToString(TFloatText.Create(3,false),FormatSettings.DecimalSeparator),
+                  'The separator of the format settings');
+  V := 1/3;
+  Assert.AreEqual(FloatToStr(V).Replace(FormatSettings.DecimalSeparator,','),V.ToString(Default(TFloatText),','),
+                  'In full');
+  Assert.AreEqual(FloatToStr(V),V.ToString,'The format settings are unchanged');
 end;
 
 initialization

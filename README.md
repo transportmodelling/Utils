@@ -216,6 +216,7 @@ Provides `TFloat64Helper`  --  a record helper for `Float64` that adds rounding,
   // A format as a value: in full by default, or rounded to a number of decimals
   var Format := TFloatText.Create(2, True);   // at most 2 decimals, no trailing zeros
   writeln(V.ToString(Format));                // '2469.34'
+  writeln(V.ToString(Format, ','));           // '2469,34', whatever the format settings
 
   // Fast exponential, slightly less accurate than System.Exp
   var X: Float64 := 0.5;

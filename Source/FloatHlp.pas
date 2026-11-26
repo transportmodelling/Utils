@@ -53,6 +53,8 @@ Type
     Function ToString(Decimals: Byte; SkipTrailingZeroDecimals: Boolean): string; overload;
     Function ToString(Decimals: Byte; FixedDecimals,SkipTrailingZeroDecimals: Boolean): string; overload;
     Function ToString(const Format: TFloatText): String; overload;
+    // The text in a format with a decimal separator of its own, in place of the one of FormatSettings
+    Function ToString(const Format: TFloatText; const DecimalSeparator: Char): String; overload;
   end;
 
 // Exp(X) as 2^n*exp(r), with n = round(X/ln2) and exp(r) a degree-12 Taylor polynomial (the algorithm
@@ -325,6 +327,13 @@ begin
     Result := ToString(Format.Decimals,Format.SkipTrailingZeroDecimals)
   else
     Result := ToString;
+end;
+
+Function TFloat64Helper.ToString(const Format: TFloatText; const DecimalSeparator: Char): String;
+begin
+  Result := ToString(Format);
+  if DecimalSeparator <> FormatSettings.DecimalSeparator then
+    Result := Result.Replace(FormatSettings.DecimalSeparator,DecimalSeparator);
 end;
 
 end.
