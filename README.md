@@ -64,6 +64,68 @@ Provides `TBaseDirectory`  --  a record that wraps a base directory path and off
   writeln(Base.AbsolutePath('data\file.txt'));  // C:\Projects\MyApp\data\file.txt
 ```
 
+## ColData.pas
+Provides reading and writing of columnar text files  --  one row per line, the columns separated by a delimiter  --  described by a row class. The row class declares its columns once, in `IterateColumns`, as a sequence of `Column` calls that each give a header and, for a real, its format. That one declaration serves two goals:
+
+- **Consistent reading and writing**  --  the reader and the writer both follow the declaration, so a file reads back in the layout it is written in, and a change of the layout reaches both at once.
+- **Metadata**  --  the headers name the columns of the data, also of a file that holds no header line, since they come from the declaration and not from the file. The writer can put them in the file, the reader checks them or finds the columns by them, and `TColumnarDataHeaders` gives them to any other program that presents the data, such as a viewer.
+
+Four types are involved:
+
+- `TColumnarData`  --  abstract base class of a row class. A column holds an `Integer` or a `Float64`. A real is written in full (at 15 significant digits), or rounded to a number of decimals, optionally without its trailing zero decimals. The delimiter is a tab, unless the row class overrides `Delimiter`.
+- `TColumnarDataReader<T>`  --  reads a file forward-only into its `Data` row; `Read` returns `False` at the end of the file. The header policy is passed to the constructor: `hdNone` for a file without a header line, `hdFree` to find each declared column by its header and pass over the other columns of the file, `hdStrict` to require exactly the declared headers, in their order. A line with another number of columns, or a value that does not convert, raises an exception that names the line and the file.
+- `TColumnarDataWriter<T>`  --  writes its `Data` row as the next line on each call to `Write`, with or without a header line.
+- `TColumnarDataHeaders`  --  the headers of the columns of a row class.
+
+Files are read and written in the system's ANSI code page, and reals in the invariant format, with a point as decimal separator.
+
+```
+  Type
+    TZoneRow = Class(TColumnarData)
+    strict protected
+      Procedure IterateColumns; override;
+    public
+      Zone: Integer;
+      Population,Area: Float64;
+    end;
+
+  Procedure TZoneRow.IterateColumns;
+  begin
+    Column('Zone',Zone);
+    Column('Population',Population,0);    // rounded to whole numbers
+    Column('Area',Area,2,true);           // at most 2 decimals, no trailing zeros
+  end;
+
+  // Write
+  var Writer := TColumnarDataWriter<TZoneRow>.Create('zones.txt',{Header=}true);
+  try
+    Writer.Data.Zone := 1;
+    Writer.Data.Population := 1250;
+    Writer.Data.Area := 3.5;
+    Writer.Write;                         // 1<tab>1250<tab>3.5
+  finally
+    Writer.Free;
+  end;
+
+  // Read
+  var Reader := TColumnarDataReader<TZoneRow>.Create('zones.txt',hdStrict);
+  try
+    while Reader.Read do writeln(Reader.Data.Zone,': ',Reader.Data.Population:0:0);   // 1: 1250
+  finally
+    Reader.Free;
+  end;
+
+  // The headers of the columns
+  var Row := TZoneRow.Create;
+  var Headers := TColumnarDataHeaders.Create(Row);
+  try
+    writeln(Headers.HeaderLine(','));     // Zone,Population,Area
+  finally
+    Headers.Free;
+    Row.Free;
+  end;
+```
+
 ## DBF.pas
 Provides low-level dBase (.dbf) file reading and writing. Three types are involved:
 

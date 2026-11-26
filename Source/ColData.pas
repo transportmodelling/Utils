@@ -12,9 +12,16 @@ interface
 ////////////////////////////////////////////////////////////////////////////////
 
 // A columnar text file holds one row per line. A row class declares its
-// columns once, as the sequence of Column calls in IterateColumns. The header
-// list, the reader and the writer all traverse that sequence, so a file reads
-// back in the layout it is written in.
+// columns once, as the sequence of Column calls in IterateColumns, each with
+// its header and, for a real, its format. That one declaration serves two
+// goals:
+// - Consistent reading and writing: the reader and the writer both traverse
+//   it, so a file reads back in the layout it is written in.
+// - Metadata: the headers name the columns of the data, also of a file that
+//   holds no header line, since they come from the declaration and not from
+//   the file. The writer can put them in the file, the reader checks them or
+//   finds the columns by them, and TColumnarDataHeaders gives them to any
+//   other program that presents the data.
 
 Uses
   SysUtils, Classes, Parse;
