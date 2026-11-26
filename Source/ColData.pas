@@ -24,6 +24,10 @@ interface
 //   them to any other program that presents the data. Such a program creates
 //   a row from its class and takes the headers, the delimiter and the header
 //   line from it.
+//
+// Floats are read and written with the decimal separator of their row class:
+// the one of the format settings of the application, unless the row class
+// states another.
 
 Uses
   SysUtils, Classes, Parse, FloatHlp;
@@ -77,6 +81,9 @@ Type
     Constructor Create; virtual;
     // The separator of the columns, a tab unless a row class overrides it
     Function Delimiter: TDelimiter; virtual;
+    // The decimal separator of the floats, the one of the format settings of
+    // the application unless a row class overrides it
+    Function DecimalSeparator: Char; virtual;
     // The header line of the file, none unless a row class overrides it. The
     // writer writes the headers for any other value.
     Function Header: TColumnarDataHeader; virtual;
@@ -110,7 +117,7 @@ Type
   strict protected
     Headers: TColumnarDataHeaders;
     ColumnIndex: Integer;
-    // Fetched once: TFormatSettings.Invariant fills a new record on every call
+    // The format settings of the application with the decimal separator of the row
     Settings: TFormatSettings;
     Function LineError(const Message: String): Exception;
     Procedure ValidateData;
@@ -160,7 +167,6 @@ Type
     Procedure Open; override;
     Procedure TakeStringRules;
     Procedure Append(const Value: String);
-    Function WithoutTrailingZeroDecimals(const Value: Float64; const NDecimals: Byte): String;
   protected
     Procedure Column(const Header: String; var Value: Integer); overload; override;
     Procedure Column(const Header: String; var Value: String); overload; override;
@@ -215,6 +221,11 @@ begin
   Result := Tab;
 end;
 
+Function TColumnarData.DecimalSeparator: Char;
+begin
+  Result := FormatSettings.DecimalSeparator;
+end;
+
 Function TColumnarData.Header: TColumnarDataHeader;
 begin
   Result := hdNone;
@@ -266,7 +277,8 @@ begin
   FFileName := FileName;
   FData := DataType.Create;
   Headers := TColumnarDataHeaders.Create(FData);
-  Settings := TFormatSettings.Invariant;
+  Settings := FormatSettings;
+  Settings.DecimalSeparator := FData.DecimalSeparator;
   Open;
 end;
 
@@ -449,16 +461,6 @@ begin
   Inc(ColumnIndex);
 end;
 
-Function TColumnarDataWriter<DataType>.WithoutTrailingZeroDecimals(const Value: Float64; const NDecimals: Byte): String;
-// FormatFloat with the mask '0.###...', except for a nonzero value that rounds
-// to zero: FormatFloat writes it as '0.0...', this as '0'
-begin
-  var Mask: String := '0';
-  if NDecimals > 0 then Mask := Mask + '.' + StringOfChar('#',NDecimals);
-  Result := FormatFloat(Mask,Value,Settings);
-  if StrToFloat(Result,Settings) = 0 then Result := '0';
-end;
-
 Procedure TColumnarDataWriter<DataType>.Column(const Header: String; var Value: Integer);
 begin
   Append(Value.ToString);
@@ -478,12 +480,7 @@ end;
 
 Procedure TColumnarDataWriter<DataType>.Column(const Header: String; var Value: Float64; const Format: TFloatText);
 begin
-  if not Format.Rounded then
-    Append(FloatToStr(Value,Settings))
-  else if Format.SkipTrailingZeroDecimals then
-    Append(WithoutTrailingZeroDecimals(Value,Format.Decimals))
-  else
-    Append(FloatToStrF(Value,ffFixed,15,Format.Decimals,Settings));
+  Append(Value.ToString(Format,Settings.DecimalSeparator));
 end;
 
 Procedure TColumnarDataWriter<DataType>.Write;

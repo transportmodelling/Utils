@@ -15,8 +15,9 @@ interface
 // back unchanged, a row class sets the delimiter and describes its file when
 // created from its class, a string reads back whole and the writer refuses
 // one the reader would split or drop, the reader and the writer refuse a row
-// its row class does not validate, and a malformed line names its line and
-// file.
+// its row class does not validate, a malformed line names its line and file,
+// and floats take the decimal separator of the format settings, or the one
+// their row class states.
 
 Uses
   SysUtils, Classes, IOUtils, DUnitX.TestFramework, Parse, ColData;
@@ -43,6 +44,11 @@ Type
   TSemicolonZoneRow = Class(TStrictZoneRow)
   public
     Function Delimiter: TDelimiter; override;
+  end;
+
+  TCommaZoneRow = Class(TZoneRow)
+  public
+    Function DecimalSeparator: Char; override;
   end;
 
   TInhabitedZoneRow = Class(TZoneRow)
@@ -77,6 +83,7 @@ Type
     Procedure WriteLines(const Lines: TArray<String>);
     Function ReadError<RowType: TColumnarData, constructor>: String;
     Function LineOf(const Error: String; const Line: Integer): Boolean;
+    Procedure CheckIncomeWithAComma<RowType: TZoneRow, constructor>;
     Function NameWriteError<RowType: TNamedZoneRow, constructor>(const Name: String): String;
   public
     [Setup] Procedure Setup;
@@ -87,6 +94,8 @@ Type
     [Test] Procedure WriterWritesRealsWithoutDecimalsInFull;
     [Test] Procedure WriterWritesTheHeader;
     [Test] Procedure WrittenRowsReadBack;
+    [Test] Procedure FloatsFollowTheFormatSettings;
+    [Test] Procedure RowClassSetsTheDecimalSeparator;
     [Test] Procedure RowClassSetsTheDelimiter;
     [Test] Procedure RowClassDescribesItsFile;
     [Test] Procedure StringsReadBackWhole;
@@ -134,6 +143,13 @@ end;
 Function TSemicolonZoneRow.Delimiter: TDelimiter;
 begin
   Result := Semicolon;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Function TCommaZoneRow.DecimalSeparator: Char;
+begin
+  Result := ',';
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -341,6 +357,44 @@ begin
   finally
     Reader.Free;
   end;
+end;
+
+Procedure TColumnarDataTests.CheckIncomeWithAComma<RowType>;
+// Writes an income and reads it back, both with a comma as decimal separator
+begin
+  var Writer := TColumnarDataWriter<RowType>.Create(FileName);
+  try
+    Writer.Data.Income := 2450.456;
+    Writer.Write;
+  finally
+    Writer.Free;
+  end;
+  Assert.AreEqual('0'#9'0'#9'2450,46',TFile.ReadAllLines(FileName)[0],'Written with a comma');
+  var Reader := TColumnarDataReader<RowType>.Create(FileName);
+  try
+    Assert.IsTrue(Reader.Read,'The line reads');
+    Assert.AreEqual(2450.46,Reader.Data.Income,1E-12,'Read with a comma');
+  finally
+    Reader.Free;
+  end;
+end;
+
+Procedure TColumnarDataTests.FloatsFollowTheFormatSettings;
+begin
+  var Separator := FormatSettings.DecimalSeparator;
+  FormatSettings.DecimalSeparator := ',';
+  try
+    CheckIncomeWithAComma<TZoneRow>;
+  finally
+    FormatSettings.DecimalSeparator := Separator;
+  end;
+end;
+
+Procedure TColumnarDataTests.RowClassSetsTheDecimalSeparator;
+begin
+  Assert.IsTrue(FormatSettings.DecimalSeparator = '.','The format settings hold a point');
+  CheckIncomeWithAComma<TCommaZoneRow>;
+  Assert.IsTrue(FormatSettings.DecimalSeparator = '.','The format settings are unchanged');
 end;
 
 Procedure TColumnarDataTests.RowClassSetsTheDelimiter;
