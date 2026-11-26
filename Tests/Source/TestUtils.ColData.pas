@@ -440,6 +440,7 @@ begin
     Assert.AreEqual('Zone,Households,Income',Headers.HeaderLine(','),'The headers');
     Assert.IsTrue(Row.Header = hdStrict,'The header line');
     Assert.IsTrue(Row.Delimiter = Semicolon,'The delimiter');
+    Assert.IsFalse(Row.NumericHeaders,'Headers are names, unless a row class says otherwise');
   finally
     Headers.Free;
     Row.Free;

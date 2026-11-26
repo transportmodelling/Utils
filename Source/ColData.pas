@@ -95,6 +95,10 @@ Type
     // The header line of the file, none unless a row class overrides it. The
     // writer writes the headers for any other value.
     Function Header: TColumnarDataHeader; virtual;
+    // Whether the header line of the file may name columns by numbers; it does
+    // not, unless a row class overrides it. A program that checks a file then
+    // takes a number in its header line for a sign that the line holds values.
+    Function NumericHeaders: Boolean; virtual;
   end;
 
   TColumnarDataClass = Class of TColumnarData;
@@ -237,6 +241,11 @@ end;
 Function TColumnarData.Header: TColumnarDataHeader;
 begin
   Result := hdNone;
+end;
+
+Function TColumnarData.NumericHeaders: Boolean;
+begin
+  Result := false;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
