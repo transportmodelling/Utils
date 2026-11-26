@@ -65,16 +65,16 @@ Provides `TBaseDirectory`  --  a record that wraps a base directory path and off
 ```
 
 ## ColData.pas
-Provides reading and writing of columnar text files  --  one row per line, the columns separated by a delimiter  --  described by a row class. The row class declares its columns once, in `IterateColumns`, as a sequence of `Column` calls that each give a header and, for a real, its format. That one declaration serves two goals:
+Provides reading and writing of columnar text files  --  one row per line, the columns separated by a delimiter  --  described by a row class. The row class declares its columns once, in `IterateColumns`, as a sequence of `Column` calls that each give a header and, for a real, its format, and states the delimiter and the header line of its file. That one declaration serves two goals:
 
 - **Consistent reading and writing**  --  the reader and the writer both follow the declaration, so a file reads back in the layout it is written in, and a change of the layout reaches both at once.
-- **Metadata**  --  the headers name the columns of the data, also of a file that holds no header line, since they come from the declaration and not from the file. The writer can put them in the file, the reader checks them or finds the columns by them, and `TColumnarDataHeaders` gives them to any other program that presents the data, such as a viewer.
+- **Metadata**  --  the headers name the columns of the data, also of a file that holds no header line, since they come from the declaration and not from the file. The writer puts them in a file with a header line, the reader checks them or finds the columns by them, and `TColumnarDataHeaders` gives them to any other program that presents the data, such as a viewer. Such a program needs the row class only: it creates a row from a `TColumnarDataClass` reference and takes the headers, the delimiter and the header line from it.
 
 Four types are involved:
 
-- `TColumnarData`  --  abstract base class of a row class. A column holds an `Integer`, a `Float64` or a `String`. A real is written in full (at 15 significant digits), or rounded to a number of decimals, optionally without its trailing zero decimals. A string is written as it is; the writer raises an exception for one the reader would split or drop, which would shift the columns of the line: a string holding a separator or a line break (a space delimiter also separates on tabs) and, with a space delimiter, an empty string. The delimiter is a tab, unless the row class overrides `Delimiter`. A row class may override `Validate` to check the values of a row together, raising `EInvalidColumnarData` for a row that is not valid; it is called after a row is read and before a row is written, so a file the writer writes holds no row its reader refuses.
-- `TColumnarDataReader<T>`  --  reads a file forward-only into its `Data` row; `Read` returns `False` at the end of the file. The header policy is passed to the constructor: `hdNone` for a file without a header line, `hdFree` to find each declared column by its header and pass over the other columns of the file, `hdStrict` to require exactly the declared headers, in their order. A line with another number of columns, a value that does not convert, or a row that `Validate` refuses raises an exception that names the line and the file.
-- `TColumnarDataWriter<T>`  --  writes its `Data` row as the next line on each call to `Write`, with or without a header line; a row that `Validate` refuses raises an exception that names the line and the file, and is not written.
+- `TColumnarData`  --  abstract base class of a row class. A column holds an `Integer`, a `Float64` or a `String`. A real is written in full (at 15 significant digits), or rounded to a number of decimals, optionally without its trailing zero decimals. A string is written as it is; the writer raises an exception for one the reader would split or drop, which would shift the columns of the line: a string holding a separator or a line break (a space delimiter also separates on tabs) and, with a space delimiter, an empty string. The delimiter is a tab, unless the row class overrides `Delimiter`. The file holds no header line, unless the row class overrides `Header`: `hdNone` for a file without a header line, `hdFree` for a header line in which each declared column is found by its header and the other columns of the file are passed over, `hdStrict` for a header line of exactly the declared headers, in their order. A row class may override `Validate` to check the values of a row together, raising `EInvalidColumnarData` for a row that is not valid; it is called after a row is read and before a row is written, so a file the writer writes holds no row its reader refuses.
+- `TColumnarDataReader<T>`  --  reads a file forward-only into its `Data` row; `Read` returns `False` at the end of the file. A header line that does not fit the `Header` of the row class, a line with another number of columns, a value that does not convert, or a row that `Validate` refuses raises an exception that names the line and the file.
+- `TColumnarDataWriter<T>`  --  writes its `Data` row as the next line on each call to `Write`, after the header line when the row class states one; a row that `Validate` refuses raises an exception that names the line and the file, and is not written.
 - `TColumnarDataHeaders`  --  the headers of the columns of a row class.
 
 Files are read and written in the system's ANSI code page, and reals in the invariant format, with a point as decimal separator.
@@ -87,6 +87,7 @@ Files are read and written in the system's ANSI code page, and reals in the inva
     public
       Zone: Integer;
       Population,Area: Float64;
+      Function Header: TColumnarDataHeader; override;
     end;
 
   Procedure TZoneRow.IterateColumns;
@@ -96,8 +97,13 @@ Files are read and written in the system's ANSI code page, and reals in the inva
     Column('Area',Area,2,true);           // at most 2 decimals, no trailing zeros
   end;
 
+  Function TZoneRow.Header: TColumnarDataHeader;
+  begin
+    Result := hdStrict;                   // a header line of exactly these columns
+  end;
+
   // Write
-  var Writer := TColumnarDataWriter<TZoneRow>.Create('zones.txt',{Header=}true);
+  var Writer := TColumnarDataWriter<TZoneRow>.Create('zones.txt');
   try
     Writer.Data.Zone := 1;
     Writer.Data.Population := 1250;
@@ -108,7 +114,7 @@ Files are read and written in the system's ANSI code page, and reals in the inva
   end;
 
   // Read
-  var Reader := TColumnarDataReader<TZoneRow>.Create('zones.txt',hdStrict);
+  var Reader := TColumnarDataReader<TZoneRow>.Create('zones.txt');
   try
     while Reader.Read do writeln(Reader.Data.Zone,': ',Reader.Data.Population:0:0);   // 1: 1250
   finally

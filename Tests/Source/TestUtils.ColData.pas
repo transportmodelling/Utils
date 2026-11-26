@@ -10,9 +10,10 @@ unit TestUtils.ColData;
 interface
 ////////////////////////////////////////////////////////////////////////////////
 
-// ColData tests: the reader maps the columns by position or by header, the
-// writer writes the declared decimals, written rows read back unchanged, a row
-// class sets the delimiter, a string reads back whole and the writer refuses
+// ColData tests: the reader maps the columns by position or by header, as the
+// row class states, the writer writes the declared decimals, written rows read
+// back unchanged, a row class sets the delimiter and describes its file when
+// created from its class, a string reads back whole and the writer refuses
 // one the reader would split or drop, the reader and the writer refuse a row
 // its row class does not validate, and a malformed line names its line and
 // file.
@@ -29,7 +30,17 @@ Type
     Income: Float64;
   end;
 
-  TSemicolonZoneRow = Class(TZoneRow)
+  TStrictZoneRow = Class(TZoneRow)
+  public
+    Function Header: TColumnarDataHeader; override;
+  end;
+
+  TFreeZoneRow = Class(TZoneRow)
+  public
+    Function Header: TColumnarDataHeader; override;
+  end;
+
+  TSemicolonZoneRow = Class(TStrictZoneRow)
   public
     Function Delimiter: TDelimiter; override;
   end;
@@ -40,7 +51,7 @@ Type
     Procedure Validate; override;
   end;
 
-  TNamedZoneRow = Class(TZoneRow)
+  TNamedZoneRow = Class(TStrictZoneRow)
   strict protected
     Procedure IterateColumns; override;
   public
@@ -64,7 +75,7 @@ Type
   private
     FileName: String;
     Procedure WriteLines(const Lines: TArray<String>);
-    Function ReadError(const Header: TColumnarDataHeader): String;
+    Function ReadError<RowType: TColumnarData, constructor>: String;
     Function LineOf(const Error: String; const Line: Integer): Boolean;
     Function NameWriteError<RowType: TNamedZoneRow, constructor>(const Name: String): String;
   public
@@ -77,6 +88,7 @@ Type
     [Test] Procedure WriterWritesTheHeader;
     [Test] Procedure WrittenRowsReadBack;
     [Test] Procedure RowClassSetsTheDelimiter;
+    [Test] Procedure RowClassDescribesItsFile;
     [Test] Procedure StringsReadBackWhole;
     [Test] Procedure StringWithTheDelimiterRaises;
     [Test] Procedure SpaceDelimitedStringWithATabRaises;
@@ -101,6 +113,20 @@ begin
   Column('Zone',Zone);
   Column('Households',Households);
   Column('Income',Income,2);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Function TStrictZoneRow.Header: TColumnarDataHeader;
+begin
+  Result := hdStrict;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Function TFreeZoneRow.Header: TColumnarDataHeader;
+begin
+  Result := hdFree;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -150,11 +176,11 @@ begin
   TFile.WriteAllLines(FileName,Lines,TEncoding.ANSI);
 end;
 
-Function TColumnarDataTests.ReadError(const Header: TColumnarDataHeader): String;
+Function TColumnarDataTests.ReadError<RowType>: String;
 begin
   Result := '';
   try
-    var Reader := TColumnarDataReader<TZoneRow>.Create(FileName,Header);
+    var Reader := TColumnarDataReader<RowType>.Create(FileName);
     try
       while Reader.Read do;
     finally
@@ -173,7 +199,7 @@ end;
 Function TColumnarDataTests.NameWriteError<RowType>(const Name: String): String;
 begin
   Result := '';
-  var Writer := TColumnarDataWriter<RowType>.Create(FileName,true);
+  var Writer := TColumnarDataWriter<RowType>.Create(FileName);
   try
     Writer.Data.Name := Name;
     try
@@ -199,7 +225,7 @@ end;
 Procedure TColumnarDataTests.ReaderMapsTheColumnsByPosition;
 begin
   WriteLines(['3'#9'120'#9'2450.5','4'#9'80'#9'1900']);
-  var Reader := TColumnarDataReader<TZoneRow>.Create(FileName,hdNone);
+  var Reader := TColumnarDataReader<TZoneRow>.Create(FileName);
   try
     Assert.IsTrue(Reader.Read,'The first line reads');
     Assert.AreEqual<Integer>(3,Reader.Data.Zone,'Zone');
@@ -216,7 +242,7 @@ end;
 
 Procedure TColumnarDataTests.WriterWritesTheDeclaredDecimals;
 begin
-  var Writer := TColumnarDataWriter<TZoneRow>.Create(FileName,false);
+  var Writer := TColumnarDataWriter<TZoneRow>.Create(FileName);
   try
     Writer.Data.Zone := 3;
     Writer.Data.Households := 120;
@@ -235,7 +261,7 @@ Const
   Counts: array[0..5] of Float64 = (437.0,436.96,12.34,0.25,-0.04,0.0);
   Expected: array[0..5] of String = ('437','437','12.3','0.3','0','0');
 begin
-  var Writer := TColumnarDataWriter<TFactorRow>.Create(FileName,false);
+  var Writer := TColumnarDataWriter<TFactorRow>.Create(FileName);
   try
     for var Index := 0 to High(Counts) do
     begin
@@ -255,7 +281,7 @@ Const
   Factors: array[0..2] of Float64 = (0.209376618194576,-0.000149736735588604,3.0);
   Expected: array[0..2] of String = ('0.209376618194576','-0.000149736735588604','3');
 begin
-  var Writer := TColumnarDataWriter<TFactorRow>.Create(FileName,true);
+  var Writer := TColumnarDataWriter<TFactorRow>.Create(FileName);
   try
     for var Index := 0 to High(Factors) do
     begin
@@ -266,11 +292,11 @@ begin
     Writer.Free;
   end;
   var Lines := TFile.ReadAllLines(FileName);
-  var Reader := TColumnarDataReader<TFactorRow>.Create(FileName,hdStrict);
+  var Reader := TColumnarDataReader<TFactorRow>.Create(FileName);
   try
     for var Index := 0 to High(Factors) do
     begin
-      Assert.AreEqual('0'#9+Expected[Index],Lines[Index+1],'Text of factor ' + Expected[Index]);
+      Assert.AreEqual('0'#9+Expected[Index],Lines[Index],'Text of factor ' + Expected[Index]);
       Assert.IsTrue(Reader.Read,'Factor ' + Expected[Index] + ' reads');
       Assert.IsTrue(Reader.Data.Factor = Factors[Index],'Factor ' + Expected[Index] + ' reads back');
     end;
@@ -281,7 +307,7 @@ end;
 
 Procedure TColumnarDataTests.WriterWritesTheHeader;
 begin
-  var Writer := TColumnarDataWriter<TZoneRow>.Create(FileName,true);
+  var Writer := TColumnarDataWriter<TStrictZoneRow>.Create(FileName);
   Writer.Free;
   var Lines := TFile.ReadAllLines(FileName);
   Assert.AreEqual<Integer>(1,Length(Lines),'The header line only');
@@ -290,7 +316,7 @@ end;
 
 Procedure TColumnarDataTests.WrittenRowsReadBack;
 begin
-  var Writer := TColumnarDataWriter<TZoneRow>.Create(FileName,true);
+  var Writer := TColumnarDataWriter<TStrictZoneRow>.Create(FileName);
   try
     for var Zone := 1 to 3 do
     begin
@@ -302,7 +328,7 @@ begin
   finally
     Writer.Free;
   end;
-  var Reader := TColumnarDataReader<TZoneRow>.Create(FileName,hdStrict);
+  var Reader := TColumnarDataReader<TStrictZoneRow>.Create(FileName);
   try
     for var Zone := 1 to 3 do
     begin
@@ -319,7 +345,7 @@ end;
 
 Procedure TColumnarDataTests.RowClassSetsTheDelimiter;
 begin
-  var Writer := TColumnarDataWriter<TSemicolonZoneRow>.Create(FileName,true);
+  var Writer := TColumnarDataWriter<TSemicolonZoneRow>.Create(FileName);
   try
     Writer.Data.Zone := 7;
     Writer.Data.Income := 1.5;
@@ -328,7 +354,7 @@ begin
     Writer.Free;
   end;
   Assert.AreEqual('7;0;1.50',TFile.ReadAllLines(FileName)[1],'Semicolon separated');
-  var Reader := TColumnarDataReader<TSemicolonZoneRow>.Create(FileName,hdStrict);
+  var Reader := TColumnarDataReader<TSemicolonZoneRow>.Create(FileName);
   try
     Assert.IsTrue(Reader.Read,'The line reads');
     Assert.AreEqual<Integer>(7,Reader.Data.Zone,'Zone');
@@ -337,9 +363,24 @@ begin
   end;
 end;
 
+Procedure TColumnarDataTests.RowClassDescribesItsFile;
+begin
+  var RowClass: TColumnarDataClass := TSemicolonZoneRow;
+  var Row := RowClass.Create;
+  var Headers := TColumnarDataHeaders.Create(Row);
+  try
+    Assert.AreEqual('Zone,Households,Income',Headers.HeaderLine(','),'The headers');
+    Assert.IsTrue(Row.Header = hdStrict,'The header line');
+    Assert.IsTrue(Row.Delimiter = Semicolon,'The delimiter');
+  finally
+    Headers.Free;
+    Row.Free;
+  end;
+end;
+
 Procedure TColumnarDataTests.StringsReadBackWhole;
 begin
-  var Writer := TColumnarDataWriter<TNamedZoneRow>.Create(FileName,true);
+  var Writer := TColumnarDataWriter<TNamedZoneRow>.Create(FileName);
   try
     Writer.Data.Zone := 3;
     Writer.Data.Name := 'Den Haag Centraal';
@@ -348,7 +389,7 @@ begin
     Writer.Free;
   end;
   Assert.AreEqual('3'#9'0'#9'0.00'#9'Den Haag Centraal',TFile.ReadAllLines(FileName)[1],'The string as it is');
-  var Reader := TColumnarDataReader<TNamedZoneRow>.Create(FileName,hdStrict);
+  var Reader := TColumnarDataReader<TNamedZoneRow>.Create(FileName);
   try
     Assert.IsTrue(Reader.Read,'The line reads');
     Assert.AreEqual('Den Haag Centraal',Reader.Data.Name,'With its spaces');
@@ -380,7 +421,7 @@ Procedure TColumnarDataTests.ReaderRaisesForAnInvalidRow;
 begin
   WriteLines(['3'#9'120'#9'2450.5','4'#9'0'#9'0','5'#9'80'#9'0']);
   var Error := '';
-  var Reader := TColumnarDataReader<TInhabitedZoneRow>.Create(FileName,hdNone);
+  var Reader := TColumnarDataReader<TInhabitedZoneRow>.Create(FileName);
   try
     Assert.IsTrue(Reader.Read,'A zone with households and income');
     Assert.IsTrue(Reader.Read,'A zone without households or income');
@@ -399,7 +440,7 @@ end;
 Procedure TColumnarDataTests.WriterRaisesForAnInvalidRow;
 begin
   var Error := '';
-  var Writer := TColumnarDataWriter<TInhabitedZoneRow>.Create(FileName,true);
+  var Writer := TColumnarDataWriter<TInhabitedZoneRow>.Create(FileName);
   try
     Writer.Data.Zone := 5;
     Writer.Data.Households := 80;
@@ -411,14 +452,14 @@ begin
   finally
     Writer.Free;
   end;
-  Assert.IsTrue(LineOf(Error,2),'The line after the header');
-  Assert.AreEqual<Integer>(1,Length(TFile.ReadAllLines(FileName)),'Only the header is written');
+  Assert.IsTrue(LineOf(Error,1),'The line being written and the file');
+  Assert.AreEqual<Integer>(0,Length(TFile.ReadAllLines(FileName)),'Nothing is written');
 end;
 
 Procedure TColumnarDataTests.WrongColumnCountNamesTheLine;
 begin
   WriteLines(['3'#9'120'#9'2450.5','4'#9'80']);
-  var Error := ReadError(hdNone);
+  var Error := ReadError<TZoneRow>;
   Assert.IsTrue(Error.StartsWith('3 columns expected, 2 found'),'The counts');
   Assert.IsTrue(LineOf(Error,2),'The line and file');
 end;
@@ -426,13 +467,13 @@ end;
 Procedure TColumnarDataTests.InvalidNumberNamesTheLine;
 begin
   WriteLines(['3'#9'120'#9'2450.5','4'#9'many'#9'1900']);
-  Assert.IsTrue(LineOf(ReadError(hdNone),2),'The line and file');
+  Assert.IsTrue(LineOf(ReadError<TZoneRow>,2),'The line and file');
 end;
 
 Procedure TColumnarDataTests.EmptyLineInsideTheFileRaises;
 begin
   WriteLines(['3'#9'120'#9'2450.5','','4'#9'80'#9'1900']);
-  var Error := ReadError(hdNone);
+  var Error := ReadError<TZoneRow>;
   Assert.IsTrue(Error.StartsWith('3 columns expected, 0 found'),'The empty line');
   Assert.IsTrue(LineOf(Error,2),'The line and file');
 end;
@@ -440,13 +481,13 @@ end;
 Procedure TColumnarDataTests.EmptyLastLineEndsTheFile;
 begin
   WriteLines(['3'#9'120'#9'2450.5','']);
-  Assert.AreEqual('',ReadError(hdNone),'No error');
+  Assert.AreEqual('',ReadError<TZoneRow>,'No error');
 end;
 
 Procedure TColumnarDataTests.FreeHeaderMapsTheColumnsByName;
 begin
   WriteLines(['INCOME'#9'Name'#9'Zone'#9'Households','2450.5'#9'Centre'#9'3'#9'120']);
-  var Reader := TColumnarDataReader<TZoneRow>.Create(FileName,hdFree);
+  var Reader := TColumnarDataReader<TFreeZoneRow>.Create(FileName);
   try
     Assert.IsTrue(Reader.Read,'The line reads');
     Assert.AreEqual<Integer>(3,Reader.Data.Zone,'Past the extra column');
@@ -461,7 +502,7 @@ end;
 Procedure TColumnarDataTests.FreeHeaderRequiresEveryColumn;
 begin
   WriteLines(['Zone'#9'Income']);
-  var Error := ReadError(hdFree);
+  var Error := ReadError<TFreeZoneRow>;
   Assert.IsTrue(Error.StartsWith('Missing column Households'),'The missing column');
   Assert.IsTrue(LineOf(Error,1),'The header line and file');
 end;
@@ -469,9 +510,9 @@ end;
 Procedure TColumnarDataTests.StrictHeaderRequiresTheColumnsInOrder;
 begin
   WriteLines(['Zone'#9'Households'#9'Income','3'#9'120'#9'2450.5']);
-  Assert.AreEqual('',ReadError(hdStrict),'The declared headers read');
+  Assert.AreEqual('',ReadError<TStrictZoneRow>,'The declared headers read');
   WriteLines(['Households'#9'Zone'#9'Income','3'#9'120'#9'2450.5']);
-  var Error := ReadError(hdStrict);
+  var Error := ReadError<TStrictZoneRow>;
   Assert.IsTrue(Error.StartsWith('Invalid header'),'Swapped headers');
   Assert.IsTrue(LineOf(Error,1),'The header line and file');
 end;

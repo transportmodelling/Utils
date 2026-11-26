@@ -13,20 +13,23 @@ interface
 
 // A columnar text file holds one row per line. A row class declares its
 // columns once, as the sequence of Column calls in IterateColumns, each with
-// its header and, for a real, its format. That one declaration serves two
-// goals:
+// its header and, for a real, its format, and states the delimiter and the
+// header line of its file. That one declaration serves two goals:
 // - Consistent reading and writing: the reader and the writer both traverse
 //   it, so a file reads back in the layout it is written in.
 // - Metadata: the headers name the columns of the data, also of a file that
 //   holds no header line, since they come from the declaration and not from
-//   the file. The writer can put them in the file, the reader checks them or
-//   finds the columns by them, and TColumnarDataHeaders gives them to any
-//   other program that presents the data.
+//   the file. The writer puts them in a file with a header line, the reader
+//   checks them or finds the columns by them, and TColumnarDataHeaders gives
+//   them to any other program that presents the data. Such a program creates
+//   a row from its class and takes the headers, the delimiter and the header
+//   line from it.
 
 Uses
   SysUtils, Classes, Parse;
 
 Type
+  // The header line of a file, as its row class states it
   // hdNone: the file holds no header line and its columns follow the declared
   //         columns
   // hdFree: a header line names the columns, each declared column finds its
@@ -72,9 +75,15 @@ Type
     // file the writer writes holds no row its reader refuses.
     Procedure Validate; virtual;
   public
+    Constructor Create; virtual;
     // The separator of the columns, a tab unless a row class overrides it
     Function Delimiter: TDelimiter; virtual;
+    // The header line of the file, none unless a row class overrides it. The
+    // writer writes the headers for any other value.
+    Function Header: TColumnarDataHeader; virtual;
   end;
+
+  TColumnarDataClass = Class of TColumnarData;
 
   TColumnarDataHeaders = Class(TColumnarDataHandler)
   // The headers of the columns a row class declares
@@ -123,7 +132,7 @@ Type
     Parser: TStringParser;
     NColumns: Integer;
     Positions: TArray<Integer>;
-    Procedure ReadHeader(const Header: TColumnarDataHeader);
+    Procedure ReadHeader;
     Procedure MapByPosition;
     Procedure MapByName;
     Function IndexOfHeader(const Header: String): Integer;
@@ -137,7 +146,7 @@ Type
     Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte;
                      const SkipTrailingZeroDecimals: Boolean); overload; override;
   public
-    Constructor Create(const FileName: String; const Header: TColumnarDataHeader);
+    Constructor Create(const FileName: String);
     Function Read: Boolean;
     Destructor Destroy; override;
   end;
@@ -160,7 +169,7 @@ Type
     Procedure Column(const Header: String; var Value: Float64; const NDecimals: Byte;
                      const SkipTrailingZeroDecimals: Boolean); overload; override;
   public
-    Constructor Create(const FileName: String; const Header: Boolean);
+    Constructor Create(const FileName: String);
     Procedure Write;
     Destructor Destroy; override;
   end;
@@ -168,6 +177,11 @@ Type
 ////////////////////////////////////////////////////////////////////////////////
 implementation
 ////////////////////////////////////////////////////////////////////////////////
+
+Constructor TColumnarData.Create;
+begin
+  inherited Create;
+end;
 
 Procedure TColumnarData.Iterate(const ColumnHandler: TColumnarDataHandler);
 begin
@@ -203,6 +217,11 @@ end;
 Function TColumnarData.Delimiter: TDelimiter;
 begin
   Result := Tab;
+end;
+
+Function TColumnarData.Header: TColumnarDataHeader;
+begin
+  Result := hdNone;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -284,16 +303,17 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Constructor TColumnarDataReader<DataType>.Create(const FileName: String; const Header: TColumnarDataHeader);
+Constructor TColumnarDataReader<DataType>.Create(const FileName: String);
 begin
   inherited Create(FileName);
   Parser := TStringParser.Create(FData.Delimiter);
   Reader := TStreamReader.Create(FileName,TEncoding.ANSI,true,65536);
-  ReadHeader(Header);
+  ReadHeader;
 end;
 
-Procedure TColumnarDataReader<DataType>.ReadHeader(const Header: TColumnarDataHeader);
+Procedure TColumnarDataReader<DataType>.ReadHeader;
 begin
+  var Header := FData.Header;
   if Header = hdNone then
     MapByPosition
   else
@@ -411,7 +431,7 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Constructor TColumnarDataWriter<DataType>.Create(const FileName: String; const Header: Boolean);
+Constructor TColumnarDataWriter<DataType>.Create(const FileName: String);
 begin
   inherited Create(FileName);
   Separator := FData.Delimiter.Delimiter;
@@ -419,7 +439,7 @@ begin
   Line := TStringBuilder.Create;
   Writer := TStreamWriter.Create(FileName,false,TEncoding.ANSI,65536);
   Writer.AutoFlush := false;
-  if Header then
+  if FData.Header <> hdNone then
   begin
     Writer.WriteLine(Headers.HeaderLine(Separator));
     Inc(FLineCount);
