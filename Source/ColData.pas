@@ -20,7 +20,8 @@ interface
 // - Metadata: the headers name the columns of the data, also of a file that
 //   holds no header line, since they come from the declaration and not from
 //   the file. The writer puts them in a file with a header line, the reader
-//   checks them or finds the columns by them, and TColumnarDataHeaders gives
+//   passes that line over, finds the columns by it or checks it, and
+//   TColumnarDataHeaders gives
 //   them to any other program that presents the data. Such a program creates
 //   a row from its class and takes the headers, the delimiter and the header
 //   line from it.
@@ -34,12 +35,19 @@ Uses
 
 Type
   // The header line of a file, as its row class states it
-  // hdNone: the file holds no header line and its columns follow the declared
-  //         columns
-  // hdFree: a header line names the columns, each declared column finds its
-  //         place by name and the other columns of the file are passed over
-  // hdStrict: a header line names exactly the declared columns, in their order
-  TColumnarDataHeader = (hdNone,hdFree,hdStrict);
+  //
+  //   Policy    Header line  Column found   What the header line holds
+  //   hdNone    none         by position    not applicable: the first line
+  //                                         is data
+  //   hdFree    passed over  by position    any names: a file names its
+  //                                         columns as it likes
+  //   hdNamed   read         by its name    every declared name; the other
+  //                                         columns of the file are passed over
+  //   hdStrict  checked      by position    exactly the declared names, in
+  //                                         their order
+  //
+  // By position, the columns of a line follow the declared columns.
+  TColumnarDataHeader = (hdNone,hdFree,hdNamed,hdStrict);
 
   // Raised by a row class for a row whose values do not fit together
   EInvalidColumnarData = Class(Exception);
@@ -327,9 +335,9 @@ end;
 
 Procedure TColumnarDataReader<DataType>.MapByHeaderLine;
 begin
-  if FData.Header = hdFree then
+  if FData.Header = hdNamed then
     MapByName
-  else if SameHeaders then
+  else if (FData.Header = hdFree) or SameHeaders then
     MapByPosition
   else
     raise LineError('Invalid header');

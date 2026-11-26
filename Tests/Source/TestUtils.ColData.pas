@@ -10,7 +10,8 @@ unit TestUtils.ColData;
 interface
 ////////////////////////////////////////////////////////////////////////////////
 
-// ColData tests: the reader maps the columns by position or by header, as the
+// ColData tests: the reader passes a free header line over and maps the
+// columns by position, or maps them by the names of a header line, as the
 // row class states, the writer writes the declared decimals, written rows read
 // back unchanged, a row class sets the delimiter and describes its file when
 // created from its class, a string reads back whole and the writer refuses
@@ -32,6 +33,11 @@ Type
   end;
 
   TStrictZoneRow = Class(TZoneRow)
+  public
+    Function Header: TColumnarDataHeader; override;
+  end;
+
+  THeaderNamedZoneRow = Class(TZoneRow)
   public
     Function Header: TColumnarDataHeader; override;
   end;
@@ -108,8 +114,9 @@ Type
     [Test] Procedure InvalidNumberNamesTheLine;
     [Test] Procedure EmptyLineInsideTheFileRaises;
     [Test] Procedure EmptyLastLineEndsTheFile;
-    [Test] Procedure FreeHeaderMapsTheColumnsByName;
-    [Test] Procedure FreeHeaderRequiresEveryColumn;
+    [Test] Procedure FreeHeaderIsPassedOver;
+    [Test] Procedure NamedHeaderMapsTheColumnsByName;
+    [Test] Procedure NamedHeaderRequiresEveryColumn;
     [Test] Procedure StrictHeaderRequiresTheColumnsInOrder;
   end;
 
@@ -129,6 +136,13 @@ end;
 Function TStrictZoneRow.Header: TColumnarDataHeader;
 begin
   Result := hdStrict;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Function THeaderNamedZoneRow.Header: TColumnarDataHeader;
+begin
+  Result := hdNamed;
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -538,10 +552,27 @@ begin
   Assert.AreEqual('',ReadError<TZoneRow>,'No error');
 end;
 
-Procedure TColumnarDataTests.FreeHeaderMapsTheColumnsByName;
+Procedure TColumnarDataTests.FreeHeaderIsPassedOver;
+begin
+  WriteLines(['Area'#9'Dwellings','3'#9'120'#9'2450.5','4'#9'80'#9'1900']);
+  var Reader := TColumnarDataReader<TFreeZoneRow>.Create(FileName);
+  try
+    Assert.IsTrue(Reader.Read,'The line after the header reads');
+    Assert.AreEqual<Integer>(3,Reader.Data.Zone,'The first declared column');
+    Assert.AreEqual<Integer>(120,Reader.Data.Households,'The second, under another name');
+    Assert.AreEqual(2450.5,Reader.Data.Income,1E-12,'The third, without a name');
+    Assert.IsTrue(Reader.Read,'The next line reads');
+    Assert.IsFalse(Reader.Read,'Two rows');
+    Assert.AreEqual<Integer>(3,Reader.LineCount,'The header counts as a line');
+  finally
+    Reader.Free;
+  end;
+end;
+
+Procedure TColumnarDataTests.NamedHeaderMapsTheColumnsByName;
 begin
   WriteLines(['INCOME'#9'Name'#9'Zone'#9'Households','2450.5'#9'Centre'#9'3'#9'120']);
-  var Reader := TColumnarDataReader<TFreeZoneRow>.Create(FileName);
+  var Reader := TColumnarDataReader<THeaderNamedZoneRow>.Create(FileName);
   try
     Assert.IsTrue(Reader.Read,'The line reads');
     Assert.AreEqual<Integer>(3,Reader.Data.Zone,'Past the extra column');
@@ -553,10 +584,10 @@ begin
   end;
 end;
 
-Procedure TColumnarDataTests.FreeHeaderRequiresEveryColumn;
+Procedure TColumnarDataTests.NamedHeaderRequiresEveryColumn;
 begin
   WriteLines(['Zone'#9'Income']);
-  var Error := ReadError<TFreeZoneRow>;
+  var Error := ReadError<THeaderNamedZoneRow>;
   Assert.IsTrue(Error.StartsWith('Missing column Households'),'The missing column');
   Assert.IsTrue(LineOf(Error,1),'The header line and file');
 end;
