@@ -112,6 +112,8 @@ Type
     PendingArguments: TKeyValuePairs;
     Function InterpretCommands(UnhandledCommand: Boolean): Boolean;
     Function SkipCommands: Boolean;
+    Function InterpretRun(UnhandledCommand: Boolean; out NextRun: Boolean): Boolean;
+    Procedure CompleteRun;
     Function ExecuteRun(UnhandledCommand: Boolean): Boolean;
   strict protected
     Property Initialized: Boolean read FInitialized;
@@ -467,25 +469,47 @@ end;
 
 Function TScriptInterpreter.SkipCommands: Boolean;
 // Reads the remaining commands of a script section whose interpretation failed,
-// up to the init-command of the next section, which is saved as pending command.
+// up to the init-command of the next section, which is read as pending command.
 // The result indicates whether an init-command has been read. Reader errors
 // within the skipped commands are passed to HandleException.
-Var
-  Command: String;
-  Arguments: TKeyValuePairs;
 begin
   Result := false;
   var Reading := true;
   while Reading do
   try
-    Reading := ScriptReader.ReadCommand(Command,Arguments);
-    if Reading and SameText(Command,'init') then
+    Reading := ScriptReader.ReadCommand(PendingCommand,PendingArguments);
+    Result := Reading and SameText(PendingCommand,'init');
+    Reading := Reading and not Result;
+  except
+    on E: Exception do HandleException(E);
+  end;
+end;
+
+Function TScriptInterpreter.InterpretRun(UnhandledCommand: Boolean; out NextRun: Boolean): Boolean;
+// Interprets a script section, and skips the remaining commands of a section
+// whose interpretation failed. The result indicates whether the section has
+// been interpreted, NextRun whether the init-command of the next section has
+// been read.
+begin
+  Result := false;
+  try
+    InitializeRun;
+    NextRun := not InterpretCommands(UnhandledCommand);
+    Result := true;
+  except
+    on E: Exception do
     begin
-      PendingCommand := Command;
-      PendingArguments := Arguments;
-      Result := true;
-      Reading := false;
+      HandleException(E);
+      NextRun := SkipCommands;
     end;
+  end;
+end;
+
+Procedure TScriptInterpreter.CompleteRun;
+// Executes an interpreted script section
+begin
+  try
+    RunCompleted;
   except
     on E: Exception do HandleException(E);
   end;
@@ -495,21 +519,8 @@ Function TScriptInterpreter.ExecuteRun(UnhandledCommand: Boolean): Boolean;
 // Interprets and executes a script section. The result indicates whether the
 // init-command of the next section has been read.
 begin
-  Result := false;
-  var Interpreted := false;
   try
-    try
-      InitializeRun;
-      Result := not InterpretCommands(UnhandledCommand);
-      Interpreted := true;
-      RunCompleted;
-    except
-      on E: Exception do
-      begin
-        HandleException(E);
-        if not Interpreted then Result := SkipCommands;
-      end;
-    end;
+    if InterpretRun(UnhandledCommand,Result) then CompleteRun;
   finally
     FinalizeRun;
   end;
