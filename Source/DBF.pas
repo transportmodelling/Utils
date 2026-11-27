@@ -138,6 +138,8 @@ Type
     // The number of fields read before the hidden field holding the null
     // flags, or -1 when the file has no such field
     NullFlagsIndex: Integer;
+    // The number of fields read that have a bit in the null flags
+    NullBitCount: Integer;
     FHeaderCodePage: Integer;
     FEncoding: TEncoding;
     OwnsEncoding: Boolean;
@@ -146,10 +148,15 @@ Type
     Function UTF8Length(const Bytes: TBytes; const Count: Integer; out DecodeCount: Integer): Boolean;
     Procedure SkipBytes(const Count: Integer);
     Function VersionDialect(const Version: Byte): TDBFDialect;
+    Procedure ReadVersion;
     Procedure ReadTableHeader;
     Procedure InitEncoding(const Encoding: TEncoding);
     Procedure ReadFieldDescriptors;
+    Procedure ReadFieldDescriptor(const First: Byte);
+    Function  ReadFieldName(const First: Byte): String;
     Function  NullFlagsField(const FieldType: Char; const FieldName: String): Boolean;
+    Procedure SetNullFlagsField(const FieldLength: Byte);
+    Procedure AddField(const Field: TDBFField; const Nullable: Boolean);
     Procedure ReadNullFlags;
     Procedure ApplyNullFlags;
     Procedure ReadBuffer(const Count: Integer; const Offset: Integer = 0);
@@ -187,14 +194,20 @@ Type
   TDBFWriter = Class(TDBFFile)
   private
     FileWriter: TBinaryWriter;
+    // Where in the record the field starts whose descriptor is written next
+    Displacement: Word;
     Function FieldsDialect: TDBFDialect;
     Procedure AssignNullFlagBits;
     Function GetRecordSize(const Fields: array of TDBFField): Word;
+    Procedure WriteHeader(const RecordSize: Word);
+    Function VersionByte: Byte;
+    Function HeaderSize: Word;
     Procedure WriteTableHeader(const RecordSize: Word);
-    Procedure WriteFieldDescriptor(const FieldName: String; const FieldType: Char;
-                                   const FieldLength,DecimalCount,FieldFlags: Byte;
-                                   const Displacement: Word);
+    Procedure WriteFieldDescriptors;
+    Procedure WriteFieldDescriptor(const Field: TDBFField; const FieldFlags: Byte);
+    Procedure WriteNullFlagsDescriptor;
     Procedure WriteFieldValue(const Field: Integer);
+    Procedure WriteFieldByType(const Field: Integer);
     Procedure WriteNullField(const Field: Integer);
     Procedure WriteCharacterField(const Field: Integer);
     Procedure WriteDateField(const Field: Integer);
@@ -601,11 +614,18 @@ begin
   end;
 end;
 
-Procedure TDBFReader.ReadTableHeader;
+Procedure TDBFReader.ReadVersion;
 begin
   Version := FileReader.ReadByte;
-  if Version = 4 then raise Exception.Create('dBase level 7 files not supported');
-  FDialect := VersionDialect(Version);
+  if Version <> 4 then
+    FDialect := VersionDialect(Version)
+  else
+    raise Exception.Create('dBase level 7 files not supported');
+end;
+
+Procedure TDBFReader.ReadTableHeader;
+begin
+  ReadVersion;
   SkipBytes(3); // Last update date
   FRecordCount := FileReader.ReadInteger;
   SkipBytes(2); // Position of first data record
@@ -625,52 +645,39 @@ Const
 begin
   // The first byte of a descriptor is the first of the field name
   var First := FileReader.ReadByte;
-  var NullBits := 0;
   while First <> HeaderTerminator do
   begin
-    if Length(FFields) <= FFieldCount then
-    begin
-      SetLength(FFields,FFieldCount+16);
-      SetLength(NullFlagBits,FFieldCount+16);
-    end;
-    ReadBuffer(10,1);
-    Buffer[0] := First;
-    // The name ends at the first #0
-    var NameLength := 0;
-    while (NameLength < 11) and (Buffer[NameLength] <> 0) do Inc(NameLength);
-    var FieldName := DecodeBuffer(NameLength);
-    var FieldType := Char(FileReader.ReadByte);
-    SkipBytes(4); // Reserved
-    var FieldLength := FileReader.ReadByte;
-    var DecimalCount := FileReader.ReadByte;
-    var FieldFlags := FileReader.ReadByte;
-    SkipBytes(13); // Reserved
-    if NullFlagsField(FieldType,FieldName) then
-    begin
-      // The hidden field is no field of the table: the values whose bit it
-      // sets are read as null instead
-      NullFlagsIndex := FFieldCount;
-      NullFlagsLength := FieldLength;
-      SetLength(NullFlags,NullFlagsLength);
-    end else
-    begin
-      FFields[FFieldCount].FFieldName := FieldName;
-      FFields[FFieldCount].FFieldType := FieldType;
-      FFields[FFieldCount].FFieldLength := FieldLength;
-      FFields[FFieldCount].FDecimalCount := DecimalCount;
-      // The fields that can hold null take the bits in the order they come
-      if FieldFlags and NullableFieldFlag <> 0 then
-      begin
-        NullFlagBits[FFieldCount] := NullBits;
-        Inc(NullBits);
-      end else
-        NullFlagBits[FFieldCount] := -1;
-      Inc(FFieldCount);
-    end;
+    ReadFieldDescriptor(First);
     First := FileReader.ReadByte;
   end;
-  SetLength(FFields,FFieldCount);
-  SetLength(NullFlagBits,FFieldCount);
+end;
+
+Procedure TDBFReader.ReadFieldDescriptor(const First: Byte);
+// The descriptor whose first byte has been read: of a field of the table, or
+// of the hidden field holding the null flags
+begin
+  var Field := Default(TDBFField);
+  Field.FFieldName := ReadFieldName(First);
+  Field.FFieldType := Char(FileReader.ReadByte);
+  SkipBytes(4); // Reserved
+  Field.FFieldLength := FileReader.ReadByte;
+  Field.FDecimalCount := FileReader.ReadByte;
+  var FieldFlags := FileReader.ReadByte;
+  SkipBytes(13); // Reserved
+  if NullFlagsField(Field.FFieldType,Field.FFieldName) then
+    SetNullFlagsField(Field.FFieldLength)
+  else
+    AddField(Field,FieldFlags and NullableFieldFlag <> 0);
+end;
+
+Function TDBFReader.ReadFieldName(const First: Byte): String;
+// The name ends at the first #0
+begin
+  ReadBuffer(10,1);
+  Buffer[0] := First;
+  var NameLength := 0;
+  while (NameLength < 11) and (Buffer[NameLength] <> 0) do Inc(NameLength);
+  Result := DecodeBuffer(NameLength);
 end;
 
 Function TDBFReader.NullFlagsField(const FieldType: Char; const FieldName: String): Boolean;
@@ -678,6 +685,29 @@ Function TDBFReader.NullFlagsField(const FieldType: Char; const FieldName: Strin
 begin
   Result := (FDialect = dbVisualFoxPro) and (FieldType = NullFlagsFieldType)
             and SameText(FieldName,NullFlagsFieldName);
+end;
+
+Procedure TDBFReader.SetNullFlagsField(const FieldLength: Byte);
+// The hidden field is no field of the table: the values whose bit it sets are
+// read as null instead
+begin
+  NullFlagsIndex := FFieldCount;
+  NullFlagsLength := FieldLength;
+  SetLength(NullFlags,NullFlagsLength);
+end;
+
+Procedure TDBFReader.AddField(const Field: TDBFField; const Nullable: Boolean);
+// The fields that can hold null take the bits of the null flags in the order
+// they come
+begin
+  FFields := FFields + [Field];
+  if Nullable then
+  begin
+    NullFlagBits := NullFlagBits + [NullBitCount];
+    Inc(NullBitCount);
+  end else
+    NullFlagBits := NullFlagBits + [-1];
+  Inc(FFieldCount);
 end;
 
 Procedure TDBFReader.ReadNullFlags;
@@ -885,39 +915,16 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 Constructor TDBFWriter.Create(const FileName: String; const Fields: array of TDBFField);
-Var
-  RecordSize: Word;
-  Completed: Boolean;
 begin
   inherited Create;
-  Completed := false;
   FFieldCount := Length(Fields);
   FFields := TArrayBuilder<TDBFField>.Create(Fields);
   FDialect := FieldsDialect;
   AssignNullFlagBits;
-  RecordSize := GetRecordSize(Fields);
+  var RecordSize := GetRecordSize(Fields);
   FileStream := TBufferedFileStream.Create(FileName,fmCreate or fmShareDenyWrite,4096);
   FileWriter := TBinaryWriter.Create(FileStream,TEncoding.ANSI);
-  WriteTableHeader(RecordSize);
-  var Displacement: Word := 1; // The deletion marker comes before the fields
-  for var Field := 0 to FFieldCount-1 do
-  begin
-    var FieldFlags: Byte := 0;
-    if HasNullFlag(Field) then FieldFlags := NullableFieldFlag;
-    WriteFieldDescriptor(FFields[Field].FFieldName,FFields[Field].FFieldType,
-                         FFields[Field].FFieldLength,FFields[Field].FDecimalCount,
-                         FieldFlags,Displacement);
-    Inc(Displacement,FFields[Field].FFieldLength);
-  end;
-  // The hidden field holding the null bits comes behind the fields themselves
-  if NullFlagsLength > 0 then
-  WriteFieldDescriptor(NullFlagsFieldName,NullFlagsFieldType,NullFlagsLength,0,
-                       SystemFieldFlag or BinaryFieldFlag,Displacement);
-  FileWriter.Write(#13); // Header terminator
-  // The backlink area of a Visual FoxPro file, which names the database
-  // container the table belongs to; it belongs to none, so it stays empty
-  if FDialect = dbVisualFoxPro then
-  for var Skip := 1 to 263 do FileWriter.Write(#0);
+  WriteHeader(RecordSize);
 end;
 
 Function TDBFWriter.FieldsDialect: TDBFDialect;
@@ -967,70 +974,108 @@ begin
   Inc(Result,NullFlagsLength);
 end;
 
+Procedure TDBFWriter.WriteHeader(const RecordSize: Word);
+begin
+  WriteTableHeader(RecordSize);
+  WriteFieldDescriptors;
+  FileWriter.Write(#13); // Header terminator
+  // The backlink area of a Visual FoxPro file, which names the database
+  // container the table belongs to; it belongs to none, so it stays empty
+  if FDialect = dbVisualFoxPro then
+  for var Skip := 1 to 263 do FileWriter.Write(#0);
+end;
+
+Function TDBFWriter.VersionByte: Byte;
+// The version the header declares for the dialect of the file
+begin
+  if FDialect = dbVisualFoxPro then Result := $30 else Result := $03;
+end;
+
+Function TDBFWriter.HeaderSize: Word;
+// The table header, the field descriptors, the header terminator and, for a
+// Visual FoxPro file, the backlink area that follows them
+begin
+  Result := (FFieldCount+1)*32 + 1;
+  if NullFlagsLength > 0 then Inc(Result,32);
+  if FDialect = dbVisualFoxPro then Inc(Result,263);
+end;
+
 Procedure TDBFWriter.WriteTableHeader(const RecordSize: Word);
 Var
-  B: Byte;
-  HeaderSize: Word;
   Year,Month,Day: Word;
 begin
-  if FDialect = dbVisualFoxPro then B := $30 else B := $03;
-  FileWriter.Write(B); // Version
+  FileWriter.Write(VersionByte);
   DecodeDate(Now,Year,Month,Day);
-  B := Year-1900; // Year
-  FileWriter.Write(B);
-  B := Month; // Month
-  FileWriter.Write(B);
-  B := Day; // Day
-  FileWriter.Write(B);
+  FileWriter.Write(Byte(Year-1900));
+  FileWriter.Write(Byte(Month));
+  FileWriter.Write(Byte(Day));
   FileWriter.Write(RecordCount);
-  // The table header, the field descriptors, the header terminator and, for a
-  // Visual FoxPro file, the backlink area that follows them
-  HeaderSize := (FFieldCount+1)*32 + 1;
-  if NullFlagsLength > 0 then Inc(HeaderSize,32);
-  if FDialect = dbVisualFoxPro then Inc(HeaderSize,263);
   FileWriter.Write(HeaderSize);
   FileWriter.Write(RecordSize);
   for var Skip := 1 to 20 do FileWriter.Write(#0);
 end;
 
-Procedure TDBFWriter.WriteFieldDescriptor(const FieldName: String; const FieldType: Char;
-                                          const FieldLength,DecimalCount,FieldFlags: Byte;
-                                          const Displacement: Word);
+Procedure TDBFWriter.WriteFieldDescriptors;
+// The hidden field holding the null bits comes behind the fields themselves
 begin
-  var Name := FieldName;
-  while Length(Name) < 11 do Name := Name + #0;
-  FileWriter.Write(Name.ToCharArray);
-  FileWriter.Write(FieldType);
+  Displacement := 1; // The deletion marker comes before the fields
+  for var Field := 0 to FFieldCount-1 do
+  if HasNullFlag(Field) then
+    WriteFieldDescriptor(FFields[Field],NullableFieldFlag)
+  else
+    WriteFieldDescriptor(FFields[Field],0);
+  if NullFlagsLength > 0 then WriteNullFlagsDescriptor;
+end;
+
+Procedure TDBFWriter.WriteFieldDescriptor(const Field: TDBFField; const FieldFlags: Byte);
+begin
+  FileWriter.Write(Field.FFieldName.PadRight(11,#0).ToCharArray);
+  FileWriter.Write(Field.FFieldType);
   if FDialect = dbVisualFoxPro then
     // Where the field starts in the record, which Visual FoxPro reads here
     FileWriter.Write(Cardinal(Displacement))
   else
     for var Skip := 1 to 4 do FileWriter.Write(#0); // Reserved
-  FileWriter.Write(FieldLength);
-  FileWriter.Write(DecimalCount);
+  FileWriter.Write(Field.FFieldLength);
+  FileWriter.Write(Field.FDecimalCount);
   FileWriter.Write(FieldFlags);
   for var Skip := 1 to 13 do FileWriter.Write(#0); // Reserved
+  Inc(Displacement,Field.FFieldLength);
+end;
+
+Procedure TDBFWriter.WriteNullFlagsDescriptor;
+begin
+  var Field := Default(TDBFField);
+  Field.FFieldName := NullFlagsFieldName;
+  Field.FFieldType := NullFlagsFieldType;
+  Field.FFieldLength := NullFlagsLength;
+  WriteFieldDescriptor(Field,SystemFieldFlag or BinaryFieldFlag);
 end;
 
 Procedure TDBFWriter.WriteFieldValue(const Field: Integer);
 begin
   if VarIsNull(FFields[Field].FieldValue) then WriteNullField(Field) else
   try
-    case FFields[Field].FFieldType of
-      'C': WriteCharacterField(Field);
-      'D': WriteDateField(Field);
-      'L': WriteLogicalField(Field);
-      'F','N': WriteNumericField(Field);
-      'I': WriteIntegerField(Field);
-      'B','O': WriteDoubleField(Field);
-      'Y': WriteCurrencyField(Field);
-      'T': WriteDateTimeField(Field);
-      else raise Exception.Create('Unsupported field type');
-    end;
+    WriteFieldByType(Field);
   except
     on E: Exception do
       raise Exception.Create(E.Message + ' (field=' + FFields[Field].FFieldName +
                              '; value=' + VarToStr(FFields[Field].FieldValue) + ')');
+  end;
+end;
+
+Procedure TDBFWriter.WriteFieldByType(const Field: Integer);
+begin
+  case FFields[Field].FFieldType of
+    'C': WriteCharacterField(Field);
+    'D': WriteDateField(Field);
+    'L': WriteLogicalField(Field);
+    'F','N': WriteNumericField(Field);
+    'I': WriteIntegerField(Field);
+    'B','O': WriteDoubleField(Field);
+    'Y': WriteCurrencyField(Field);
+    'T': WriteDateTimeField(Field);
+    else raise Exception.Create('Unsupported field type');
   end;
 end;
 
